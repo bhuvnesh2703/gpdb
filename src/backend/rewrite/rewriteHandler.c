@@ -140,7 +140,7 @@ AcquireRewriteLocks(Query *parsetree)
 					lockmode = RowShareLock;
 				else
 					lockmode = AccessShareLock;
-								
+
                 /* Target of INSERT/UPDATE/DELETE? */
                 if (rt_index == parsetree->resultRelation)
                 {

@@ -93,10 +93,10 @@ preprocess_targetlist(PlannerInfo *root, List *tlist)
 	{
 		TargetEntry *tleCtid = NULL;
 		Var			*varCtid = NULL;
-		
+
 		TargetEntry *tleSegid = NULL;
 		Var 		*varSegid = NULL;
-		
+
 		varCtid = makeVar(result_relation, SelfItemPointerAttributeNumber,
 					  TIDOID, -1, 0);
 
@@ -108,9 +108,9 @@ preprocess_targetlist(PlannerInfo *root, List *tlist)
 		Oid			reloid,
 					vartypeid;
 		int32		type_mod;
-		
+
 		reloid = getrelid(result_relation, parse->rtable);
-		
+
 		get_atttypetypmod(reloid, GpSegmentIdAttributeNumber, &vartypeid, &type_mod);
 
 		varSegid = makeVar
@@ -126,7 +126,7 @@ preprocess_targetlist(PlannerInfo *root, List *tlist)
 							  list_length(tlist) + 2,	/* resno */
 							  pstrdup("gp_segment_id"),	/* resname */
 							  true);					/* resjunk */
-		
+
 
 		/*
 		 * For an UPDATE, expand_targetlist already created a fresh tlist. For
@@ -138,15 +138,15 @@ preprocess_targetlist(PlannerInfo *root, List *tlist)
 
 		tlist = lappend(tlist, tleCtid);
 		tlist = lappend(tlist, tleSegid);
-	} 
+	}
 
 	/* simply updatable cursors */
-	if (command_type == CMD_SELECT && 
+	if (command_type == CMD_SELECT &&
 		parse->utilityStmt &&
 		IsA(parse->utilityStmt, DeclareCursorStmt) &&
 		((DeclareCursorStmt *) parse->utilityStmt)->is_simply_updatable)
 	{
-		tlist = supplement_simply_updatable_targetlist((DeclareCursorStmt *) parse->utilityStmt, 
+		tlist = supplement_simply_updatable_targetlist((DeclareCursorStmt *) parse->utilityStmt,
 													   range_table,
 													   tlist);
 	}
@@ -434,7 +434,7 @@ expand_targetlist(List *tlist, int command_type,
 
 /*
  * supplement_simply_updatable_targetlist
- * 
+ *
  * For a simply updatable cursor, we supplement the targetlist with junk
  * metadata for gp_segment_id, ctid, and tableoid. The handling of a CURRENT OF
  * invocation will rely on this junk information, in execCurrentOf(). Thus, in
@@ -443,7 +443,7 @@ expand_targetlist(List *tlist, int command_type,
  * available in the tuple itself.
  */
 static List *
-supplement_simply_updatable_targetlist(DeclareCursorStmt *stmt, List *range_table, List *tlist) 
+supplement_simply_updatable_targetlist(DeclareCursorStmt *stmt, List *range_table, List *tlist)
 {
 	Assert(stmt->is_simply_updatable);
 	Index varno = extractSimplyUpdatableRTEIndex(range_table);
@@ -479,7 +479,7 @@ supplement_simply_updatable_targetlist(DeclareCursorStmt *stmt, List *range_tabl
 	tlist = lappend(tlist, tleSegid);
 
 	/*
-	 * tableoid is only needed in the case of inheritance, in order to supplement 
+	 * tableoid is only needed in the case of inheritance, in order to supplement
 	 * our ability to uniquely identify a tuple. Without inheritance, we omit tableoid
 	 * to avoid the overhead of carrying tableoid for each tuple in the result set.
 	 */
@@ -496,6 +496,6 @@ supplement_simply_updatable_targetlist(DeclareCursorStmt *stmt, List *range_tabl
 												   true);                   /* resjunk */
 		tlist = lappend(tlist, tleTableoid);
 	}
-	
+
 	return tlist;
 }

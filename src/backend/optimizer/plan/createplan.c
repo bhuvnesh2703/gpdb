@@ -519,7 +519,7 @@ use_physical_tlist(PlannerInfo *root, RelOptInfo *rel)
 	foreach(lc, root->placeholder_list)
 	{
 		PlaceHolderInfo *phinfo = (PlaceHolderInfo *) lfirst(lc);
-		
+
 		if (bms_nonempty_difference(phinfo->ph_needed, rel->relids) &&
 			bms_is_subset(phinfo->ph_eval_at, rel->relids))
 			return false;
@@ -1392,11 +1392,11 @@ create_externalscan_plan(PlannerInfo *root, Path *best_path,
 				CdbComponentDatabaseInfo *p = &db_info->segment_db_info[i];
 				int segind = p->segindex;
 
-				/* 
+				/*
 				 * Assign mapping of external file to this segdb only if:
 				 * 1) This segdb is a valid primary.
-				 * 2) An external file wasn't already assigned to it. 
-				 * 3) If 'file' protocol, host of segdb and file must be 
+				 * 2) An external file wasn't already assigned to it.
+				 * 3) If 'file' protocol, host of segdb and file must be
 				 *    the same.
 				 *
 				 * This logic also guarantees that file that appears first in
@@ -1479,22 +1479,22 @@ create_externalscan_plan(PlannerInfo *root, Path *best_path,
 		 * Re-write the location list for GPFDIST or GPFDISTS before mapping to segments.
 		 *
 		 * If we happen to be dealing with URI's with the 'gpfdist' (or 'gpfdists') protocol
-		 * we do an extra step here. 
+		 * we do an extra step here.
 		 *
 		 * (*) We modify the urilocationlist so that every
 		 * primary segdb will get a URI (therefore we duplicate the existing
-		 * URI's until the list is of size = total_primaries). 
+		 * URI's until the list is of size = total_primaries).
 		 * Example: 2 URIs, 7 total segdbs.
 		 * Original LocationList: URI1->URI2
 		 * Modified LocationList: URI1->URI2->URI1->URI2->URI1->URI2->URI1
 		 *
-		 * (**) We also make sure that we don't allocate more segdbs than 
-		 * (# of URIs x gp_external_max_segs). 
+		 * (**) We also make sure that we don't allocate more segdbs than
+		 * (# of URIs x gp_external_max_segs).
 		 * Example: 2 URIs, 7 total segdbs, gp_external_max_segs = 3
 		 * Original LocationList: URI1->URI2
 		 * Modified LocationList: URI1->URI2->URI1->URI2->URI1->URI2 (6 total).
 		 *
-		 * (***) In that case that we need to allocate only a subset of primary 
+		 * (***) In that case that we need to allocate only a subset of primary
 		 * segdbs and not all we then also create a random map of segments to skip.
 		 * Using the previous example a we create a map of 7 entries and need to
 		 * randomly select 1 segdb to skip (7 - 6 = 1). so it may look like this:
@@ -1598,11 +1598,11 @@ create_externalscan_plan(PlannerInfo *root, Path *best_path,
 				CdbComponentDatabaseInfo *p = &db_info->segment_db_info[i];
 				int			segind = p->segindex;
 
-				/* 
+				/*
 				 * Assign mapping of external file to this segdb only if:
 				 * 1) This segdb is a valid primary.
-				 * 2) An external file wasn't already assigned to it. 
-				 */			
+				 * 2) An external file wasn't already assigned to it.
+				 */
 				if (SEGMENT_IS_ACTIVE_PRIMARY(p))
 				{
 					/*
@@ -1648,7 +1648,7 @@ create_externalscan_plan(PlannerInfo *root, Path *best_path,
 						(errcode(ERRCODE_GP_INTERNAL_ERROR),
 						 errmsg("Internal error in createplan for external tables"
 								" when trying to assign segments for gpfdist(s)")));
-			}		
+			}
 		}
 	}
 	}
@@ -2481,7 +2481,7 @@ create_tidscan_plan(PlannerInfo *root, TidPath *best_path,
 	 * Remove any clauses that are TID quals.  This is a bit tricky since the
 	 * tidquals list has implicit OR semantics.
 	 *
-	 * In the case of CURRENT OF, however, we do want the CurrentOfExpr to 
+	 * In the case of CURRENT OF, however, we do want the CurrentOfExpr to
 	 * reside in both the tidlist and the qual, as CurrentOfExpr is effectively
 	 * a ctid, gp_segment_id, and tableoid qual. Constant folding will
 	 * finish up this qual rewriting to ensure what we dispatch is a sane interpretation
@@ -3721,6 +3721,7 @@ get_switched_clauses(List *clauses, Relids outerrelids)
 			temp->opresulttype = clause->opresulttype;
 			temp->opretset = clause->opretset;
 			temp->args = list_copy(clause->args);
+			temp->location = clause->location;
 			/* Commute it --- note this modifies the temp node in-place. */
 			CommuteOpExpr(temp);
 			t_list = lappend(t_list, temp);
@@ -4121,7 +4122,7 @@ make_subqueryscan(PlannerInfo *root,
 	plan->allParam = bms_copy(subplan->allParam);
 
 	/*
-	 * Note that, in most scan nodes, scanrelid refers to an entry in the rtable of the 
+	 * Note that, in most scan nodes, scanrelid refers to an entry in the rtable of the
 	 * containing plan; in a subqueryscan node, the containing plan is the higher
 	 * level plan!
 	 */
@@ -4460,8 +4461,8 @@ make_sort(PlannerInfo *root, Plan *lefttree, int numCols,
  * add_sort_cost --- basic routine to accumulate Sort cost into a
  * plan node representing the input cost.
  *
- * Unused arguments (e.g., sortColIdx and sortOperators arrays) are 
- * included to allow for future improvements to sort costing.  Note 
+ * Unused arguments (e.g., sortColIdx and sortOperators arrays) are
+ * included to allow for future improvements to sort costing.  Note
  * that root may be NULL (e.g. when called outside make_sort).
  */
 Plan *

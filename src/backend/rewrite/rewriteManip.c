@@ -281,7 +281,7 @@ OffsetVarNodes_walker(Node *node, OffsetVarNodes_context *context)
 	if (IsA(node, PlaceHolderVar))
 	{
 		PlaceHolderVar *phv = (PlaceHolderVar *) node;
-		
+
 		if (phv->phlevelsup == context->sublevels_up)
 		{
 			phv->phrels = offset_relid_set(phv->phrels,
@@ -369,7 +369,7 @@ offset_relid_set(Relids relids, int offset)
 	Relids		result = NULL;
 	Relids		tmprelids;
 	int			rtindex;
-	
+
 	tmprelids = bms_copy(relids);
 	while ((rtindex = bms_first_member(tmprelids)) >= 0)
 		result = bms_add_member(result, rtindex + offset);
@@ -445,7 +445,7 @@ ChangeVarNodes_walker(Node *node, ChangeVarNodes_context *context)
 	if (IsA(node, PlaceHolderVar))
 	{
 		PlaceHolderVar *phv = (PlaceHolderVar *) node;
-		
+
 		if (phv->phlevelsup == context->sublevels_up)
 		{
 			phv->phrels = adjust_relid_set(phv->phrels,
@@ -613,7 +613,7 @@ IncrementVarSublevelsUp_walker(Node *node,
 	if (IsA(node, Aggref))
 	{
 		Aggref	   *agg = (Aggref *) node;
-		
+
 		if (agg->agglevelsup >= context->min_sublevels_up)
 			agg->agglevelsup += context->delta_sublevels_up;
 		/* fall through to recurse into argument */
@@ -621,7 +621,7 @@ IncrementVarSublevelsUp_walker(Node *node,
 	if (IsA(node, PlaceHolderVar))
 	{
 		PlaceHolderVar *phv = (PlaceHolderVar *) node;
-		
+
 		if (phv->phlevelsup >= context->min_sublevels_up)
 			phv->phlevelsup += context->delta_sublevels_up;
 		/* fall through to recurse into argument */
@@ -629,7 +629,7 @@ IncrementVarSublevelsUp_walker(Node *node,
 	if (IsA(node, WindowRef))
 	{
 		WindowRef	   *wref = (WindowRef *) node;
-		
+
 		if (wref->winlevelsup >= context->min_sublevels_up)
 			wref->winlevelsup += context->delta_sublevels_up;
 		/* fall through to recurse into argument */
@@ -1351,7 +1351,7 @@ ResolveNew_callback(Var *var,
 
 		return (Node *) rowexpr;
 	}
-	
+
 	/* Normal case referencing one targetlist element */
 	tle = get_tle_by_resno(rcon->targetlist, var->varattno);
 

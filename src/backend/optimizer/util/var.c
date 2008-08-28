@@ -118,11 +118,11 @@ cdb_walk_vars_walker(Node *node, void *wvwcontext)
     if (IsA(node, CurrentOfExpr) &&
         ctx->callback_currentof != NULL)
         return ctx->callback_currentof((CurrentOfExpr *)node, ctx->context, ctx->sublevelsup);
-	
+
     if (IsA(node, PlaceHolderVar) &&
         ctx->callback_placeholdervar != NULL)
         return ctx->callback_placeholdervar((PlaceHolderVar *)node, ctx->context, ctx->sublevelsup);
-	
+
     if (IsA(node, Query))
 	{
 		bool    b;
@@ -164,7 +164,7 @@ cdb_walk_vars(Node                         *node,
 static bool
 pull_varnos_cbPlaceHolderVar(PlaceHolderVar *phv, void *context, int sublevelsup)
 {
-	
+
 	/*
 	 * Normally, we can just take the varnos in the contained expression.
 	 * But if it is variable-free, use the PHV's syntactic relids.
@@ -172,9 +172,9 @@ pull_varnos_cbPlaceHolderVar(PlaceHolderVar *phv, void *context, int sublevelsup
 
 	Relids all_varnos;
 	pull_varnos_context *pcontext = (pull_varnos_context *) context;
-	
+
 	all_varnos = pull_varnos_of_level((Node*) phv->phexpr, sublevelsup);
-	
+
 	if (bms_is_empty(all_varnos) &&
 		phv->phlevelsup == sublevelsup)
 		pcontext->varnos = bms_add_members(pcontext->varnos, phv->phrels);
@@ -845,6 +845,7 @@ flatten_join_alias_vars_mutator(Node *node,
 			rowexpr->args = fields;
 			rowexpr->row_typeid = var->vartype;
 			rowexpr->row_format = COERCE_IMPLICIT_CAST;
+			rowexpr->location = -1;
 
 			return (Node *) rowexpr;
 		}
@@ -876,7 +877,7 @@ flatten_join_alias_vars_mutator(Node *node,
 	{
 		/* Copy the PlaceHolderVar node with correct mutation of subnodes */
 		PlaceHolderVar *phv;
-		
+
 		phv = (PlaceHolderVar *) expression_tree_mutator(node,
 														 flatten_join_alias_vars_mutator,
 														 (void *) context);
@@ -927,12 +928,12 @@ alias_relid_set(PlannerInfo *root, Relids relids)
 	Relids		result = NULL;
 	Relids		tmprelids;
 	int			rtindex;
-	
+
 	tmprelids = bms_copy(relids);
 	while ((rtindex = bms_first_member(tmprelids)) >= 0)
 	{
 		RangeTblEntry *rte = rt_fetch(rtindex, root->parse->rtable);
-		
+
 		if (rte->rtekind == RTE_JOIN)
 			result = bms_join(result, get_relids_for_join(root, rtindex));
 		else

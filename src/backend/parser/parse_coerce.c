@@ -8,7 +8,7 @@
  *
  *
  * IDENTIFICATION
- *	  $PostgreSQL: pgsql/src/backend/parser/parse_coerce.c,v 2.164 2008/08/25 22:42:33 tgl Exp $
+ *	  $PostgreSQL: pgsql/src/backend/parser/parse_coerce.c,v 2.165 2008/08/28 23:09:47 tgl Exp $
  *
  *-------------------------------------------------------------------------
  */
@@ -47,7 +47,8 @@ static Node *build_coercion_expression(Node *node,
 static Node *coerce_record_to_complex(ParseState *pstate, Node *node,
 						 Oid targetTypeId,
 						 CoercionContext ccontext,
-						 CoercionForm cformat);
+						 CoercionForm cformat,
+						 int location);
 static Var *coerce_unknown_var(ParseState *pstate, Var *var,
 							   Oid targetTypeId, int32 targetTypeMod,
 							   CoercionContext ccontext, CoercionForm cformat,
@@ -73,6 +74,7 @@ static bool is_complex_array(Oid typid);
  * targettype - desired result type
  * targettypmod - desired result typmod
  * ccontext, cformat - context indicators to control coercions
+ * location - parse location of the coercion request, or -1 if unknown/implicit
  */
 Node *
 coerce_to_target_type(ParseState *pstate, Node *expr, Oid exprtype,
@@ -162,10 +164,10 @@ coerce_type(ParseState *pstate, Node *node,
 		 */
 
 		/*
-		 * BUG BUG 
+		 * BUG BUG
 		 * JIRA MPP-3786
 		 *
-		 * Special handling for ANYARRAY type.  
+		 * Special handling for ANYARRAY type.
 		 */
 		if(targetTypeId == ANYARRAYOID && IsA(node, Const))
 		{
@@ -175,7 +177,7 @@ coerce_type(ParseState *pstate, Node *node,
 
 			if(elemoid == InvalidOid)
 				ereport(ERROR,
-					(errcode(ERRCODE_DATATYPE_MISMATCH), 
+					(errcode(ERRCODE_DATATYPE_MISMATCH),
 					 errmsg("Cannot convert non-Array type to ANYARRAY")));
 
 			memcpy(newcon, con, sizeof(Const));
@@ -362,7 +364,7 @@ coerce_type(ParseState *pstate, Node *node,
             return node;
 		else
 		{
-			/* 
+			/*
 			 * That didn't work, so, try and cast the unknown value to
 			 * what ever the user wants. If it can't be done, they'll
 			 * get an IO error later.
@@ -389,7 +391,7 @@ coerce_type(ParseState *pstate, Node *node,
 				(fixvar->location < 0 || location < fixvar->location))
 			fixvar->location = location;
 
-			/* 
+			/*
 			 * Now pass the above as an argument to the input function of the
 			 * type we're casting to
 			 */
@@ -464,9 +466,12 @@ coerce_type(ParseState *pstate, Node *node,
 				 * later? Would work if both types have same interpretation of
 				 * typmod, which is likely but not certain.
 				 */
-				result = (Node *) makeRelabelType((Expr *) result,
-												  targetTypeId, -1,
-												  cformat);
+				RelabelType *r = makeRelabelType((Expr *) result,
+												 targetTypeId, -1,
+												 cformat);
+
+				r->location = location;
+				result = (Node *) r;
 			}
 		}
 		return result;
@@ -476,7 +481,7 @@ coerce_type(ParseState *pstate, Node *node,
 	{
 		/* Coerce a RECORD to a specific complex type */
 		return coerce_record_to_complex(pstate, node, targetTypeId,
-										ccontext, cformat);
+										ccontext, cformat, location);
 	}
 	if (targetTypeId == RECORDOID &&
 		ISCOMPLEX(inputTypeId))
@@ -512,6 +517,7 @@ coerce_type(ParseState *pstate, Node *node,
 		r->arg = (Expr *) node;
 		r->resulttype = targetTypeId;
 		r->convertformat = cformat;
+		r->location = location;
 		return (Node *) r;
 	}
 	/* If we get here, caller blew it */
@@ -551,7 +557,7 @@ coerce_unknown_var(ParseState *pstate, Var *var,
 
     Assert(IsA(var, Var));
 
-	/* 
+	/*
 	 * If the parser isn't set up, we can't do anything here so just return the
 	 * Var as is. This can happen if we call back into the parser from the
 	 * planner (calls to addRangeTableEntryForJoin()).
@@ -710,20 +716,20 @@ fixup_unknown_vars_in_RangeTblRef(ParseState *pstate, RangeTblRef *rtr,
 	RangeTblEntry *rte;
 	Query *query;
 	List *old_rtable = pstate->p_rtable;
-	
+
 	rti = rtr->rtindex;
 	rte = rt_fetch(rti, pstate->p_rtable);
 	query = rte->subquery;
 	pstate->p_rtable = query->rtable;
-	
+
 	tle_lc = list_head(query->targetList);
-		
+
 	forboth (type_lc, colTypes, typemod_lc, colTypmods)
 	{
 		TargetEntry *tle = (TargetEntry *)lfirst(tle_lc);
 		Oid colType = lfirst_oid(type_lc);
 		int32 colTypmod = lfirst_int(typemod_lc);
-			
+
 		Assert(IsA(tle, TargetEntry) && tle->expr != NULL);
 		if (IsA(tle->expr, Var) &&
 			((Var *)tle->expr)->vartype == UNKNOWNOID)
@@ -753,7 +759,7 @@ fixup_unknown_vars_in_setop(ParseState *pstate, SetOperationStmt *stmt)
 			SetOperationStmt *new_stmt = (SetOperationStmt *)stmt->rarg;
 			new_stmt->colTypes = copyObject(stmt->colTypes);
 			new_stmt->colTypmods = copyObject(stmt->colTypmods);
-		
+
 			fixup_unknown_vars_in_setop(pstate, new_stmt);
 		}
 		else if (IsA(stmt->rarg, RangeTblRef))
@@ -772,7 +778,7 @@ fixup_unknown_vars_in_setop(ParseState *pstate, SetOperationStmt *stmt)
 			SetOperationStmt *new_stmt = (SetOperationStmt *)stmt->larg;
 			new_stmt->colTypes = copyObject(stmt->colTypes);
 			new_stmt->colTypmods = copyObject(stmt->colTypmods);
-			
+
 			fixup_unknown_vars_in_setop(pstate, new_stmt);
 		}
 		else if (IsA(stmt->larg, RangeTblRef))
@@ -811,13 +817,13 @@ can_coerce_type(int nargs, Oid *input_typeids, Oid *target_typeids,
 		if (inputTypeId == targetTypeId)
 			continue;
 
-		/* 
-		 * ANYTABLE is a special case that can occur when a function is 
+		/*
+		 * ANYTABLE is a special case that can occur when a function is
 		 * called with a TableValue expression.  A table value expression
 		 * can only match a parameter to a function defined as a "anytable".
 		 *
 		 * Only allow ANYTABLE to match another ANYTABLE, anything else would
-		 * be a mismatch of Table domain and Value domain expressions.  
+		 * be a mismatch of Table domain and Value domain expressions.
 		 *
 		 * Validation of ANYTABLE coercion is processed at a higher level
 		 * that has more context related to the tupleDesc for the tables
@@ -919,6 +925,7 @@ can_coerce_type(int nargs, Oid *input_typeids, Oid *target_typeids,
  *		has not bothered to look this up)
  * 'typeId': target type to coerce to
  * 'cformat': coercion format
+ * 'location': coercion request location
  * 'hideInputCoercion': if true, hide the input coercion under this one.
  * 'lengthCoercionDone': if true, caller already accounted for length,
  *		ie the input is already of baseTypMod as well as baseTypeId.
@@ -927,7 +934,7 @@ can_coerce_type(int nargs, Oid *input_typeids, Oid *target_typeids,
  */
 Node *
 coerce_to_domain(Node *arg, Oid baseTypeId, int32 baseTypeMod, Oid typeId,
-				 CoercionForm cformat, int location, bool hideInputCoercion,
+				 CoercionForm cformat, int location,bool hideInputCoercion,
 				 bool lengthCoercionDone)
 {
 	CoerceToDomain *result;
@@ -976,6 +983,7 @@ coerce_to_domain(Node *arg, Oid baseTypeId, int32 baseTypeMod, Oid typeId,
 	result->resulttype = typeId;
 	result->resulttypmod = -1;	/* currently, always -1 for domains */
 	result->coercionformat = cformat;
+	result->location = location;
 
 	return (Node *) result;
 }
@@ -1170,6 +1178,7 @@ build_coercion_expression(Node *node,
 		acoerce->resulttypmod = (nargs >= 2) ? targetTypMod : -1;
 		acoerce->isExplicit = isExplicit;
 		acoerce->coerceformat = cformat;
+		acoerce->location = location;
 
 		return (Node *) acoerce;
 	}
@@ -1183,6 +1192,7 @@ build_coercion_expression(Node *node,
 		iocoerce->arg = (Expr *) node;
 		iocoerce->resulttype = targetTypeId;
 		iocoerce->coerceformat = cformat;
+		iocoerce->location = location;
 
 		return (Node *) iocoerce;
 	}
@@ -1206,7 +1216,8 @@ static Node *
 coerce_record_to_complex(ParseState *pstate, Node *node,
 						 Oid targetTypeId,
 						 CoercionContext ccontext,
-						 CoercionForm cformat)
+						 CoercionForm cformat,
+						 int location)
 {
 	RowExpr    *rowexpr;
 	TupleDesc	tupdesc;
@@ -1241,7 +1252,8 @@ coerce_record_to_complex(ParseState *pstate, Node *node,
 				(errcode(ERRCODE_CANNOT_COERCE),
 				 errmsg("cannot cast type %s to %s",
 						format_type_be(RECORDOID),
-						format_type_be(targetTypeId))));
+						format_type_be(targetTypeId)),
+				 parser_coercion_errposition(pstate, location, node)));
 
 	tupdesc = lookup_rowtype_tupdesc(targetTypeId, -1);
 	newargs = NIL;
@@ -1250,6 +1262,7 @@ coerce_record_to_complex(ParseState *pstate, Node *node,
 	for (i = 0; i < tupdesc->natts; i++)
 	{
 		Node	   *expr;
+		Node	   *cexpr;
 		Oid			exprtype;
 
 		/* Fill in NULLs for dropped columns in rowtype */
@@ -1269,18 +1282,18 @@ coerce_record_to_complex(ParseState *pstate, Node *node,
 					 errmsg("cannot cast type %s to %s",
 							format_type_be(RECORDOID),
 							format_type_be(targetTypeId)),
-					 errdetail("Input has too few columns.")));
+					 errdetail("Input has too few columns."),
+					 parser_coercion_errposition(pstate, location, node)));
 		expr = (Node *) lfirst(arg);
 		exprtype = exprType(expr);
 
-		expr = coerce_to_target_type(pstate,
+		cexpr = coerce_to_target_type(pstate,
 									 expr, exprtype,
 									 tupdesc->attrs[i]->atttypid,
 									 tupdesc->attrs[i]->atttypmod,
 									 ccontext,
 									 COERCE_IMPLICIT_CAST,
-									 -1);
-		if (expr == NULL)
+		-1);if (cexpr == NULL)
 			ereport(ERROR,
 					(errcode(ERRCODE_CANNOT_COERCE),
 					 errmsg("cannot cast type %s to %s",
@@ -1289,8 +1302,9 @@ coerce_record_to_complex(ParseState *pstate, Node *node,
 					 errdetail("Cannot cast type %s to %s in column %d.",
 							   format_type_be(exprtype),
 							   format_type_be(tupdesc->attrs[i]->atttypid),
-							   ucolno)));
-		newargs = lappend(newargs, expr);
+							   ucolno),
+					 parser_coercion_errposition(pstate, location, expr)));
+		newargs = lappend(newargs, cexpr);
 		ucolno++;
 		arg = lnext(arg);
 	}
@@ -1300,7 +1314,8 @@ coerce_record_to_complex(ParseState *pstate, Node *node,
 				 errmsg("cannot cast type %s to %s",
 						format_type_be(RECORDOID),
 						format_type_be(targetTypeId)),
-				 errdetail("Input has too many columns.")));
+				 errdetail("Input has too many columns."),
+				 parser_coercion_errposition(pstate, location, node)));
 
 	ReleaseTupleDesc(tupdesc);
 
@@ -1308,6 +1323,7 @@ coerce_record_to_complex(ParseState *pstate, Node *node,
 	rowexpr->args = newargs;
 	rowexpr->row_typeid = targetTypeId;
 	rowexpr->row_format = cformat;
+	rowexpr->location = location;
 	return (Node *) rowexpr;
 }
 
@@ -1329,17 +1345,20 @@ coerce_to_boolean(ParseState *pstate, Node *node,
 
 	if (inputTypeId != BOOLOID)
 	{
-		node = coerce_to_target_type(pstate, node, inputTypeId,
+		Node	*newnode;
+
+		newnode = coerce_to_target_type(pstate, node, inputTypeId,
 									 BOOLOID, -1,
 									 COERCION_ASSIGNMENT,
 									 COERCE_IMPLICIT_CAST,
-									 -1);
-		if (node == NULL)
+		-1);if (newnode == NULL)
 			ereport(ERROR,
 					(errcode(ERRCODE_DATATYPE_MISMATCH),
 			/* translator: first %s is name of a SQL construct, eg WHERE */
-				   errmsg("argument of %s must be type boolean, not type %s",
-						  constructName, format_type_be(inputTypeId))));
+					 errmsg("argument of %s must be type boolean, not type %s",
+							constructName, format_type_be(inputTypeId)),
+					 parser_errposition(pstate, exprLocation(node))));
+		node = newnode;
 	}
 
 	if (expression_returns_set(node))
@@ -1347,7 +1366,8 @@ coerce_to_boolean(ParseState *pstate, Node *node,
 				(errcode(ERRCODE_DATATYPE_MISMATCH),
 		/* translator: %s is name of a SQL construct, eg WHERE */
 				 errmsg("argument of %s must not return a set",
-						constructName)));
+						constructName),
+				 parser_errposition(pstate, exprLocation(node))));
 
 	return node;
 }
@@ -1374,11 +1394,10 @@ coerce_to_specific_type(ParseState *pstate, Node *node,
 		Node	   *newnode;
 
 		newnode = coerce_to_target_type(pstate, node, inputTypeId,
-										targetTypeId, -1,
-										COERCION_ASSIGNMENT,
-										COERCE_IMPLICIT_CAST,
-										-1);
-		if (newnode == NULL)
+									 targetTypeId, -1,
+									 COERCION_ASSIGNMENT,
+									 COERCE_IMPLICIT_CAST,
+		-1);if (newnode == NULL)
 			ereport(ERROR,
 					(errcode(ERRCODE_DATATYPE_MISMATCH),
 			/* translator: first %s is name of a SQL construct, eg LIMIT */
@@ -1402,26 +1421,54 @@ coerce_to_specific_type(ParseState *pstate, Node *node,
 }
 
 
-/* select_common_type()
- *		Determine the common supertype of a list of input expression types.
+/*
+ * parser_coercion_errposition - report coercion error location, if possible
+ *
+ * We prefer to point at the coercion request (CAST, ::, etc) if possible;
+ * but there may be no such location in the case of an implicit coercion.
+ * In that case point at the input expression.
+ *
+ * XXX possibly this is more generally useful than coercion errors;
+ * if so, should rename and place with parser_errposition.
+ */
+int
+parser_coercion_errposition(ParseState *pstate,
+							int coerce_location,
+							Node *input_expr)
+{
+	if (coerce_location >= 0)
+		return parser_errposition(pstate, coerce_location);
+	else
+		return parser_errposition(pstate, exprLocation(input_expr));
+}
+
+
+/*
+ * select_common_type()
+ *		Determine the common supertype of a list of input expressions.
  *		This is used for determining the output type of CASE and UNION
  *		constructs.
  *
- * 'typeids' is a nonempty list of type OIDs.  Note that earlier items
+ * 'exprs' is a *nonempty* list of expressions.  Note that earlier items
  * in the list will be preferred if there is doubt.
  * 'context' is a phrase to use in the error message if we fail to select
- * a usable type.  Pass NULL to have the routine return InvalidOid
- * rather than throwing an error on failure.
+ * a usable type.
+ * 'which_expr': if not NULL, receives a pointer to the particular input
+ * expression from which the result type was taken.
  */
 Oid
-select_common_type(List *typeids, const char *context)
+select_common_type(ParseState *pstate, List *exprs, const char *context,
+				   Node **which_expr)
 {
+	Node	   *pexpr;
 	Oid			ptype;
 	CATEGORY	pcategory;
-	ListCell   *type_item;
+	ListCell   *lc;
 
-	Assert(typeids != NIL);
-	ptype = linitial_oid(typeids);
+	Assert(exprs != NIL);
+	pexpr = (Node *) linitial(exprs);
+	lc = lnext(list_head(exprs));
+	ptype = exprType(pexpr);
 
 	/*
 	 * If all input types are valid and exactly the same, just pick that type.
@@ -1430,24 +1477,34 @@ select_common_type(List *typeids, const char *context)
 	 */
 	if (ptype != UNKNOWNOID)
 	{
-		for_each_cell(type_item, lnext(list_head(typeids)))
+		for_each_cell(lc, lc)
 		{
-			Oid		ntype = lfirst_oid(type_item);
+			Node   *nexpr = (Node *) lfirst(lc);
+			Oid		ntype = exprType(nexpr);
 
 			if (ntype != ptype)
 				break;
 		}
-		if (type_item == NULL)			/* got to the end of the list? */
+		if (lc == NULL)			/* got to the end of the list? */
+		{
+			if (which_expr)
+				*which_expr = pexpr;
 			return ptype;
+		}
 	}
 
-	/* Nope, so set up for the full algorithm */
+	/*
+	 * Nope, so set up for the full algorithm.  Note that at this point,
+	 * lc points to the first list item with type different from pexpr's;
+	 * we need not re-examine any items the previous loop advanced over.
+	 */
 	ptype = getBaseType(ptype);
 	pcategory = TypeCategory(ptype);
 
-	for_each_cell(type_item, lnext(list_head(typeids)))
+	for_each_cell(lc, lc)
 	{
-		Oid			ntype = getBaseType(lfirst_oid(type_item));
+		Node	   *nexpr = (Node *) lfirst(lc);
+		Oid			ntype = getBaseType(exprType(nexpr));
 
 		/* move on to next one if no new information... */
 		if (ntype != UNKNOWNOID && ntype != ptype)
@@ -1455,6 +1512,7 @@ select_common_type(List *typeids, const char *context)
 			if (ptype == UNKNOWNOID)
 			{
 				/* so far, only unknowns so take anything... */
+				pexpr = nexpr;
 				ptype = ntype;
 				pcategory = TypeCategory(ptype);
 			}
@@ -1467,13 +1525,13 @@ select_common_type(List *typeids, const char *context)
 					return InvalidOid;
 				ereport(ERROR,
 						(errcode(ERRCODE_DATATYPE_MISMATCH),
-
 				/*------
 				  translator: first %s is name of a SQL construct, eg CASE */
 						 errmsg("%s types %s and %s cannot be matched",
 								context,
 								format_type_be(ptype),
-								format_type_be(ntype))));
+								format_type_be(ntype)),
+						 parser_errposition(pstate, exprLocation(nexpr))));
 			}
 			else if (!IsPreferredType(pcategory, ptype) &&
 					 can_coerce_type(1, &ptype, &ntype, COERCION_IMPLICIT) &&
@@ -1483,6 +1541,7 @@ select_common_type(List *typeids, const char *context)
 				 * take new type if can coerce to it implicitly but not the
 				 * other way; but if we have a preferred type, stay on it.
 				 */
+				pexpr = nexpr;
 				ptype = ntype;
 				pcategory = TypeCategory(ptype);
 			}
@@ -1503,10 +1562,13 @@ select_common_type(List *typeids, const char *context)
 	if (ptype == UNKNOWNOID)
 		ptype = TEXTOID;
 
+	if (which_expr)
+		*which_expr = pexpr;
 	return ptype;
 }
 
-/* coerce_to_common_type()
+/*
+ * coerce_to_common_type()
  *		Coerce an expression to the given type.
  *
  * This is used following select_common_type() to coerce the individual
@@ -1534,7 +1596,8 @@ coerce_to_common_type(ParseState *pstate, Node *node,
 				 errmsg("%s could not convert type %s to %s",
 						context,
 						format_type_be(inputTypeId),
-						format_type_be(targetTypeId))));
+						format_type_be(targetTypeId)),
+				 parser_errposition(pstate, exprLocation(node))));
 	return node;
 }
 

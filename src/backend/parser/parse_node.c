@@ -8,7 +8,7 @@
  *
  *
  * IDENTIFICATION
- *	  $PostgreSQL: pgsql/src/backend/parser/parse_node.c,v 1.101 2008/08/25 22:42:33 tgl Exp $
+ *	  $PostgreSQL: pgsql/src/backend/parser/parse_node.c,v 1.102 2008/08/28 23:09:47 tgl Exp $
  *
  *-------------------------------------------------------------------------
  */
@@ -353,7 +353,8 @@ transformArraySubscripts(ParseState *pstate,
 				if (subexpr == NULL)
 					ereport(ERROR,
 							(errcode(ERRCODE_DATATYPE_MISMATCH),
-						  errmsg("array subscript must have type integer")));
+							 errmsg("array subscript must have type integer"),
+							 parser_errposition(pstate, exprLocation(ai->lidx))));
 			}
 			else
 			{
@@ -378,7 +379,8 @@ transformArraySubscripts(ParseState *pstate,
 		if (subexpr == NULL)
 			ereport(ERROR,
 					(errcode(ERRCODE_DATATYPE_MISMATCH),
-					 errmsg("array subscript must have type integer")));
+					 errmsg("array subscript must have type integer"),
+					 parser_errposition(pstate, exprLocation(ai->uidx))));
 		upperIndexpr = lappend(upperIndexpr, subexpr);
 	}
 
@@ -390,21 +392,23 @@ transformArraySubscripts(ParseState *pstate,
 	{
 		Oid			typesource = exprType(assignFrom);
 		Oid			typeneeded = isSlice ? arrayType : elementType;
+		Node	   *newFrom;
 
-		assignFrom = coerce_to_target_type(pstate,
+		newFrom = coerce_to_target_type(pstate,
 										   assignFrom, typesource,
 										   typeneeded, elementTypMod,
 										   COERCION_ASSIGNMENT,
 										   COERCE_IMPLICIT_CAST,
-										   -1);
-		if (assignFrom == NULL)
+		-1);if (newFrom == NULL)
 			ereport(ERROR,
 					(errcode(ERRCODE_DATATYPE_MISMATCH),
 					 errmsg("array assignment requires type %s"
 							" but expression is of type %s",
 							format_type_be(typeneeded),
 							format_type_be(typesource)),
-			   errhint("You will need to rewrite or cast the expression.")));
+			   errhint("You will need to rewrite or cast the expression."),
+					 parser_errposition(pstate, exprLocation(assignFrom))));
+		assignFrom = newFrom;
 	}
 
 	/*

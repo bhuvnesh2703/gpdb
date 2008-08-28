@@ -8,7 +8,7 @@
  *
  *
  * IDENTIFICATION
- *	  $PostgreSQL: pgsql/src/backend/parser/parse_func.c,v 1.205 2008/08/25 22:42:33 tgl Exp $
+ *	  $PostgreSQL: pgsql/src/backend/parser/parse_func.c,v 1.206 2008/08/28 23:09:47 tgl Exp $
  *
  *-------------------------------------------------------------------------
  */
@@ -56,7 +56,7 @@ typedef struct
 	Node *parent;
 } check_table_func_context;
 
-static bool 
+static bool
 checkTableFunctions_walker(Node *node, check_table_func_context *context);
 
 /*
@@ -80,7 +80,7 @@ checkTableFunctions_walker(Node *node, check_table_func_context *context);
  */
 Node *
 ParseFuncOrColumn(ParseState *pstate, List *funcname, List *fargs,
-                  List *agg_order, bool agg_star, bool agg_distinct, 
+                  List *agg_order, bool agg_star, bool agg_distinct,
                   bool func_variadic, bool is_column, WindowSpec *over,
 				  int location, Node *agg_filter)
 {
@@ -114,11 +114,11 @@ ParseFuncOrColumn(ParseState *pstate, List *funcname, List *fargs,
 						FUNC_MAX_ARGS),
 				 parser_errposition(pstate, location)));
 
-	/* 
+	/*
 	 * Perform the FILTER -> CASE transform.
 	 *    FUNC(expr) FILTER (WHERE cond)  =>  FUNC(CASE WHEN cond THEN expr END)
 	 * This must be done for every parameter of the function and special handling
-	 * is needed for FUNC(*).  
+	 * is needed for FUNC(*).
 	 *
 	 * For this to be a valid transform we must assume that NULLs passed into
 	 * the function will not change the result.  This assumption is not valid
@@ -126,15 +126,15 @@ ParseFuncOrColumn(ParseState *pstate, List *funcname, List *fargs,
 	 * it is not a valid assumption for other cases we may need to rethink how
 	 * we implement FILTER.
 	 */
-	if (agg_filter) 
+	if (agg_filter)
 	{
 		List *newfargs = NULL;
 
 		if (agg_star || !fargs)
 		{
 			/*
-			 * FUNC(*) => assume that datatype doesn't matter 
-			 * By converting agg_star into a conditional constant boolean 
+			 * FUNC(*) => assume that datatype doesn't matter
+			 * By converting agg_star into a conditional constant boolean
 			 * expression we get the correct results for count(*) since it
 			 * will then supress the NULLs returned by the CASE statement.
 			 */
@@ -150,8 +150,8 @@ ParseFuncOrColumn(ParseState *pstate, List *funcname, List *fargs,
 			c->defresult = (Expr *) NULL;
 			c->args      = list_make1(w);
 			newfargs     = list_make1(c);
-		
-			/* 
+
+			/*
 			 * Since we haven't checked the compatability of our function with
 			 * agg_star we can not clear the local bit yet, otherwise we would
 			 * loose track of the fact that this was an agg_star operation prior
@@ -265,8 +265,7 @@ ParseFuncOrColumn(ParseState *pstate, List *funcname, List *fargs,
 		 */
 		return coerce_type(pstate, linitial(fargs),
 						   actual_arg_types[0], rettype, -1,
-						   COERCION_EXPLICIT, COERCE_EXPLICIT_CALL,
-						   -1);
+						   COERCION_EXPLICIT, COERCE_EXPLICIT_CALL, location);
 	}
 	else if (fdresult == FUNCDETAIL_NORMAL)
 	{
@@ -416,6 +415,7 @@ ParseFuncOrColumn(ParseState *pstate, List *funcname, List *fargs,
 						   format_type_be(newa->element_typeid)),
 					parser_errposition(pstate, exprLocation((Node *) vargs))));
 		newa->multidims = false;
+		newa->location = exprLocation((Node *) vargs);
 
 		fargs = lappend(fargs, newa);
 	}
@@ -438,8 +438,8 @@ ParseFuncOrColumn(ParseState *pstate, List *funcname, List *fargs,
 	{
 		/* must be a window function call */
 		WindowRef  *winref = makeNode(WindowRef);
-		HeapTuple	tuple;	
-		
+		HeapTuple	tuple;
+
 		if (retset)
 			ereport(ERROR,
 					(errcode(ERRCODE_INVALID_FUNCTION_DEFINITION),
@@ -491,9 +491,9 @@ ParseFuncOrColumn(ParseState *pstate, List *funcname, List *fargs,
 			 */
 			int winspec = 0;
 			ListCell *over_lc = NULL;
-			
+
 			transformWindowSpec(pstate, over);
-			
+
 			foreach (over_lc, pstate->p_win_clauses)
 			{
 				Node *over1 = lfirst(over_lc);
@@ -501,7 +501,7 @@ ParseFuncOrColumn(ParseState *pstate, List *funcname, List *fargs,
 					break;
 				winspec++;
 			}
-				
+
 			if (over_lc == NULL)
 				pstate->p_win_clauses = lappend(pstate->p_win_clauses, over);
 			winref->winspec = winspec;
@@ -529,28 +529,28 @@ ParseFuncOrColumn(ParseState *pstate, List *funcname, List *fargs,
 							NameListToString(funcname)),
 					 parser_errposition(pstate, location)));
 
-		/* 
+		/*
 		 * We only support FILTER clauses over STRICT aggegation functions.
 		 *
-		 * All built in aggregations are strict except for int2_sum, 
+		 * All built in aggregations are strict except for int2_sum,
          * int4_sum, and int8_sum, all of which are logically strict, but are
-		 * simply defined as non-strict to bootstrap their calculations.  
-		 * Since they are logically strict we will not change their results 
-		 * by including extra nulls in the calculation so the rewrite won't 
+		 * simply defined as non-strict to bootstrap their calculations.
+		 * Since they are logically strict we will not change their results
+		 * by including extra nulls in the calculation so the rewrite won't
 		 * produce incorrect results.
 		 *
 		 * For user defined functions we must enforce this restriction since
 		 * passing "extra" nulls back to a non-strict function may cause it
-		 * to return an incorrect answer, eg: count_null(i) filter (...) 
+		 * to return an incorrect answer, eg: count_null(i) filter (...)
 		 * wouldn't differeniate between data nulls vs filtered values.
 		 */
-		if (agg_filter && !retstrict && 
+		if (agg_filter && !retstrict &&
 			(funcid < SUM_OID_MIN || funcid > SUM_OID_MAX))
 		{
 		    ereport(ERROR,
 					(errcode(ERRCODE_GP_FEATURE_NOT_SUPPORTED),
 					 errmsg("function %s is not defined as STRICT",
-							func_signature_string(funcname, nargs, 
+							func_signature_string(funcname, nargs,
 												  actual_arg_types)),
 					 errhint("The filter clause is only supported over functions "
 							 "defined as STRICT."),
@@ -563,7 +563,7 @@ ParseFuncOrColumn(ParseState *pstate, List *funcname, List *fargs,
 					 errmsg("aggregates cannot return sets"),
 					 parser_errposition(pstate, location)));
 
-		/* 
+		/*
 		 * If this is not an ordered aggregate, but it was called with an
 		 * aggregate order by specification then we must raise an error.
 		 */
@@ -573,10 +573,10 @@ ParseFuncOrColumn(ParseState *pstate, List *funcname, List *fargs,
 					(errcode(ERRCODE_WRONG_OBJECT_TYPE),
 					 errmsg("ORDER BY specified, but %s is not an ordered aggregate function",
 							NameListToString(funcname)),
-					 parser_errposition(pstate, location)));			
+					 parser_errposition(pstate, location)));
 		}
 
-		/* 
+		/*
 		 * ordered aggregates are not compatible with distinct
 		 */
 		if (agg_distinct && agg_order != NIL)
@@ -586,8 +586,8 @@ ParseFuncOrColumn(ParseState *pstate, List *funcname, List *fargs,
 					 errmsg("ORDER BY and DISTINCT are mutually exclusive"),
 					 parser_errposition(pstate, location)));
 		}
-        
-        /* 
+
+        /*
          * Build the aggregate node and transform it
          *
          * Note: aggorder is handled inside transformAggregateCall()
@@ -616,7 +616,7 @@ ParseFuncOrColumn(ParseState *pstate, List *funcname, List *fargs,
 
 	/*
 	 * Mark the context if this is a dynamic typed function, if so we mustn't
-	 * allow views to be created from this statement because we cannot 
+	 * allow views to be created from this statement because we cannot
 	 * guarantee that the future return type will be the same as the current
 	 * return type.
 	 */
@@ -1258,9 +1258,9 @@ func_get_detail(List *funcname,
 
 		ReleaseSysCache(ftup);
 
-		/* 
-		 * For aggregate functions STRICTness is defined by the 
-		 * transition function 
+		/*
+		 * For aggregate functions STRICTness is defined by the
+		 * transition function
 		 */
 		if (isagg)
 		{
@@ -1278,7 +1278,7 @@ func_get_detail(List *funcname,
 			fmgr_info(aggform->aggtransfn, &transfn);
 			*retstrict = transfn.fn_strict;
 
-			/* 
+			/*
 			 * Check if this is an ordered aggregate - while aggordered
 			 * should never be null it comes after a variable length field
 			 * so we must access it via SysCacheGetAttr.
@@ -1795,30 +1795,30 @@ LookupAggNameTypeNames(List *aggname, List *argtypes, bool noError)
  *  valid location for a TableValueExpr is within a call to a table function.
  *  In the full SQL Standard they can exist anywhere a multiset is supported.
  */
-void 
+void
 parseCheckTableFunctions(ParseState *pstate, Query *qry)
 {
 	check_table_func_context context;
 	context.parent = NULL;
-	query_tree_walker(qry, 
+	query_tree_walker(qry,
 					  checkTableFunctions_walker,
 					  (void *) &context, 0);
 }
 
-static bool 
+static bool
 checkTableFunctions_walker(Node *node, check_table_func_context *context)
 {
 	if (node == NULL)
 		return false;
 
-	/* 
+	/*
 	 * TABLE() value expressions are currently only permited as parameters
 	 * to table functions called in the FROM clause.
 	 */
 	if (IsA(node, TableValueExpr))
 	{
 		if (context->parent && IsA(context->parent, FuncExpr))
-		{ 
+		{
 			FuncExpr *parent = (FuncExpr *) context->parent;
 
 			/*
@@ -1843,14 +1843,14 @@ checkTableFunctions_walker(Node *node, check_table_func_context *context)
 	context->parent = node;
 	if (IsA(node, Query))
 	{
-		return query_tree_walker((Query *) node, 
+		return query_tree_walker((Query *) node,
 								 checkTableFunctions_walker,
 								 (void *) context, 0);
 	}
 	else
 	{
-		return expression_tree_walker(node, 
-									  checkTableFunctions_walker, 
+		return expression_tree_walker(node,
+									  checkTableFunctions_walker,
 									  (void *) context);
 	}
 }

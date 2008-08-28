@@ -747,7 +747,7 @@ parserOpenTable(ParseState *pstate, const RangeVar *relation,
 				int lockmode, bool nowait, bool *lockUpgraded)
 {
 	Relation rel = NULL;
-	
+
 	PG_TRY();
 	{
 		rel = CdbOpenRelationRv(relation, lockmode, nowait, NULL);
@@ -1050,7 +1050,7 @@ addRangeTableEntryForFunction(ParseState *pstate,
 				{
 					TableValueExpr *input = (TableValueExpr *) n;
 
-					/* 
+					/*
 					 * Currently only support single TABLE value expression.
 					 *
 					 * Note: this shouldn't be possible given that we don't
@@ -1059,19 +1059,19 @@ addRangeTableEntryForFunction(ParseState *pstate,
 					 */
 					Assert(IsA(input->subquery, Query));
 					if (rte->subquery != NULL)
-						ereport(ERROR, 
+						ereport(ERROR,
 								(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
 								 errmsg("functions over multiple TABLE value "
 										"expressions not supported")));
 
 					/*
 					 * Convert RTE to a TableFunctionScan over the specified
-					 * input 
+					 * input
 					 */
 					rte->rtekind = RTE_TABLEFUNCTION;
 					rte->subquery = (Query *) input->subquery;
 
-					/* 
+					/*
 					 * Mark function as a table function so that the second pass
 					 * check, parseCheckTableFunctions(), can correctly detect
 					 * that it is a valid TABLE value expression.
@@ -1130,9 +1130,9 @@ addRangeTableEntryForFunction(ParseState *pstate,
 				elog(ERROR, "function %u returned NULL", flinfo.fn_oid);
 			tupdesc = (TupleDesc) DatumGetPointer(d);
 
-			/* 
-			 * Might want to improve this API so the describe method return 
-			 * value is somehow verifiable 
+			/*
+			 * Might want to improve this API so the describe method return
+			 * value is somehow verifiable
 			 */
 			if (tupdesc != NULL)
 			{
@@ -1141,9 +1141,9 @@ addRangeTableEntryForFunction(ParseState *pstate,
 				{
 					Form_pg_attribute attr = tupdesc->attrs[i];
 
-					rte->funccoltypes	= lappend_oid(rte->funccoltypes, 
+					rte->funccoltypes	= lappend_oid(rte->funccoltypes,
 													  attr->atttypid);
-					rte->funccoltypmods = lappend_int(rte->funccoltypmods, 
+					rte->funccoltypmods = lappend_int(rte->funccoltypmods,
 													  attr->atttypmod);
 				}
 			}
@@ -1582,25 +1582,25 @@ isSimplyUpdatableRelation(Oid relid, bool noerror)
  *    return the desired RangeTblEntry
  *
  * NOTE: The range table *MUST* belong to a simply updatable query.
- * 
+ *
  * The semantics of a simply updatable query demand a range table consisting
  * of exactly one logical table. Thus, for the simple case of a one-element
  * range table, we quickly return the index for the lone RTE.
- * However, we must also cope with inheritance, where an RTE requesting 
+ * However, we must also cope with inheritance, where an RTE requesting
  * inheritance may have been expanded out into its child relations. In this
  * case, we seek to return the parent RTE.
  */
 Index
-extractSimplyUpdatableRTEIndex(List *rtable) 
+extractSimplyUpdatableRTEIndex(List *rtable)
 {
 	Assert(list_length(rtable) > 0);
 	if (list_length(rtable) == 1)
 		return 1;
 
-	/* 
-	 * This better be an inheritance case. 
-	 * Find the RTE with inh = true. 
-	 * Furthermore, we Insist that no other RTEs have inh = true. 
+	/*
+	 * This better be an inheritance case.
+	 * Find the RTE with inh = true.
+	 * Furthermore, we Insist that no other RTEs have inh = true.
 	 */
 	Index 			temp, ret = 0;
 	ListCell        *lc;

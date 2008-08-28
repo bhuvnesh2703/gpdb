@@ -1168,7 +1168,7 @@ transformCreateExternalStmt(CreateExternalStmt *stmt, const char *queryString)
 	List  	   *likeDistributedBy = NIL;
 	bool	    bQuiet = false;	/* shut up transformDistributedBy messages */
 	bool		iswritable = stmt->iswritable;
-	
+
 	/* Set up pstate */
 	pstate = make_parsestate(NULL);
 	pstate->p_sourcetext = queryString;
@@ -1524,7 +1524,7 @@ transformDistributedBy(ParseState *pstate, CreateStmtContext *cxt,
 	{
 		Assert(NIL == likeDistributedBy);
 		policy = createRandomDistribution();
-		
+
 		if (!bQuiet)
 		{
 			ereport(NOTICE,
@@ -1728,7 +1728,7 @@ transformDistributedBy(ParseState *pstate, CreateStmtContext *cxt,
 							int32		typmod;
 
 							typeOid = typenameTypeId(NULL, column->typeName, &typmod);
-							
+
 							/*
 							 * To be a part of a distribution key, this type must
 							 * be supported for hashing internally in Greenplum
@@ -2176,7 +2176,7 @@ transformIndexConstraints(ParseState *pstate, CreateStmtContext *cxt, bool mayDe
 				break;
 			}
 		}
-		
+
 		defer = index->whereClause != NULL;
 		if ( !defer )
 		{
@@ -2185,7 +2185,7 @@ transformIndexConstraints(ParseState *pstate, CreateStmtContext *cxt, bool mayDe
 			{
 				IndexElem *elt = (IndexElem*)lfirst(j);
 				Assert(IsA(elt, IndexElem));
-				
+
 				if (elt->expr != NULL)
 				{
 					defer = true;
@@ -2198,12 +2198,12 @@ transformIndexConstraints(ParseState *pstate, CreateStmtContext *cxt, bool mayDe
 		{
 			if (defer && mayDefer)
 			{
-				/* An index on an expression with a WHERE clause or for an 
-				 * inheritance child will cause a trip through parse_analyze.  
-				 * If we do that before creating the table, it will fail, so 
+				/* An index on an expression with a WHERE clause or for an
+				 * inheritance child will cause a trip through parse_analyze.
+				 * If we do that before creating the table, it will fail, so
 				 * we put it on a list for later.
 				 */
-			
+
 				ereport(DEBUG1,
 						(errmsg("deferring index creation for table \"%s\"",
 								cxt->relation->relname)
@@ -3683,7 +3683,7 @@ validateColumnStorageEncodingClauses(List *stenc, CreateStmt *stmt)
 						(errcode(ERRCODE_DUPLICATE_COLUMN),
 						 errmsg("column \"%s\" duplicated",
 								colname)));
-				
+
 			}
 			ce->count = 0;
 		}
@@ -3803,7 +3803,7 @@ TypeNameGetStorageDirective(TypeName *typname)
 
 /*
  * Make a default column storage directive from a WITH clause
- * Ignore options in the WITH clause that don't appear in 
+ * Ignore options in the WITH clause that don't appear in
  * storage_directives for column-level compression.
  */
 List *

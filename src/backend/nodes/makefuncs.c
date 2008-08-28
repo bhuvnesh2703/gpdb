@@ -9,7 +9,7 @@
  *
  *
  * IDENTIFICATION
- *	  $PostgreSQL: pgsql/src/backend/nodes/makefuncs.c,v 1.58 2008/01/01 19:45:50 momjian Exp $
+ *	  $PostgreSQL: pgsql/src/backend/nodes/makefuncs.c,v 1.59 2008/08/28 23:09:46 tgl Exp $
  *
  *-------------------------------------------------------------------------
  */

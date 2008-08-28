@@ -23,6 +23,7 @@
 
 static int     leftmostLoc(int loc1, int loc2);
 static bool expression_returns_set_walker(Node *node, void *context);
+static int	leftmostLoc(int loc1, int loc2);
 
 
 /*
@@ -371,10 +372,10 @@ Oid
 exprType(Node *expr)
 {
 	Oid			type;
-	
+
 	if (!expr)
 		return InvalidOid;
-	
+
 	switch (nodeTag(expr))
 	{
 		case T_Var:
@@ -395,7 +396,7 @@ exprType(Node *expr)
 		case T_ArrayRef:
 		{
 			ArrayRef   *arrayref = (ArrayRef *) expr;
-			
+
 			/* slice and/or store operations yield the array type */
 			if (arrayref->reflowerindexpr || arrayref->refassgnexpr)
 				type = arrayref->refarraytype;
@@ -421,14 +422,14 @@ exprType(Node *expr)
 		case T_SubLink:
 		{
 			SubLink    *sublink = (SubLink *) expr;
-			
+
 			if (sublink->subLinkType == EXPR_SUBLINK ||
 				sublink->subLinkType == ARRAY_SUBLINK)
 			{
 				/* get the type of the subselect's first target column */
 				Query	   *qtree = (Query *) sublink->subselect;
 				TargetEntry *tent;
-				
+
 				if (!qtree || !IsA(qtree, Query))
 					elog(ERROR, "cannot get type for untransformed sublink");
 				tent = (TargetEntry *) linitial(qtree->targetList);
@@ -460,7 +461,7 @@ exprType(Node *expr)
 			 * for the convenience of ruleutils.c.
 			 */
 			SubPlan    *subplan = (SubPlan *) expr;
-			
+
 			if (subplan->subLinkType == EXPR_SUBLINK ||
 				subplan->subLinkType == ARRAY_SUBLINK)
 			{
@@ -487,7 +488,7 @@ exprType(Node *expr)
 		{
 			/* As above, supported for the convenience of ruleutils.c */
 			AlternativeSubPlan *asplan = (AlternativeSubPlan *) expr;
-			
+
 			/* subplans should all return the same thing */
 			type = exprType((Node *) linitial(asplan->subplans));
 		}
@@ -905,7 +906,7 @@ expression_returns_set_walker(Node *node, void *context)
 	if (IsA(node, FuncExpr))
 	{
 		FuncExpr   *expr = (FuncExpr *) node;
-		
+
 		if (expr->funcretset)
 			return true;
 		/* else fall through to check args */
@@ -913,12 +914,12 @@ expression_returns_set_walker(Node *node, void *context)
 	if (IsA(node, OpExpr))
 	{
 		OpExpr	   *expr = (OpExpr *) node;
-		
+
 		if (expr->opretset)
 			return true;
 		/* else fall through to check args */
 	}
-	
+
 	return expression_tree_walker(node, expression_returns_set_walker,
 								  context);
 }
@@ -1703,12 +1704,12 @@ range_table_mutator(List *rtable,
 {
 	List	   *newrt = NIL;
 	ListCell   *rt;
-	
+
 	foreach(rt, rtable)
 	{
 		RangeTblEntry *rte = (RangeTblEntry *) lfirst(rt);
 		RangeTblEntry *newrte;
-		
+
 		FLATCOPY(newrte, rte, RangeTblEntry);
 		switch (rte->rtekind)
 		{

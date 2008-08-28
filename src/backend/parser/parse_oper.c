@@ -8,7 +8,7 @@
  *
  *
  * IDENTIFICATION
- *	  $PostgreSQL: pgsql/src/backend/parser/parse_oper.c,v 1.104 2008/08/25 22:42:33 tgl Exp $
+ *	  $PostgreSQL: pgsql/src/backend/parser/parse_oper.c,v 1.105 2008/08/28 23:09:47 tgl Exp $
  *
  *-------------------------------------------------------------------------
  */
@@ -77,7 +77,7 @@ static void op_error(ParseState *pstate, List *op, char oprkind,
 		 FuncDetailCode fdresult, int location);
 static Expr *make_op_expr(ParseState *pstate, Operator op,
 			 Node *ltree, Node *rtree,
-			 Oid ltypeId, Oid rtypeId);
+			 Oid ltypeId, Oid rtypeId, int32 location);
 static bool make_oper_cache_key(OprCacheKey *key, List *opname,
 								Oid ltypeId, Oid rtypeId);
 static Oid	find_oper_cache_entry(OprCacheKey *key);
@@ -955,7 +955,7 @@ make_op(ParseState *pstate, List *opname, Node *ltree, Node *rtree,
 	}
 
 	/* Do typecasting and build the expression tree */
-	result = make_op_expr(pstate, tup, ltree, rtree, ltypeId, rtypeId);
+	result = make_op_expr(pstate, tup, ltree, rtree, ltypeId, rtypeId, location);
 
 	ReleaseSysCache(tup);
 
@@ -1072,6 +1072,7 @@ make_scalar_array_op(ParseState *pstate, List *opname,
 	result->opfuncid = opform->oprcode;
 	result->useOr = useOr;
 	result->args = args;
+	result->location = location;
 
 	ReleaseSysCache(tup);
 
@@ -1091,7 +1092,7 @@ make_scalar_array_op(ParseState *pstate, List *opname,
 static Expr *
 make_op_expr(ParseState *pstate, Operator op,
 			 Node *ltree, Node *rtree,
-			 Oid ltypeId, Oid rtypeId)
+			 Oid ltypeId, Oid rtypeId, int32 location)
 {
 	Form_pg_operator opform = (Form_pg_operator) GETSTRUCT(op);
 	Oid			actual_arg_types[2];
@@ -1149,6 +1150,7 @@ make_op_expr(ParseState *pstate, Operator op,
 	result->opresulttype = rettype;
 	result->opretset = get_func_retset(opform->oprcode);
 	result->args = args;
+	result->location = location;
 
 	/* Hack to protect pg_get_expr() against misuse */
 	check_pg_get_expr_args(pstate, result->opfuncid, args);

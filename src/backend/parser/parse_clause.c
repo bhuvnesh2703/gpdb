@@ -613,7 +613,7 @@ transformWindowClause(ParseState *pstate, Query *qry)
 		 */
 		if (!newspec->partition && ws->partition)
 		{
-			newspec->partition = 
+			newspec->partition =
                 transformSortClause(pstate,
                                     ws->partition,
                                     &qry->targetList,
@@ -628,7 +628,7 @@ transformWindowClause(ParseState *pstate, Query *qry)
 			 */
 			if (ws->order != NIL && newspec->order == NIL)
 			{
-				newspec->order = 
+				newspec->order =
                     transformSortClause(pstate,
                                         ws->order,
                                         &qry->targetList,
@@ -806,12 +806,12 @@ setTargetTable(ParseState *pstate, RangeVar *relation,
 	}
 	else
 	{
-    	pstate->p_target_relation = CdbOpenRelationRv(relation, 
-													  RowExclusiveLock, 
+    	pstate->p_target_relation = CdbOpenRelationRv(relation,
+													  RowExclusiveLock,
 													  false, NULL);
 	}
 	cancel_parser_errposition_callback(&pcbstate);
-	
+
 	/*
 	 * Now build an RTE.
 	 */
@@ -861,9 +861,9 @@ setTargetTable(ParseState *pstate, RangeVar *relation,
 			/* INSERT */
 			Oid reloid = RelationGetRelid(pstate->p_target_relation);
 			ExtTableEntry* 	extentry;
-			
+
 			extentry = GetExtTableEntry(reloid);
-			
+
 			if(!extentry->iswritable)
 				ereport(ERROR,
 						(errcode(ERRCODE_WRONG_OBJECT_TYPE),
@@ -873,7 +873,7 @@ setTargetTable(ParseState *pstate, RangeVar *relation,
 			pfree(extentry);
 		}
 	}
-	
+
     /* MPP-21035: Directly modify a part of a partitioned table is disallowed */
     PartStatus targetRelPartStatus = rel_part_status(RelationGetRelid(pstate->p_target_relation));
     if(PART_STATUS_INTERIOR == targetRelPartStatus)
@@ -1792,9 +1792,10 @@ buildMergedJoinVar(ParseState *pstate, JoinType jointype,
 	outcoltypmod = l_colvar->vartypmod;
 	if (outcoltype != r_colvar->vartype)
 	{
-		outcoltype = select_common_type(list_make2_oid(l_colvar->vartype,
-													   r_colvar->vartype),
-										"JOIN/USING");
+		outcoltype = select_common_type(pstate,
+										list_make2(l_colvar, r_colvar),
+										"JOIN/USING",
+										NULL);
 		outcoltypmod = -1;		/* ie, unknown */
 	}
 	else if (outcoltypmod != r_colvar->vartypmod)
@@ -1868,6 +1869,7 @@ buildMergedJoinVar(ParseState *pstate, JoinType jointype,
 
 				c->coalescetype = outcoltype;
 				c->args = list_make2(l_node, r_node);
+				c->location = -1;
 				res_node = (Node *) c;
 				break;
 			}
@@ -2018,7 +2020,7 @@ static List *findListTargetlistEntries(ParseState *pstate, Node *node,
 			List *subresult_list;
 
 			subresult_list = findListTargetlistEntries(pstate, lfirst(gl),
-													   tlist, true, 
+													   tlist, true,
                                                        ignore_in_grpext,
                                                        useSQL99);
 
@@ -2094,7 +2096,7 @@ static List *findListTargetlistEntries(ParseState *pstate, Node *node,
  *    clause  : identifies clause type being processed
  */
 static TargetEntry *
-findTargetlistEntrySQL92(ParseState *pstate, Node *node, List **tlist, 
+findTargetlistEntrySQL92(ParseState *pstate, Node *node, List **tlist,
                          int clause)
 {
 	TargetEntry *target_result = NULL;
@@ -2209,7 +2211,9 @@ findTargetlistEntrySQL92(ParseState *pstate, Node *node, List **tlist,
 					(errcode(ERRCODE_SYNTAX_ERROR),
 			/* translator: %s is name of a SQL construct, eg ORDER BY */
 					 errmsg("non-integer constant in %s",
-							clauseText[clause])));
+							clauseText[clause]),
+					 parser_errposition(pstate, location)));
+
 		target_pos = intVal(val);
 		foreach(tl, *tlist)
 		{
@@ -2588,7 +2592,7 @@ transformGroupClause(ParseState *pstate, List *grouplist,
 		Node        *node;
 
 		node = (Node*)lfirst(l);
-		tl = findListTargetlistEntries(pstate, node, targetlist, false, false, 
+		tl = findListTargetlistEntries(pstate, node, targetlist, false, false,
                                        useSQL99);
 
 		foreach(tl_cell, tl)
@@ -2679,7 +2683,7 @@ transformGroupClause(ParseState *pstate, List *grouplist,
             if (useSQL99)
                 tle = findTargetlistEntrySQL99(pstate, node, targetlist);
             else
-                tle = findTargetlistEntrySQL92(pstate, node, targetlist, 
+                tle = findTargetlistEntrySQL92(pstate, node, targetlist,
                                                GROUP_CLAUSE);
 
 			/*
@@ -2774,7 +2778,7 @@ transformSortClause(ParseState *pstate,
         if (useSQL99)
             tle = findTargetlistEntrySQL99(pstate, sortby->node, targetlist);
         else
-            tle = findTargetlistEntrySQL92(pstate, sortby->node, targetlist, 
+            tle = findTargetlistEntrySQL92(pstate, sortby->node, targetlist,
                                            ORDER_CLAUSE);
 
 		sortlist = addTargetToSortList(pstate, tle,
@@ -3023,7 +3027,7 @@ transformScatterClause(ParseState *pstate,
 	/* Special case handling for SCATTER RANDOMLY */
 	if (list_length(scatterlist) == 1 && linitial(scatterlist) == NULL)
 		return list_make1(NULL);
-	
+
 	/* preprocess the scatter clause, lookup TLEs */
 	foreach(olitem, scatterlist)
 	{

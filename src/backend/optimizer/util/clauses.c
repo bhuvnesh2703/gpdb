@@ -135,6 +135,7 @@ make_opclause(Oid opno, Oid opresulttype, bool opretset,
 		expr->args = list_make2(leftop, rightop);
 	else
 		expr->args = list_make1(leftop);
+	expr->location = -1;
 	return (Expr *) expr;
 }
 
@@ -201,6 +202,7 @@ make_notclause(Expr *notclause)
 
 	expr->boolop = NOT_EXPR;
 	expr->args = list_make1(notclause);
+	expr->location = -1;
 	return (Expr *) expr;
 }
 
@@ -244,6 +246,7 @@ make_orclause(List *orclauses)
 
 	expr->boolop = OR_EXPR;
 	expr->args = orclauses;
+	expr->location = -1;
 	return (Expr *) expr;
 }
 
@@ -277,6 +280,7 @@ make_andclause(List *andclauses)
 
 	expr->boolop = AND_EXPR;
 	expr->args = andclauses;
+	expr->location = -1;
 	return (Expr *) expr;
 }
 
@@ -439,15 +443,15 @@ count_agg_clauses_walker(Node *node, AggClauseCounts *counts)
 		if (aggref->aggdistinct)
 		{
 			Node *arg;
-			
+
 			counts->numDistinctAggs++;
-			
+
 			/* This check anticipates the one in ExecInitAgg(). */
 			if ( list_length(aggref->args) != 1 )
 				ereport(ERROR,
 						(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 						 errmsg("DISTINCT is supported only for single-argument aggregates")));
-				
+
 			arg = (Node*)linitial(aggref->args);
 			if ( !list_member(counts->dqaArgs, arg) )
 				counts->dqaArgs = lappend(counts->dqaArgs, arg);
@@ -505,7 +509,7 @@ count_agg_clauses_walker(Node *node, AggClauseCounts *counts)
 															aggtranstype,
 															false);
 			pfree(declaredArgTypes);
-			
+
 			counts->missing_prelimfunc = true; /* CDB: Disable 2P aggregation */
 		}
 
@@ -1290,7 +1294,7 @@ find_nonnullable_rels_walker(Node *node, bool top_level)
 	else if (IsA(node, PlaceHolderVar))
 	{
 		PlaceHolderVar *phv = (PlaceHolderVar *) node;
-		
+
 		result = find_nonnullable_rels_walker((Node *) phv->phexpr, top_level);
 	}
 	return result;
@@ -1492,7 +1496,7 @@ find_nonnullable_vars_walker(Node *node, bool top_level)
 	else if (IsA(node, PlaceHolderVar))
 	{
 		PlaceHolderVar *phv = (PlaceHolderVar *) node;
-		
+
 		result = find_nonnullable_vars_walker((Node *) phv->phexpr, top_level);
 	}
 	return result;
@@ -2058,7 +2062,7 @@ fold_constants(PlannerGlobal *glob, Query *q, ParamListInfo boundParams, Size ma
 	context.recurse_sublink_testexpr = false; /* do not recurse into sublink test expressions */
 
 	context.max_size = max_size;
-	
+
 	return (Query *) query_or_expression_tree_mutator
 						(
 						(Node *) q,
@@ -2317,6 +2321,7 @@ eval_const_expressions_mutator(Node *node,
 		newexpr->funcretset = expr->funcretset;
 		newexpr->funcformat = expr->funcformat;
 		newexpr->args = args;
+		newexpr->location = expr->location;
 		return (Node *) newexpr;
 	}
 	if (IsA(node, OpExpr))
@@ -2340,7 +2345,7 @@ eval_const_expressions_mutator(Node *node,
 		 * to this extent.
 		 */
 		set_opfuncid(expr);
-		
+
 		/*
 		 * CDB: don't optimize divide, because we might hit a divide by zero in
 		 * an expression that won't necessarily get executed later.  2006-01-09
@@ -2385,6 +2390,7 @@ eval_const_expressions_mutator(Node *node,
 		newexpr->opresulttype = expr->opresulttype;
 		newexpr->opretset = expr->opretset;
 		newexpr->args = args;
+		newexpr->location = expr->location;
 		return (Node *) newexpr;
 	}
 	if (IsA(node, DistinctExpr))
@@ -2476,6 +2482,7 @@ eval_const_expressions_mutator(Node *node,
 		newexpr->opresulttype = expr->opresulttype;
 		newexpr->opretset = expr->opretset;
 		newexpr->args = args;
+		newexpr->location = expr->location;
 		return (Node *) newexpr;
 	}
 	if (IsA(node, BoolExpr))
@@ -2605,6 +2612,7 @@ eval_const_expressions_mutator(Node *node,
 			newrelabel->resulttype = relabel->resulttype;
 			newrelabel->resulttypmod = relabel->resulttypmod;
 			newrelabel->relabelformat = relabel->relabelformat;
+			newrelabel->location = relabel->location;
 			return (Node *) newrelabel;
 		}
 	}
@@ -2673,6 +2681,7 @@ eval_const_expressions_mutator(Node *node,
 		newexpr->arg = arg;
 		newexpr->resulttype = expr->resulttype;
 		newexpr->coerceformat = expr->coerceformat;
+		newexpr->location = expr->location;
 		return (Node *) newexpr;
 	}
 	if (IsA(node, ArrayCoerceExpr))
@@ -2695,6 +2704,7 @@ eval_const_expressions_mutator(Node *node,
 		newexpr->resulttypmod = expr->resulttypmod;
 		newexpr->isExplicit = expr->isExplicit;
 		newexpr->coerceformat = expr->coerceformat;
+		newexpr->location = expr->location;
 
 		/*
 		 * If constant argument and it's a binary-coercible or immutable
@@ -2807,6 +2817,7 @@ eval_const_expressions_mutator(Node *node,
 
 				newcasewhen->expr = (Expr *) casecond;
 				newcasewhen->result = (Expr *) caseresult;
+				newcasewhen->location = oldcasewhen->location;
 				newargs = lappend(newargs, newcasewhen);
 				continue;
 			}
@@ -2836,6 +2847,7 @@ eval_const_expressions_mutator(Node *node,
 		newcase->arg = (Expr *) newarg;
 		newcase->args = newargs;
 		newcase->defresult = (Expr *) defresult;
+		newcase->location = caseexpr->location;
 		return (Node *) newcase;
 	}
 	if (IsA(node, CaseTestExpr))
@@ -2910,6 +2922,7 @@ eval_const_expressions_mutator(Node *node,
 		newarray->element_typeid = arrayexpr->element_typeid;
 		newarray->elements = newelems;
 		newarray->multidims = arrayexpr->multidims;
+		newarray->location = arrayexpr->location;
 
 		if (all_const)
 			return (Node *) evaluate_expr((Expr *) newarray,
@@ -2959,6 +2972,7 @@ eval_const_expressions_mutator(Node *node,
 		newcoalesce = makeNode(CoalesceExpr);
 		newcoalesce->coalescetype = coalesceexpr->coalescetype;
 		newcoalesce->args = newargs;
+		newcoalesce->location = coalesceexpr->location;
 		return (Node *) newcoalesce;
 	}
 	if (IsA(node, FieldSelect))
@@ -3187,7 +3201,7 @@ eval_const_expressions_mutator(Node *node,
 		 * node intact).
 		 */
 		PlaceHolderVar *phv = (PlaceHolderVar *) node;
-		
+
 		return eval_const_expressions_mutator((Node *) phv->phexpr,
 											  context);
 	}
@@ -3604,19 +3618,19 @@ large_const(Expr *expr, Size max_size)
 	{
 		return false;
 	}
-	
+
 	if (!IsA(expr, Const))
 	{
 		return false;
 	}
-	
+
 	Const *const_expr = (Const *) expr;
-	
+
 	if (const_expr->constisnull)
 	{
 		return false;
 	}
-	
+
 	Size size = datumGetSize(const_expr->constvalue, const_expr->constbyval, const_expr->constlen);
 	return size > max_size;
 }
@@ -3716,6 +3730,7 @@ evaluate_function(Oid funcid, Oid result_type, int32 result_typmod, List *args,
 	newexpr->funcretset = false;
 	newexpr->funcformat = COERCE_DONTCARE;		/* doesn't matter */
 	newexpr->args = args;
+	newexpr->location = -1;
 
 	return evaluate_expr((Expr *) newexpr, result_type, result_typmod);
 }
@@ -3795,7 +3810,7 @@ inline_function(Oid funcid, Oid result_type, List *args,
 	 */
 	sqlerrcontext.callback = sql_inline_error_callback;
 	/* XXX XXX: could pass the pcqCtx or prosrc directly here to avoid
-	 * SysCacheGetAttr 
+	 * SysCacheGetAttr
 	 */
 	sqlerrcontext.arg = func_tuple;
 	sqlerrcontext.previous = error_context_stack;
@@ -4216,19 +4231,19 @@ flatten_join_alias_var_optimizer(Query *query, int queryLevel)
 	 * 4. scatterClause
 	 * 5. limit offset
 	 * 6. limit count
-	 * 
-	 * We flatten the above expressions since these entries may be moved during the query 
-	 * normalization step before algebrization. In contrast, the planner flattens alias 
-	 * inside quals to allow predicates involving such vars to be pushed down. 
-	 * 
+	 *
+	 * We flatten the above expressions since these entries may be moved during the query
+	 * normalization step before algebrization. In contrast, the planner flattens alias
+	 * inside quals to allow predicates involving such vars to be pushed down.
+	 *
 	 * Here we ignore the flattening of quals due to the following reasons:
 	 * 1. we assume that the function will be called before Query->DXL translation:
-	 * 2. the quals never gets moved from old query to the new top-level query in the 
-	 * query normalization phase before algebrization. In other words, the quals hang of 
+	 * 2. the quals never gets moved from old query to the new top-level query in the
+	 * query normalization phase before algebrization. In other words, the quals hang of
 	 * the same query structure that is now the new derived table.
-	 * 3. the algebrizer can resolve the abiquity of join aliases in quals since we maintain 
+	 * 3. the algebrizer can resolve the abiquity of join aliases in quals since we maintain
 	 * all combinations of <query level, varno, varattno> to DXL-ColId during Query->DXL translation.
-	 * 
+	 *
 	 */
 
 	List *targetList = queryNew->targetList;
@@ -4300,7 +4315,7 @@ flatten_join_alias_var_optimizer(Query *query, int queryLevel)
     return queryNew;
 }
 
-/* 
+/*
  * Does grp contain GroupingClause or not? Useful for indentifying use of
  * ROLLUP, CUBE and grouping sets.
  */
@@ -4317,9 +4332,9 @@ contain_grouping_clause_walker(Node *node, void *context)
 		return false;
 	else if (IsA(node, GroupingClause))
 		return true;			/* abort the tree traversal and return true */
-	
+
 	Assert(!IsA(node, SubLink));
-	return expression_tree_walker(node, contain_grouping_clause_walker, 
+	return expression_tree_walker(node, contain_grouping_clause_walker,
 								  context);
 }
 
@@ -4442,15 +4457,15 @@ is_builtin_greenplum_hashable_equality_between_same_type(int opno)
 /*
         these types are greenplum hashable but haven't checked the semantics of these types function
         case ACLITEMOID:
-        case ANYARRAYOID: 
-        case INT2VECTOROID: 
-        case OIDVECTOROID: 
-        case REGPROCOID: 
-        case REGPROCEDUREOID: 
-        case REGOPEROID: 
-        case REGOPERATOROID: 
-        case REGCLASSOID: 
-        case REGTYPEOID: 
+        case ANYARRAYOID:
+        case INT2VECTOROID:
+        case OIDVECTOROID:
+        case REGPROCOID:
+        case REGPROCEDUREOID:
+        case REGOPEROID:
+        case REGOPERATOROID:
+        case REGCLASSOID:
+        case REGTYPEOID:
   */
         default:
 

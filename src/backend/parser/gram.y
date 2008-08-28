@@ -103,15 +103,17 @@ static bool QueryIsRule = FALSE;
  */
 /*#define __YYSCLASS*/
 
-static Node *makeColumnRef(char *colname, List *indirection, int location);
+static Node *makeColumnRef(char *relname, List *indirection, int location);
 static Node *makeTypeCast(Node *arg, TypeName *typename, int location);
 static Node *makeStringConst(char *str, TypeName *typename, int location);
+static Node *makeStringConstCast(char *str, int location, TypeName *typename);
 static Node *makeIntConst(int val, int location);
 static Node *makeFloatConst(char *str, int location);
+static Node *makeBitStringConst(char *str, int location);
 static Node *makeNullAConst(int location);
 static Node *makeAConst(Value *v, int location);
 static Node *makeAArrayExpr(List *elements, int location);
-static A_Const *makeBoolAConst(bool state, int location);
+static Node *makeBoolAConst(bool state, int location);
 static FuncCall *makeOverlaps(List *largs, List *rargs, int location);
 static void check_qualified_name(List *names);
 static List *check_func_name(List *names);
@@ -185,7 +187,7 @@ static Node *makeIsNotDistinctFromNode(Node *expr, int position);
 		CreateOpFamilyStmt AlterOpFamilyStmt CreatePLangStmt
 		CreateQueueStmt CreateResourceGroupStmt CreateSchemaStmt CreateSeqStmt CreateStmt
 		CreateTableSpaceStmt
-		CreateAssertStmt CreateTrigStmt 
+		CreateAssertStmt CreateTrigStmt
 		CreateUserStmt CreateRoleStmt
 		CreatedbStmt DeclareCursorStmt DefineStmt DeleteStmt DiscardStmt DoStmt
 		DropGroupStmt DropOpClassStmt DropOpFamilyStmt DropPLangStmt DropQueueStmt DropResourceGroupStmt DropStmt
@@ -205,7 +207,7 @@ static Node *makeIsNotDistinctFromNode(Node *expr, int position);
 		DeallocateStmt PrepareStmt ExecuteStmt
 		DropOwnedStmt ReassignOwnedStmt
 		AlterTSConfigurationStmt AlterTSDictionaryStmt
-		AlterTypeStmt 
+		AlterTypeStmt
 
 %type <node>    deny_login_role deny_interval deny_point deny_day_specifier
 
@@ -370,7 +372,7 @@ static Node *makeIsNotDistinctFromNode(Node *expr, int position);
 %type <node>	window_spec
 %type <node>	window_frame_extent
 				window_frame_start window_frame_preceding window_frame_between
-				window_frame_bound window_frame_following 
+				window_frame_bound window_frame_following
 				window_frame_clause opt_window_frame_clause
 %type <list>	window_partition_clause opt_window_partition_clause
 				opt_window_order_clause
@@ -411,7 +413,7 @@ static Node *makeIsNotDistinctFromNode(Node *expr, int position);
 %type <str>		QueueId
 %type <list>	var_list
 %type <str>		ColId ColLabel ColLabelNoAs var_name type_function_name param_name
-%type <keyword> PartitionIdentKeyword	
+%type <keyword> PartitionIdentKeyword
 %type <str>		PartitionColId
 %type <node>	var_value zone_value
 
@@ -433,13 +435,13 @@ static Node *makeIsNotDistinctFromNode(Node *expr, int position);
 %type <str>		OptTableSpace OptConsTableSpace OptOwner
 %type <list>    FileSpaceSegList
 %type <node>    FileSpaceSeg
-%type <list>    DistributedBy OptDistributedBy 
+%type <list>    DistributedBy OptDistributedBy
 %type <ival>	TabPartitionByType OptTabPartitionRangeInclusive
-%type <node>	OptTabPartitionBy TabSubPartitionBy 
+%type <node>	OptTabPartitionBy TabSubPartitionBy
 				tab_part_val tab_part_val_no_paran
 %type <node>	list_subparts opt_list_subparts
 %type <list>	opt_check_option
-%type <node>	OptTabPartitionsNumber OptTabSubPartitionsNumber 
+%type <node>	OptTabPartitionsNumber OptTabSubPartitionsNumber
 %type <node>	OptTabPartitionSpec OptTabSubPartitionSpec TabSubPartitionTemplate      /* PartitionSpec */
 %type <list>	TabPartitionElemList TabSubPartitionElemList /* list of PartitionElem */
 
@@ -453,7 +455,7 @@ static Node *makeIsNotDistinctFromNode(Node *expr, int position);
 				OptTabPartitionBoundarySpecEnd        /* PartitionRangeItem */
 %type <node> 	OptTabPartitionBoundarySpecEvery      /* PartitionRangeItem */
 %type <str> 	TabPartitionNameDecl TabSubPartitionNameDecl
-				TabPartitionDefaultNameDecl TabSubPartitionDefaultNameDecl 
+				TabPartitionDefaultNameDecl TabSubPartitionDefaultNameDecl
 %type <node>	opt_table_partition_merge_into
 				table_partition_modify
 				opt_table_partition_split_into
@@ -970,7 +972,7 @@ static Node *makeIsNotDistinctFromNode(Node *expr, int position);
 			%nonassoc LOG_P
 			%nonassoc OUTER_P
 			%nonassoc VERBOSE
-			
+
 
 
 %left		Op OPERATOR		/* multi-character ops and user-defined operators */
@@ -1141,26 +1143,26 @@ CreateQueueStmt:
 				{
 					CreateQueueStmt *n = makeNode(CreateQueueStmt);
 					DefElem         *def1 = /* mark start of WITH items */
-						makeDefElem("withliststart", 
+						makeDefElem("withliststart",
 									(Node *)makeInteger(TRUE));
 					n->queue = $4;
-					n->options = list_concat(lappend($5, def1), NULL); 
+					n->options = list_concat(lappend($5, def1), NULL);
 					$$ = (Node *)n;
 				}
 			| CREATE RESOURCE QUEUE QueueId OptQueueList WITH definition
 				{
 					CreateQueueStmt *n    = makeNode(CreateQueueStmt);
 					DefElem         *def1 = /* mark start of WITH items */
-						makeDefElem("withliststart", 
+						makeDefElem("withliststart",
 									(Node *)makeInteger(TRUE));
 					n->queue = $4;
-					n->options = list_concat(lappend($5, def1), $7); 
+					n->options = list_concat(lappend($5, def1), $7);
 					$$ = (Node *)n;
 				}
 		;
 
 /*
- * Options for CREATE and ALTER RESOURCE QUEUE 
+ * Options for CREATE and ALTER RESOURCE QUEUE
  */
 OptQueueList:
 			OptQueueList OptQueueElem				{ $$ = lappend($1, $2); }
@@ -1213,42 +1215,42 @@ AlterQueueStmt:
 				 {
 					AlterQueueStmt *n    = makeNode(AlterQueueStmt);
 					DefElem        *def1 = /* mark start of WITH items */
-						makeDefElem("withliststart", 
+						makeDefElem("withliststart",
 									(Node *)makeInteger(TRUE));
 					DefElem        *def2 = /* mark start of WITHOUT items */
-						makeDefElem("withoutliststart", 
+						makeDefElem("withoutliststart",
 									(Node *)makeInteger(TRUE));
 					n->queue = $4;
-					n->options = list_concat(lappend($5, def1), $7); 
-					n->options = lappend(n->options, def2); 
+					n->options = list_concat(lappend($5, def1), $7);
+					n->options = lappend(n->options, def2);
 					$$ = (Node *)n;
 				 }
 			| ALTER RESOURCE QUEUE QueueId OptQueueList WITHOUT definition
 				 {
 					AlterQueueStmt *n    = makeNode(AlterQueueStmt);
 					DefElem        *def1 = /* mark start of WITH items */
-						makeDefElem("withliststart", 
+						makeDefElem("withliststart",
 									(Node *)makeInteger(TRUE));
 					DefElem        *def2 = /* mark start of WITHOUT items */
-						makeDefElem("withoutliststart", 
+						makeDefElem("withoutliststart",
 									(Node *)makeInteger(TRUE));
 					n->queue = $4;
-					n->options = lappend($5, def1); 
-					n->options = list_concat(lappend(n->options, def2), $7); 
+					n->options = lappend($5, def1);
+					n->options = list_concat(lappend(n->options, def2), $7);
 					$$ = (Node *)n;
 				 }
-			| ALTER RESOURCE QUEUE QueueId OptQueueList WITH definition 
+			| ALTER RESOURCE QUEUE QueueId OptQueueList WITH definition
 			  WITHOUT definition
 				 {
 					AlterQueueStmt *n    = makeNode(AlterQueueStmt);
 					DefElem        *def1 = /* mark start of WITH items */
-						makeDefElem("withliststart", 
+						makeDefElem("withliststart",
 									(Node *)makeInteger(TRUE));
 					DefElem        *def2 = /* mark start of WITHOUT items */
-						makeDefElem("withoutliststart", 
+						makeDefElem("withoutliststart",
 									(Node *)makeInteger(TRUE));
 					n->queue = $4;
-					n->options = list_concat(lappend($5, def1), $7); 
+					n->options = list_concat(lappend($5, def1), $7);
 					n->options = list_concat(lappend(n->options, def2), $9);
 					$$ = (Node *)n;
 				 }
@@ -1483,7 +1485,7 @@ OptRoleElem:
 			| NOCREATEEXTTABLE exttab_auth_list
 				{
 					$$ = makeDefElem("exttabnoauth", (Node *)$2);
-				}			
+				}
 			| deny_login_role
 				{
 					$$ = makeDefElem("deny", (Node *)$1);
@@ -2228,7 +2230,7 @@ alter_table_cmd:
 				{
 					ColumnDef *colDef = makeNode(ColumnDef);
 					colDef->raw_default = $4;
-					
+
 					AlterTableCmd *n = makeNode(AlterTableCmd);
 					n->subtype = AT_ColumnDefault;
 					n->name = $3;
@@ -2474,10 +2476,10 @@ alter_table_cmd:
 				}
 		;
 
-opt_table_partition_split_into: 
-			INTO '(' 
+opt_table_partition_split_into:
+			INTO '('
             alter_table_partition_id_spec_with_opt_default ','
-            alter_table_partition_id_spec_with_opt_default ')'	
+            alter_table_partition_id_spec_with_opt_default ')'
 				{
                     /* re-use alterpartitioncmd struct here... */
 					AlterPartitionCmd *pc = makeNode(AlterPartitionCmd);
@@ -2490,8 +2492,8 @@ opt_table_partition_split_into:
 			| /*EMPTY*/						{ $$ = NULL; /* default */ }
 		;
 
-opt_table_partition_merge_into: 
-			INTO 
+opt_table_partition_merge_into:
+			INTO
             alter_table_partition_id_spec_with_opt_default
 				{
                     /* re-use alterpartitioncmd struct here... */
@@ -2509,12 +2511,12 @@ opt_table_partition_merge_into:
 table_partition_modify:
 			TabPartitionBoundarySpecStart
             OptTabPartitionBoundarySpecEnd
-            OptTabPartitionBoundarySpecEvery  
+            OptTabPartitionBoundarySpecEvery
 				{
                     /* re-use alterpartitioncmd struct here... */
 					AlterPartitionCmd  *pc = makeNode(AlterPartitionCmd);
-                    PartitionBoundSpec *bs = makeNode(PartitionBoundSpec); 
-                    PartitionElem      *n  = makeNode(PartitionElem); 
+                    PartitionBoundSpec *bs = makeNode(PartitionBoundSpec);
+                    PartitionElem      *n  = makeNode(PartitionElem);
 
                     n->partName  = NULL;
                     n->boundSpec = (Node *)bs;
@@ -2527,7 +2529,7 @@ table_partition_modify:
                     bs->partStart = $1;
                     bs->partEnd   = $2;
                     bs->partEvery = $3;
-                    bs->everyGenList = NIL; 
+                    bs->everyGenList = NIL;
                     bs->pWithTnameStr = NULL;
                     bs->location  = @1;
 
@@ -2538,12 +2540,12 @@ table_partition_modify:
 					$$ = (Node *)pc;
                 }
 			| TabPartitionBoundarySpecEnd
-              OptTabPartitionBoundarySpecEvery	
+              OptTabPartitionBoundarySpecEvery
 				{
                     /* re-use alterpartitioncmd struct here... */
 					AlterPartitionCmd  *pc = makeNode(AlterPartitionCmd);
-                    PartitionBoundSpec *bs = makeNode(PartitionBoundSpec); 
-                    PartitionElem      *n  = makeNode(PartitionElem); 
+                    PartitionBoundSpec *bs = makeNode(PartitionBoundSpec);
+                    PartitionElem      *n  = makeNode(PartitionElem);
 
                     n->partName  = NULL;
                     n->boundSpec = (Node *)bs;
@@ -2556,7 +2558,7 @@ table_partition_modify:
                     bs->partStart = NULL;
                     bs->partEnd   = $1;
                     bs->partEvery = $2;
-                    bs->everyGenList = NIL; 
+                    bs->everyGenList = NIL;
                     bs->pWithTnameStr = NULL;
                     bs->location  = @1;
 
@@ -2570,8 +2572,8 @@ table_partition_modify:
 				{
                     /* re-use alterpartitioncmd struct here... */
 					AlterPartitionCmd   *pc = makeNode(AlterPartitionCmd);
-                    PartitionValuesSpec *vs = makeNode(PartitionValuesSpec); 
-                    PartitionElem       *n  = makeNode(PartitionElem); 
+                    PartitionValuesSpec *vs = makeNode(PartitionValuesSpec);
+                    PartitionElem       *n  = makeNode(PartitionElem);
 
                     n->partName  = NULL;
                     n->boundSpec = (Node *)vs;
@@ -2595,13 +2597,13 @@ table_partition_modify:
                 }
 		;
 
-opt_table_partition_exchange_validate: 
+opt_table_partition_exchange_validate:
 			WITH VALIDATION						{ $$ = +1; }
 			| WITHOUT VALIDATION				{ $$ = +0; }
 			| /*EMPTY*/							{ $$ = +1; /* default */ }
 		;
 
-alter_table_partition_id_spec: 
+alter_table_partition_id_spec:
 			PartitionColId
 				{
 					AlterPartitionId *n = makeNode(AlterPartitionId);
@@ -2610,8 +2612,8 @@ alter_table_partition_id_spec:
                     n->location  = @1;
 					$$ = (Node *)n;
 				}
-            | FOR 
-            '(' TabPartitionBoundarySpecValList ')'	
+            | FOR
+            '(' TabPartitionBoundarySpecValList ')'
 				{
 					AlterPartitionId *n = makeNode(AlterPartitionId);
 					n->idtype = AT_AP_IDValue;
@@ -2689,7 +2691,7 @@ alter_table_partition_id_spec_with_opt_default:
                                     "or value for a DEFAULT partition "
                                     "in this context")));
 				}
-			| DEFAULT PARTITION 
+			| DEFAULT PARTITION
 				{
 					AlterPartitionId *n = makeNode(AlterPartitionId);
 					n->idtype = AT_AP_IDDefault;
@@ -2700,16 +2702,16 @@ alter_table_partition_id_spec_with_opt_default:
 		;
 
 alter_table_partition_cmd:
-			ADD_P PARTITION 
+			ADD_P PARTITION
             OptTabPartitionBoundarySpec
  			OptTabPartitionStorageAttr
 			OptTabSubPartitionSpec
-           
+
 				{
 					AlterPartitionId  *pid   = makeNode(AlterPartitionId);
 					AlterPartitionCmd *pc = makeNode(AlterPartitionCmd);
 					AlterTableCmd     *n     = makeNode(AlterTableCmd);
-                    PartitionElem     *pelem = makeNode(PartitionElem); 
+                    PartitionElem     *pelem = makeNode(PartitionElem);
 
                     pid->idtype = AT_AP_IDNone;
                     pid->location = @3;
@@ -2732,16 +2734,16 @@ alter_table_partition_cmd:
 					n->def = (Node *)pc;
 					$$ = (Node *)n;
 				}
-			| ADD_P DEFAULT PARTITION 
-            alter_table_partition_id_spec 
+			| ADD_P DEFAULT PARTITION
+            alter_table_partition_id_spec
             OptTabPartitionBoundarySpec
             OptTabPartitionStorageAttr
-			OptTabSubPartitionSpec 
+			OptTabSubPartitionSpec
 				{
 					AlterPartitionId  *pid   = (AlterPartitionId *)$4;
 					AlterPartitionCmd *pc = makeNode(AlterPartitionCmd);
 					AlterTableCmd     *n     = makeNode(AlterTableCmd);
-                    PartitionElem     *pelem = makeNode(PartitionElem); 
+                    PartitionElem     *pelem = makeNode(PartitionElem);
 
                     if (pid->idtype != AT_AP_IDName)
 						ereport(ERROR,
@@ -2764,16 +2766,16 @@ alter_table_partition_cmd:
 					n->def = (Node *)pc;
 					$$ = (Node *)n;
 				}
-			| ADD_P PARTITION 
-            alter_table_partition_id_spec 
+			| ADD_P PARTITION
+            alter_table_partition_id_spec
             OptTabPartitionBoundarySpec
             OptTabPartitionStorageAttr
-			OptTabSubPartitionSpec 
+			OptTabSubPartitionSpec
 				{
 					AlterPartitionId  *pid   = (AlterPartitionId *)$3;
 					AlterPartitionCmd *pc    = makeNode(AlterPartitionCmd);
 					AlterTableCmd     *n     = makeNode(AlterTableCmd);
-                    PartitionElem     *pelem = makeNode(PartitionElem); 
+                    PartitionElem     *pelem = makeNode(PartitionElem);
 
                     if (pid->idtype != AT_AP_IDName)
 						ereport(ERROR,
@@ -2797,7 +2799,7 @@ alter_table_partition_cmd:
 					n->def = (Node *)pc;
 					$$ = (Node *)n;
 				}
-			| ALTER 
+			| ALTER
             alter_table_partition_id_spec_with_opt_default
             alter_table_cmd
 				{
@@ -2817,7 +2819,7 @@ alter_table_partition_cmd:
 					n->def = (Node *)pc;
 					$$ = (Node *)n;
 				}
-			| partition_coalesce_keyword PARTITION 	 
+			| partition_coalesce_keyword PARTITION
 				{
 					AlterPartitionId  *pid = makeNode(AlterPartitionId);
 					AlterPartitionCmd *pc = makeNode(AlterPartitionCmd);
@@ -2836,8 +2838,8 @@ alter_table_partition_cmd:
 					n->def = (Node *)pc;
 					$$ = (Node *)n;
 				}
-			| partition_coalesce_keyword PARTITION 
-            alter_table_partition_id_spec 
+			| partition_coalesce_keyword PARTITION
+            alter_table_partition_id_spec
 				{
 					AlterPartitionId *pid = (AlterPartitionId *)$3;
 					AlterPartitionCmd *pc = makeNode(AlterPartitionCmd);
@@ -2857,8 +2859,8 @@ alter_table_partition_cmd:
 					n->def = (Node *)pc;
 					$$ = (Node *)n;
 				}
-			| DROP PARTITION IF_P EXISTS 
-            alter_table_partition_id_spec	 
+			| DROP PARTITION IF_P EXISTS
+            alter_table_partition_id_spec
             opt_drop_behavior
 				{
 					AlterPartitionCmd *pc = makeNode(AlterPartitionCmd);
@@ -2868,8 +2870,8 @@ alter_table_partition_cmd:
 					ds->missing_ok = TRUE;
 					ds->behavior = $6;
 
-                    /* 
-                       build an (incomplete) drop statement for arg1: 
+                    /*
+                       build an (incomplete) drop statement for arg1:
                        fill in the rest after the partition id spec is
                        validated
                     */
@@ -2883,7 +2885,7 @@ alter_table_partition_cmd:
 					n->def = (Node *)pc;
 					$$ = (Node *)n;
 				}
-			| DROP DEFAULT PARTITION IF_P EXISTS 
+			| DROP DEFAULT PARTITION IF_P EXISTS
             opt_drop_behavior
 				{
 					AlterPartitionCmd *pc = makeNode(AlterPartitionCmd);
@@ -2898,8 +2900,8 @@ alter_table_partition_cmd:
 					ds->missing_ok = TRUE;
 					ds->behavior = $6;
 
-                    /* 
-                       build an (incomplete) drop statement for arg1: 
+                    /*
+                       build an (incomplete) drop statement for arg1:
                        fill in the rest after the partition id spec is
                        validated
                     */
@@ -2913,7 +2915,7 @@ alter_table_partition_cmd:
 					n->def = (Node *)pc;
 					$$ = (Node *)n;
 				}
-			| DROP 
+			| DROP
             alter_table_partition_id_spec_with_opt_default
             opt_drop_behavior
 				{
@@ -2924,8 +2926,8 @@ alter_table_partition_cmd:
 					ds->missing_ok = FALSE;
 					ds->behavior = $3;
 
-                    /* 
-                       build an (incomplete) drop statement for arg1: 
+                    /*
+                       build an (incomplete) drop statement for arg1:
                        fill in the rest after the partition id spec is
                        validated
                     */
@@ -2939,7 +2941,7 @@ alter_table_partition_cmd:
 					n->def = (Node *)pc;
 					$$ = (Node *)n;
 				}
-			| DROP PARTITION 
+			| DROP PARTITION
 				{
 					AlterPartitionCmd *pc = makeNode(AlterPartitionCmd);
 					AlterTableCmd *n = makeNode(AlterTableCmd);
@@ -2947,10 +2949,10 @@ alter_table_partition_cmd:
 					AlterPartitionId *pid = makeNode(AlterPartitionId);
 
 					ds->missing_ok = FALSE;
-					ds->behavior = DROP_RESTRICT; /* default */ 
+					ds->behavior = DROP_RESTRICT; /* default */
 
-                    /* 
-                       build an (incomplete) drop statement for arg1: 
+                    /*
+                       build an (incomplete) drop statement for arg1:
                        fill in the rest after the partition id spec is
                        validated
                     */
@@ -2968,10 +2970,10 @@ alter_table_partition_cmd:
 					n->def = (Node *)pc;
 					$$ = (Node *)n;
 				}
-			| EXCHANGE 
-            alter_table_partition_id_spec_with_opt_default 
+			| EXCHANGE
+            alter_table_partition_id_spec_with_opt_default
             WITH TABLE qualified_name
-            opt_table_partition_exchange_validate	
+            opt_table_partition_exchange_validate
 				{
 					AlterPartitionCmd *pc = makeNode(AlterPartitionCmd);
 					AlterPartitionCmd *pc2 = makeNode(AlterPartitionCmd);
@@ -2987,10 +2989,10 @@ alter_table_partition_cmd:
 					n->def = (Node *)pc;
 					$$ = (Node *)n;
 				}
-			| MERGE 
+			| MERGE
             alter_table_partition_id_spec_with_opt_default ','
             alter_table_partition_id_spec_with_opt_default
-            opt_table_partition_merge_into	
+            opt_table_partition_merge_into
 				{
 					AlterPartitionCmd *pc = makeNode(AlterPartitionCmd);
 					AlterTableCmd *n = makeNode(AlterTableCmd);
@@ -3009,7 +3011,7 @@ alter_table_partition_cmd:
 					n->def = (Node *)pc;
 					$$ = (Node *)n;
 				}
-			| MODIFY 
+			| MODIFY
             alter_table_partition_id_spec_with_opt_default
             table_partition_modify
 				{
@@ -3030,8 +3032,8 @@ alter_table_partition_cmd:
 					n->def = (Node *)pc;
 					$$ = (Node *)n;
 				}
-			| RENAME 
-            alter_table_partition_id_spec_with_opt_default TO IDENT	
+			| RENAME
+            alter_table_partition_id_spec_with_opt_default TO IDENT
 				{
 					AlterPartitionCmd *pc = makeNode(AlterPartitionCmd);
 					AlterTableCmd *n = makeNode(AlterTableCmd);
@@ -3046,25 +3048,25 @@ alter_table_partition_cmd:
 					$$ = (Node *)n;
 				}
 			| SET SUBPARTITION TEMPLATE
-            '(' TabSubPartitionElemList ')' 
+            '(' TabSubPartitionElemList ')'
 				{
 					AlterPartitionId  *pid   = makeNode(AlterPartitionId);
 					AlterPartitionCmd *pc    = makeNode(AlterPartitionCmd);
 					AlterTableCmd     *n     = makeNode(AlterTableCmd);
-                    PartitionElem     *pelem = makeNode(PartitionElem); 
-					PartitionSpec	  *ps    = makeNode(PartitionSpec); 
+                    PartitionElem     *pelem = makeNode(PartitionElem);
+					PartitionSpec	  *ps    = makeNode(PartitionSpec);
 
 					/* treat this case as similar to ADD PARTITION */
 
                     pid->idtype    = AT_AP_IDName;
                     pid->location  = @3;
-                    pid->partiddef = 
+                    pid->partiddef =
 						(Node *)makeString("subpartition_template");
 
                     pc->partid = (Node *) pid;
 
 					/* build a subpartition spec and add it to CREATE TABLE */
-					ps->partElem   = $5; 
+					ps->partElem   = $5;
 					ps->subSpec	   = NULL;
 					ps->istemplate = true;
 					ps->location   = @4;
@@ -3109,12 +3111,12 @@ alter_table_partition_cmd:
 					$$ = (Node *)n;
 				}
 			| SET SUBPARTITION TEMPLATE
-            '('  ')' 
+            '('  ')'
 				{
 					AlterPartitionCmd *pc = makeNode(AlterPartitionCmd);
 					AlterTableCmd *n = makeNode(AlterTableCmd);
 
-                    pc->partid = NULL; 
+                    pc->partid = NULL;
                     pc->arg1 = NULL;
                     pc->arg2 = NULL;
                     pc->location = @4;
@@ -3123,10 +3125,10 @@ alter_table_partition_cmd:
 					n->def = (Node *)pc;
 					$$ = (Node *)n;
 				}
-			| SPLIT 
+			| SPLIT
             DEFAULT PARTITION TabPartitionBoundarySpecStart
             TabPartitionBoundarySpecEnd
-            opt_table_partition_split_into	
+            opt_table_partition_split_into
 				{
 					AlterPartitionCmd *pc = makeNode(AlterPartitionCmd);
 					AlterTableCmd *n = makeNode(AlterTableCmd);
@@ -3145,17 +3147,17 @@ alter_table_partition_cmd:
 					n->def = (Node *)pc;
 					$$ = (Node *)n;
 				}
-			| SPLIT 
-            alter_table_partition_id_spec_with_opt_default AT 
-            '(' part_values_or_spec_list ')'	
-            opt_table_partition_split_into	
+			| SPLIT
+            alter_table_partition_id_spec_with_opt_default AT
+            '(' part_values_or_spec_list ')'
+            opt_table_partition_split_into
 				{
 					AlterPartitionCmd *pc = makeNode(AlterPartitionCmd);
 					AlterTableCmd *n = makeNode(AlterTableCmd);
 
                     pc->partid = (Node *)$2;
 
-					/* 
+					/*
 					 * The first element of the list is only defined if
 					 * we're doing default splits for range partitioning.
 				 	 */
@@ -3167,7 +3169,7 @@ alter_table_partition_cmd:
 					n->def = (Node *)pc;
 					$$ = (Node *)n;
 				}
-			| TRUNCATE 
+			| TRUNCATE
             alter_table_partition_id_spec_with_opt_default
             opt_drop_behavior
 				{
@@ -3175,8 +3177,8 @@ alter_table_partition_cmd:
 					AlterTableCmd *n = makeNode(AlterTableCmd);
 					TruncateStmt *ts = makeNode(TruncateStmt);
 
-                    /* 
-                       build an (incomplete) truncate statement for arg1: 
+                    /*
+                       build an (incomplete) truncate statement for arg1:
                        fill in the rest after the partition id spec is
                        validated
                     */
@@ -3411,7 +3413,7 @@ copy_opt_item:
 			| NEWLINE opt_as Sconst
 				{
 					$$ = makeDefElem("newline", (Node *)makeString($3));
-				}	
+				}
 			| ON SEGMENT
 				{
 					$$ = makeDefElem("on_segment", (Node *)makeInteger(TRUE));
@@ -3459,7 +3461,7 @@ opt_using:
  *****************************************************************************/
 
 CreateStmt:	CREATE OptTemp TABLE qualified_name '(' OptTableElementList ')'
-			OptInherit OptWith OnCommitOption OptTableSpace OptDistributedBy 
+			OptInherit OptWith OnCommitOption OptTableSpace OptDistributedBy
 			OptTabPartitionBy
 				{
 					CreateStmt *n = makeNode(CreateStmt);
@@ -3564,7 +3566,7 @@ column_reference_storage_directive:
 					$$ = (Node *)n;
 				}
 		;
-				
+
 columnDef:	ColId Typename ColQualList opt_storage_encoding
 				{
 					ColumnDef *n = makeNode(ColumnDef);
@@ -3870,7 +3872,7 @@ opt_column_list:
 			'(' columnList ')'						{ $$ = $2; }
 			| /*EMPTY*/								{ $$ = NIL; }
 		;
-		
+
 columnList:
 			columnElem								{ $$ = list_make1($1); }
 			| columnList ',' columnElem				{ $$ = lappend($1, $3); }
@@ -3997,7 +3999,7 @@ TabPartitionColumnEncList:
 				}
 	;
 
-OptTabPartitionStorageAttr: WITH definition TABLESPACE name 
+OptTabPartitionStorageAttr: WITH definition TABLESPACE name
 				{
                     /* re-use alterpartitioncmd struct here... */
 					AlterPartitionCmd *pc = makeNode(AlterPartitionCmd);
@@ -4017,7 +4019,7 @@ OptTabPartitionStorageAttr: WITH definition TABLESPACE name
                     pc->location = @1;
 					$$ = (Node *)pc;
  				}
-			| TABLESPACE name 
+			| TABLESPACE name
 				{
                     /* re-use alterpartitioncmd struct here... */
 					AlterPartitionCmd *pc = makeNode(AlterPartitionCmd);
@@ -4030,47 +4032,47 @@ OptTabPartitionStorageAttr: WITH definition TABLESPACE name
 			| /*EMPTY*/ { $$ = NULL; }
 		;
 
-OptTabPartitionsNumber: PARTITIONS IntegerOnly 		
+OptTabPartitionsNumber: PARTITIONS IntegerOnly
 				{
                     /* special rule to disable the use of HASH partitioned
-                       tables with nice syntax error.  
+                       tables with nice syntax error.
 
                        XXX XXX REMOVE when HASH partitions are in
-                       production 
+                       production
                     */
 
                     if (!gp_enable_hash_partitioned_tables)
                     {
                         yyerror("syntax error");
                     }
-                    
-                    $$ = makeAConst($2, @2); 
+
+                    $$ = makeAConst($2, @2);
 				}
 			| /*EMPTY*/								{ $$ = NULL; }
 		;
 
-OptTabSubPartitionsNumber: SUBPARTITIONS IntegerOnly 
+OptTabSubPartitionsNumber: SUBPARTITIONS IntegerOnly
 				{
                     /* special rule to disable the use of HASH partitioned
-                       tables with nice syntax error.  
+                       tables with nice syntax error.
 
                        XXX XXX REMOVE when HASH partitions are in
-                       production 
+                       production
                     */
 
                     if (!gp_enable_hash_partitioned_tables)
                     {
                         yyerror("syntax error");
                     }
-                    
-                    $$ = makeAConst($2, @2); 
+
+                    $$ = makeAConst($2, @2);
                 }
 			| /*EMPTY*/								{ $$ = NULL; }
 		;
 
 OptTabPartitionSpec: '(' TabPartitionElemList ')'
 				{
-                        PartitionSpec *n = makeNode(PartitionSpec); 
+                        PartitionSpec *n = makeNode(PartitionSpec);
                         n->partElem  = $2;
                         n->subSpec   = NULL;
                         n->location  = @2;
@@ -4079,10 +4081,10 @@ OptTabPartitionSpec: '(' TabPartitionElemList ')'
 			| /*EMPTY*/								{ $$ = NULL; }
 		;
 
-OptTabSubPartitionSpec: 
-            '(' TabSubPartitionElemList ')' 
+OptTabSubPartitionSpec:
+            '(' TabSubPartitionElemList ')'
 				{
-                        PartitionSpec *n = makeNode(PartitionSpec); 
+                        PartitionSpec *n = makeNode(PartitionSpec);
                         n->partElem  = $2;
                         n->subSpec   = NULL;
                         n->location  = @2;
@@ -4093,23 +4095,23 @@ OptTabSubPartitionSpec:
 
 TabPartitionElemList:
             TabPartitionElem						{ $$ = list_make1($1); }
-			| TabPartitionElemList ',' 
+			| TabPartitionElemList ','
               TabPartitionElem						{ $$ = lappend($1, $3); }
 		;
 TabSubPartitionElemList:
             TabSubPartitionElem						{ $$ = list_make1($1); }
-			| TabSubPartitionElemList ',' 
+			| TabSubPartitionElemList ','
               TabSubPartitionElem					{ $$ = lappend($1, $3); }
 		;
 
 tab_part_val_no_paran: AexprConst { $$ = $1; }
 			| CAST '(' tab_part_val AS Typename ')'
-				{ 
+				{
 					$$ = makeTypeCast($3, $5, @4);
 				}
 			| tab_part_val_no_paran TYPECAST Typename
-				{ 
-					$$ = makeTypeCast($1, $3, @2); 
+				{
+					$$ = makeTypeCast($1, $3, @2);
 				}
 			| '-' tab_part_val_no_paran { $$ = doNegate($2, @1); }
 		;
@@ -4117,15 +4119,15 @@ tab_part_val_no_paran: AexprConst { $$ = $1; }
 tab_part_val: tab_part_val_no_paran { $$ = $1; }
 			| '(' tab_part_val_no_paran ')' { $$ = $2; }
 			| '(' tab_part_val_no_paran ')' TYPECAST Typename
-				{ 
-					$$ = makeTypeCast($2, $5, @4); 
+				{
+					$$ = makeTypeCast($2, $5, @4);
 				}
-		; 
-		
+		;
+
 
 TabPartitionBoundarySpecValList:
               tab_part_val				{ $$ = list_make1($1); }
-			| TabPartitionBoundarySpecValList ',' 
+			| TabPartitionBoundarySpecValList ','
               tab_part_val				{ $$ = lappend($1, $3); }
 		;
 
@@ -4142,11 +4144,11 @@ OptTabPartitionRangeInclusive:
 		;
 
 TabPartitionBoundarySpecStart:
-			START 
-            '(' OptTabPartitionBoundarySpecValList ')' 
+			START
+            '(' OptTabPartitionBoundarySpecValList ')'
 			OptTabPartitionRangeInclusive
 				{
-                        PartitionRangeItem *n = makeNode(PartitionRangeItem); 
+                        PartitionRangeItem *n = makeNode(PartitionRangeItem);
                         n->partRangeVal  = $3;
                         if (!($5))
                             n->partedge = PART_EDGE_INCLUSIVE;
@@ -4158,11 +4160,11 @@ TabPartitionBoundarySpecStart:
             ;
 
 TabPartitionBoundarySpecEnd:
-			END_P 
-            '(' OptTabPartitionBoundarySpecValList ')' 
+			END_P
+            '(' OptTabPartitionBoundarySpecValList ')'
 			OptTabPartitionRangeInclusive
 				{
-                        PartitionRangeItem *n = makeNode(PartitionRangeItem); 
+                        PartitionRangeItem *n = makeNode(PartitionRangeItem);
                         n->partRangeVal  = $3;
                         if (!($5))
                             n->partedge = PART_EDGE_EXCLUSIVE;
@@ -4174,9 +4176,9 @@ TabPartitionBoundarySpecEnd:
             ;
 
 OptTabPartitionBoundarySpecEvery:
-            EVERY '(' TabPartitionBoundarySpecValList ')' 
+            EVERY '(' TabPartitionBoundarySpecValList ')'
 				{
-                        PartitionRangeItem *n = makeNode(PartitionRangeItem); 
+                        PartitionRangeItem *n = makeNode(PartitionRangeItem);
                         n->partRangeVal  = $3;
                         n->location  = @1;
 
@@ -4194,7 +4196,7 @@ OptTabPartitionBoundarySpecEnd:
 TabPartitionBoundarySpec:
 			part_values_clause
 				{
-                        PartitionValuesSpec *n = makeNode(PartitionValuesSpec); 
+                        PartitionValuesSpec *n = makeNode(PartitionValuesSpec);
 
                         n->partValues = $1;
                         n->location  = @1;
@@ -4202,25 +4204,25 @@ TabPartitionBoundarySpec:
 				}
 			| TabPartitionBoundarySpecStart
               OptTabPartitionBoundarySpecEnd
-              OptTabPartitionBoundarySpecEvery  
+              OptTabPartitionBoundarySpecEvery
 				{
-                        PartitionBoundSpec *n = makeNode(PartitionBoundSpec); 
+                        PartitionBoundSpec *n = makeNode(PartitionBoundSpec);
                         n->partStart = $1;
                         n->partEnd   = $2;
                         n->partEvery = $3;
-                        n->everyGenList = NIL; 
+                        n->everyGenList = NIL;
 						n->pWithTnameStr = NULL;
                         n->location  = @1;
                         $$ = (Node *)n;
 				}
 			| TabPartitionBoundarySpecEnd
-              OptTabPartitionBoundarySpecEvery	
+              OptTabPartitionBoundarySpecEvery
 				{
-                        PartitionBoundSpec *n = makeNode(PartitionBoundSpec); 
+                        PartitionBoundSpec *n = makeNode(PartitionBoundSpec);
                         n->partStart = NULL;
                         n->partEnd   = $1;
                         n->partEvery = $2;
-                        n->everyGenList = NIL; 
+                        n->everyGenList = NIL;
 						n->pWithTnameStr = NULL;
                         n->location  = @1;
                         $$ = (Node *)n;
@@ -4280,13 +4282,13 @@ part_values_or_spec_list: TabPartitionBoundarySpecValList { $$ = $1; }
 		;
 
 /* a "Partition Element" closely corresponds to a "Partition Declaration" */
-TabPartitionElem: 
-            TabPartitionNameDecl 
+TabPartitionElem:
+            TabPartitionNameDecl
             OptTabPartitionBoundarySpec	OptTabPartitionStorageAttr
 			OptTabPartitionColumnEncList
-			OptTabSubPartitionSpec 
+			OptTabSubPartitionSpec
 				{
-                        PartitionElem *n = makeNode(PartitionElem); 
+                        PartitionElem *n = makeNode(PartitionElem);
                         n->partName  = $1;
                         n->boundSpec = $2;
                         n->subSpec   = $5;
@@ -4299,13 +4301,13 @@ TabPartitionElem:
 				}
 
 /* allow boundary spec for default partition in parser, but complain later */
-			| TabPartitionDefaultNameDecl 
+			| TabPartitionDefaultNameDecl
               OptTabPartitionBoundarySpec
               OptTabPartitionStorageAttr
 			  OptTabPartitionColumnEncList
-			  OptTabSubPartitionSpec 
+			  OptTabSubPartitionSpec
 				{
-                        PartitionElem *n = makeNode(PartitionElem); 
+                        PartitionElem *n = makeNode(PartitionElem);
                         n->partName  = $1;
                         n->boundSpec = $2;
                         n->subSpec   = $5;
@@ -4315,12 +4317,12 @@ TabPartitionElem:
                         n->colencs   = $4;
                         $$ = (Node *)n;
 				}
-			| TabPartitionBoundarySpec 
+			| TabPartitionBoundarySpec
               OptTabPartitionStorageAttr
 			  OptTabPartitionColumnEncList
-			  OptTabSubPartitionSpec 
+			  OptTabSubPartitionSpec
 				{
-                        PartitionElem *n = makeNode(PartitionElem); 
+                        PartitionElem *n = makeNode(PartitionElem);
                         n->partName  = NULL;
                         n->boundSpec = $1;
                         n->subSpec   = $4;
@@ -4337,13 +4339,13 @@ TabPartitionElem:
 				}
             ;
 
-TabSubPartitionElem: 
-            TabSubPartitionNameDecl OptTabPartitionBoundarySpec	
+TabSubPartitionElem:
+            TabSubPartitionNameDecl OptTabPartitionBoundarySpec
 			OptTabPartitionStorageAttr
 			OptTabPartitionColumnEncList
             OptTabSubPartitionSpec
 				{
-                        PartitionElem *n = makeNode(PartitionElem); 
+                        PartitionElem *n = makeNode(PartitionElem);
                         n->partName  = $1;
                         n->boundSpec = $2;
                         n->subSpec   = $5;
@@ -4355,12 +4357,12 @@ TabSubPartitionElem:
                         $$ = (Node *)n;
 				}
 /* allow boundary spec for default partition in parser, but complain later */
-			| TabSubPartitionDefaultNameDecl OptTabPartitionBoundarySpec	
+			| TabSubPartitionDefaultNameDecl OptTabPartitionBoundarySpec
  			  OptTabPartitionStorageAttr
 			  OptTabPartitionColumnEncList
               OptTabSubPartitionSpec
 				{
-                        PartitionElem *n = makeNode(PartitionElem); 
+                        PartitionElem *n = makeNode(PartitionElem);
                         n->partName  = $1;
                         n->boundSpec = $2;
                         n->subSpec   = $5;
@@ -4374,9 +4376,9 @@ TabSubPartitionElem:
 			| TabPartitionBoundarySpec
               OptTabPartitionStorageAttr
 			  OptTabPartitionColumnEncList
- 			  OptTabSubPartitionSpec	
+ 			  OptTabSubPartitionSpec
 				{
-                        PartitionElem *n = makeNode(PartitionElem); 
+                        PartitionElem *n = makeNode(PartitionElem);
                         n->partName  = NULL;
                         n->boundSpec = $1;
                         n->subSpec   = $4;
@@ -4419,10 +4421,10 @@ TabSubPartitionDefaultNameDecl: DEFAULT SUBPARTITION PartitionColId
 partition_hash_keyword: 			HASH
 				{
                     /* special rule to disable the use of HASH partitioned
-                       tables with nice syntax error.  
+                       tables with nice syntax error.
 
                        XXX XXX REMOVE when HASH partitions are in
-                       production 
+                       production
                     */
 
                     if (!gp_enable_hash_partitioned_tables)
@@ -4437,10 +4439,10 @@ partition_hash_keyword: 			HASH
 partition_coalesce_keyword: 			COALESCE
 				{
                     /* special rule to disable the use of HASH partitioned
-                       tables with nice syntax error.  
+                       tables with nice syntax error.
 
                        XXX XXX REMOVE when HASH partitions are in
-                       production 
+                       production
                     */
 
                     if (!gp_enable_hash_partitioned_tables)
@@ -4458,7 +4460,7 @@ TabPartitionByType:
 			| LIST				{ $$ = PARTTYP_LIST; }
 			| /*EMPTY*/
 				{
-					$$ = PARTTYP_RANGE; 
+					$$ = PARTTYP_RANGE;
 
                     if (!gp_enable_hash_partitioned_tables)
                         ereport(ERROR,
@@ -4469,21 +4471,21 @@ TabPartitionByType:
                             (errcode(ERRCODE_SYNTAX_ERROR),
                              errmsg("PARTITION BY must specify RANGE, HASH, or LIST")));
 
-                    
+
 				}
 		;
 
 OptTabPartitionBy:
-			PARTITION BY 
-            TabPartitionByType '(' columnList ')' 
-            OptTabPartitionsNumber 
+			PARTITION BY
+            TabPartitionByType '(' columnList ')'
+            OptTabPartitionsNumber
 			opt_list_subparts
-            OptTabPartitionSpec						
+            OptTabPartitionSpec
 				{
-					PartitionBy *n = makeNode(PartitionBy); 
-						
+					PartitionBy *n = makeNode(PartitionBy);
+
 					n->partType = $3;
-					n->keys     = $5; 
+					n->keys     = $5;
 					n->partNum  = $7;
 					n->subPart  = $8;
 					if (PointerIsValid(n->subPart) &&
@@ -4501,10 +4503,10 @@ OptTabPartitionBy:
 		;
 
 TabSubPartitionTemplate:
-			SUBPARTITION TEMPLATE 
-            '(' TabSubPartitionElemList ')' 
+			SUBPARTITION TEMPLATE
+            '(' TabSubPartitionElemList ')'
 				{
-					PartitionSpec *n = makeNode(PartitionSpec); 
+					PartitionSpec *n = makeNode(PartitionSpec);
 					n->partElem  = $4;
 					n->subSpec   = NULL;
 					n->istemplate  = true;
@@ -4571,13 +4573,13 @@ list_subparts: TabSubPartitionBy { $$ = $1; }
 		;
 
 TabSubPartitionBy:
-			SUBPARTITION BY 
-            TabPartitionByType '(' columnList ')' 
-            OptTabSubPartitionsNumber 
+			SUBPARTITION BY
+            TabPartitionByType '(' columnList ')'
+            OptTabSubPartitionsNumber
 				{
-                        PartitionBy *n = makeNode(PartitionBy); 
+                        PartitionBy *n = makeNode(PartitionBy);
                         n->partType = $3;
-                        n->keys     = $5; 
+                        n->keys     = $5;
                         n->partNum  = $7;
                         n->subPart  = NULL;
                         n->partSpec = NULL;
@@ -4621,13 +4623,13 @@ CreateAsStmt:
 					if (!$7)
 						((SelectStmt *) $6)->limitCount = makeIntConst(0, -1);
 					n->distributedBy = $8;
-					
+
 					if ($9)
 						ereport(ERROR,
                                 (errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 								 errmsg("Cannot create a partitioned table using CREATE TABLE AS SELECT"),
                                  errhint("Use CREATE TABLE...LIKE (followed by INSERT...SELECT) instead")));
-					
+
 					$$ = $6;
 				}
 		;
@@ -4682,8 +4684,8 @@ opt_with_data:
  *				CREATE EXTERNAL [WEB] TABLE relname
  *
  *****************************************************************************/
-	
-CreateExternalStmt:	CREATE OptWritable EXTERNAL OptWeb OptTemp TABLE qualified_name '(' OptExtTableElementList ')' 
+
+CreateExternalStmt:	CREATE OptWritable EXTERNAL OptWeb OptTemp TABLE qualified_name '(' OptExtTableElementList ')'
 					ExtTypedesc FORMAT Sconst format_opt ext_options_opt ext_opt_encoding_list OptSingleRowErrorHandling OptDistributedBy
 						{
 							CreateExternalStmt *n = makeNode(CreateExternalStmt);
@@ -4700,38 +4702,38 @@ CreateExternalStmt:	CREATE OptWritable EXTERNAL OptWeb OptTemp TABLE qualified_n
 							n->sreh = $17;
 							n->distributedBy = $18;
 							n->policy = 0;
-							
+
 							/* various syntax checks for EXECUTE external table */
 							if(((ExtTableTypeDesc *) n->exttypedesc)->exttabletype == EXTTBL_TYPE_EXECUTE)
 							{
 								ExtTableTypeDesc *extdesc = (ExtTableTypeDesc *) n->exttypedesc;
-								
+
 								if(!n->isweb)
 									ereport(ERROR,
 											(errcode(ERRCODE_SYNTAX_ERROR),
 										 	 errmsg("EXECUTE may not be used with a regular external table"),
-										 	 errhint("Use CREATE EXTERNAL WEB TABLE instead")));							
-								
+										 	 errhint("Use CREATE EXTERNAL WEB TABLE instead")));
+
 								/* if no ON clause specified, default to "ON ALL" */
 								if(extdesc->on_clause == NIL)
-								{									
-									extdesc->on_clause = lappend(extdesc->on_clause, 
+								{
+									extdesc->on_clause = lappend(extdesc->on_clause,
 										   				   		 makeDefElem("all", (Node *)makeInteger(TRUE)));
 								}
 								else if(n->iswritable)
 								{
 									ereport(ERROR,
 											(errcode(ERRCODE_SYNTAX_ERROR),
-									 		 errmsg("ON clause may not be used with a writable external table")));							
+									 		 errmsg("ON clause may not be used with a writable external table")));
 								}
 							}
 
 							if(n->sreh && n->iswritable)
 								ereport(ERROR,
 										(errcode(ERRCODE_SYNTAX_ERROR),
-										 errmsg("Single row error handling may not be used with a writable external table")));							
-							
-							$$ = (Node *)n;							
+										 errmsg("Single row error handling may not be used with a writable external table")));
+
+							$$ = (Node *)n;
 						}
 						;
 
@@ -4749,20 +4751,20 @@ ExtTypedesc:
 			{
 				ExtTableTypeDesc *n = makeNode(ExtTableTypeDesc);
 				n->exttabletype = EXTTBL_TYPE_LOCATION;
-				n->location_list = $3; 
+				n->location_list = $3;
 				n->on_clause = $5;
 				n->command_string = NULL;
 				$$ = (Node *)n;
-	
+
 			}
 			| EXECUTE Sconst ext_on_clause_list
 			{
 				ExtTableTypeDesc *n = makeNode(ExtTableTypeDesc);
 				n->exttabletype = EXTTBL_TYPE_EXECUTE;
-				n->location_list = NIL; 
+				n->location_list = NIL;
 				n->command_string = $2;
 				n->on_clause = $3; /* default will get set later if needed */
-						
+
 				$$ = (Node *)n;
 			}
 			;
@@ -4771,9 +4773,9 @@ ext_on_clause_list:
 			ext_on_clause_list ext_on_clause_item		{ $$ = lappend($1, $2); }
 			| /*EMPTY*/									{ $$ = NIL; }
 			;
-	
+
 ext_on_clause_item:
-			ON ALL	
+			ON ALL
 			{
 				$$ = makeDefElem("all", (Node *)makeInteger(TRUE));
 			}
@@ -4799,7 +4801,7 @@ ext_on_clause_item:
 			}
 			;
 
-format_opt: 
+format_opt:
 			  '(' format_opt_list ')'			{ $$ = $2; }
 			| '(' format_def_list ')'			{ $$ = $2; }
 			| '(' ')'							{ $$ = NIL; }
@@ -4807,21 +4809,21 @@ format_opt:
 			;
 
 format_opt_list:
-			format_opt_item		
-			{ 
+			format_opt_item
+			{
 				$$ = list_make1($1);
 			}
-			| format_opt_list format_opt_item		
-			{ 
-				$$ = lappend($1, $2); 
+			| format_opt_list format_opt_item
+			{
+				$$ = lappend($1, $2);
 			}
 			;
 
 format_def_list:
-			format_def_item		
-			{ 
+			format_def_item
+			{
 				$$ = list_make1($1);
-			} 
+			}
 			| format_def_list ',' format_def_item
 			{
 				$$ = lappend($1, $3);
@@ -4942,7 +4944,7 @@ ExtcolumnDef:	ColId Typename
 			$$ = (Node *)n;
 		}
 		;
-	
+
 /*
  * Single row error handling SQL
  */
@@ -4959,7 +4961,7 @@ OptSingleRowErrorHandling:
 				ereport(ERROR,
 						(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
 						 errmsg("invalid PERCENT value. Should be (1 - 100)")));
-			
+
 			/* ROW values check */
 			if(n->is_limit_in_rows && n->rejectlimit < 2)
 			   ereport(ERROR,
@@ -4970,13 +4972,13 @@ OptSingleRowErrorHandling:
 		}
 		| /*EMPTY*/		{ $$ = NULL; }
 		;
-	
+
 OptLogErrorTable:
 		LOG_P ERRORS                        { $$ = TRUE; }
 		| /*EMPTY*/							{ $$ = FALSE; }
 		;
-	
-OptSrehLimitType:		
+
+OptSrehLimitType:
 		ROWS					{ $$ = TRUE; }
 		| PERCENT				{ $$ = FALSE; }
 		| /* default is ROWS */	{ $$ = TRUE; }
@@ -4989,7 +4991,7 @@ ext_opt_encoding_list:
 		ext_opt_encoding_list ext_opt_encoding_item		{ $$ = lappend($1, $2); }
 		| /*EMPTY*/										{ $$ = NIL; }
 		;
-	
+
 ext_opt_encoding_item:
 		ENCODING opt_equal Sconst
 		{
@@ -5193,8 +5195,8 @@ opt_procedural:
  *
  *****************************************************************************/
 
-CreateFileSpaceStmt: 
-			CREATE FILESPACE name OptOwner '(' FileSpaceSegList ')' 
+CreateFileSpaceStmt:
+			CREATE FILESPACE name OptOwner '(' FileSpaceSegList ')'
 				{
 					CreateFileSpaceStmt *n = makeNode(CreateFileSpaceStmt);
 					n->filespacename = $3;
@@ -5209,9 +5211,9 @@ FileSpaceSegList:
 			{
 				$$ = list_make1($1);
 			}
-			| FileSpaceSegList ',' FileSpaceSeg  
-			{ 
-				$$ = lappend($1, $3); 
+			| FileSpaceSegList ',' FileSpaceSeg
+			{
+				$$ = lappend($1, $3);
 			}
 		;
 
@@ -5226,7 +5228,7 @@ FileSpaceSeg:
 			}
 		;
 
-OptOwner: 
+OptOwner:
 			OWNER name			{ $$ = $2; }
 			| /*EMPTY*/			{ $$ = NULL; }
 		;
@@ -5931,7 +5933,7 @@ def_arg:	func_type						{ $$ = (Node *)$1; }
 			| NumericOnly					{ $$ = (Node *)$1; }
 			| Sconst						{ $$ = (Node *)makeString($1); }
 
-			/* 
+			/*
 			 * For compresstype=none in ENCODING clauses. Allows us to avoid
 			 * promoting that to a reserved word or adding the column reserved
 			 * list here which could get tricky.
@@ -6225,7 +6227,7 @@ DropStmt:	DROP drop_type IF_P EXISTS any_name_list opt_drop_behavior
 
 drop_type:	TABLE									{ $$ = OBJECT_TABLE; }
 			| EXTERNAL TABLE						{ $$ = OBJECT_EXTTABLE; }
-			| EXTERNAL WEB TABLE					{ $$ = OBJECT_EXTTABLE; }	
+			| EXTERNAL WEB TABLE					{ $$ = OBJECT_EXTTABLE; }
 			| SEQUENCE								{ $$ = OBJECT_SEQUENCE; }
 			| VIEW									{ $$ = OBJECT_VIEW; }
 			| INDEX									{ $$ = OBJECT_INDEX; }
@@ -6774,7 +6776,7 @@ privilege_target:
 					n->objtype = ACL_OBJECT_EXTPROTOCOL;
 					n->objs = $2;
 					$$ = n;
-				}			
+				}
 		;
 
 
@@ -7023,7 +7025,7 @@ CreateFunctionStmt:
 					$$ = (Node *)n;
 				}
 			| CREATE opt_or_replace FUNCTION func_name func_args_with_defaults
-			  RETURNS TABLE '(' table_func_column_list ')' 
+			  RETURNS TABLE '(' table_func_column_list ')'
               createfunc_opt_list opt_definition
 				{
 					CreateFunctionStmt *n = makeNode(CreateFunctionStmt);
@@ -7493,7 +7495,7 @@ dostmt_opt_item:
 				{
 					$$ = makeDefElem("as", (Node *)makeString($1));
 				}
-			| LANGUAGE ColId_or_Sconst 
+			| LANGUAGE ColId_or_Sconst
 				{
 					$$ = makeDefElem("language", (Node *)makeString($2));
 				}
@@ -8856,7 +8858,7 @@ opt_rootonly_all:
 			ROOTPARTITION ALL						{ $$ = TRUE; }
 			| /*EMPTY*/								{ $$ = FALSE; }
 		;
-			
+
 opt_full:	FULL									{ $$ = TRUE; }
 			| /*EMPTY*/								{ $$ = FALSE; }
 		;
@@ -8885,7 +8887,7 @@ ExplainStmt: EXPLAIN opt_analyze opt_verbose opt_dxl opt_force codegen Explainab
 					n->verbose = $3;
 					n->dxl = $4;
 					if($5)
-						ereport(ERROR, (errcode(ERRCODE_SYNTAX_ERROR), 
+						ereport(ERROR, (errcode(ERRCODE_SYNTAX_ERROR),
 								errmsg("cannot use force with explain statement")
 							       ));
 					n->codegen = $6;
@@ -9030,7 +9032,7 @@ DeallocateStmt: DEALLOCATE name
 
 
 cdb_string_list:
-			cdb_string							{ $$ = list_make1($1); }  
+			cdb_string							{ $$ = list_make1($1); }
 			| cdb_string_list ',' cdb_string
 				{
 					if (list_member($1, $3))
@@ -9657,9 +9659,7 @@ select_limit_value:
 			| ALL
 				{
 					/* LIMIT ALL is represented as a NULL constant */
-					A_Const *n = makeNode(A_Const);
-					n->val.type = T_Null;
-					$$ = (Node *)n;
+					$$ = makeNullAConst(@1);
 				}
 		;
 
@@ -9745,7 +9745,7 @@ window_clause:
 			| /*EMPTY*/								{ $$ = NIL; }
 		;
 
-window_definition_list: 
+window_definition_list:
 			window_name AS '(' window_spec ')'
 				{
                     ((WindowSpec *)$4)->name = $1;
@@ -9760,7 +9760,7 @@ window_definition_list:
 				}
 		;
 
-window_spec: opt_window_name opt_window_partition_clause 
+window_spec: opt_window_name opt_window_partition_clause
 				opt_window_order_clause opt_window_frame_clause
 				{
 					WindowSpec *n = makeNode(WindowSpec);
@@ -9792,7 +9792,7 @@ opt_window_frame_clause: window_frame_clause { $$ = $1; }
 		| /*EMPTY*/ { $$ = NULL; }
 		;
 
-window_frame_clause: window_frame_units window_frame_extent 
+window_frame_clause: window_frame_units window_frame_extent
 			window_frame_exclusion
 				{
 					WindowFrame *n = makeNode(WindowFrame);
@@ -9851,13 +9851,13 @@ window_frame_start:
 				}
 		;
 
-window_frame_preceding: a_expr PRECEDING 
-				{ 
+window_frame_preceding: a_expr PRECEDING
+				{
 					$$ = (Node *)$1;
 				}
 		;
 
-window_frame_between: 
+window_frame_between:
 			BETWEEN window_frame_bound AND window_frame_bound
 				{
 					/* slightly dodgy hack */
@@ -9872,7 +9872,7 @@ window_frame_between:
 
 window_frame_bound:
 			window_frame_start { $$ = $1; }
-			| UNBOUNDED FOLLOWING 
+			| UNBOUNDED FOLLOWING
 				{
 					WindowFrameEdge *n = makeNode(WindowFrameEdge);
 					n->kind = WINDOW_UNBOUND_FOLLOWING;
@@ -9888,8 +9888,8 @@ window_frame_bound:
 				}
 		;
 
-window_frame_following: a_expr FOLLOWING 
-				{ 
+window_frame_following: a_expr FOLLOWING
+				{
 					$$ = (Node *)$1;
 				}
 		;
@@ -10921,11 +10921,9 @@ a_expr:		c_expr									{ $$ = $1; }
 
 			| a_expr SIMILAR TO a_expr				%prec SIMILAR
 				{
-					A_Const *c = makeNode(A_Const);
 					FuncCall *n = makeNode(FuncCall);
-					c->val.type = T_Null;
 					n->funcname = SystemFuncName("similar_escape");
-					n->args = list_make2($4, (Node *) c);
+					n->args = list_make2($4, makeNullAConst(-1));
                     n->agg_order = NIL;
 					n->agg_star = FALSE;
 					n->agg_distinct = FALSE;
@@ -10949,11 +10947,9 @@ a_expr:		c_expr									{ $$ = $1; }
 				}
 			| a_expr NOT SIMILAR TO a_expr			%prec SIMILAR
 				{
-					A_Const *c = makeNode(A_Const);
 					FuncCall *n = makeNode(FuncCall);
-					c->val.type = T_Null;
 					n->funcname = SystemFuncName("similar_escape");
-					n->args = list_make2($5, (Node *) c);
+					n->args = list_make2($5, makeNullAConst(-1));
                     n->agg_order = NIL;
 					n->agg_star = FALSE;
 					n->agg_distinct = FALSE;
@@ -11083,7 +11079,7 @@ a_expr:		c_expr									{ $$ = $1; }
 			 *	Ideally we would not use hard-wired operators below but instead use
 			 *	opclasses.  However, mixed data types and other issues make this
 			 *	difficult:  http://archives.postgresql.org/pgsql-hackers/2008-08/msg01142.php
-			 */			
+			 */
 			| a_expr BETWEEN opt_asymmetric b_expr AND b_expr		%prec BETWEEN
 				{
 					$$ = (Node *) makeA_Expr(AEXPR_AND, NIL,
@@ -11395,9 +11391,15 @@ c_expr:		columnref								{ $$ = $1; }
 					$$ = (Node *)n;
 				}
 			| ARRAY array_expr
-				{	$$ = $2;	}
+				{
+					A_ArrayExpr *n = (A_ArrayExpr *) $2;
+					Assert(IsA(n, A_ArrayExpr));
+					/* point outermost A_ArrayExpr to the ARRAY keyword */
+					n->location = @1;
+					$$ = (Node *)n;
+				}
             | TABLE '(' table_value_select_clause ')'
-				{	
+				{
 					TableValueExpr *n = makeNode(TableValueExpr);
 					n->subquery = $3;
 					n->location = @1;
@@ -11596,16 +11598,9 @@ func_expr:	simple_func FILTER '(' WHERE a_expr ')'
 					 * that is actually possible, but not clear that we want
 					 * to rely on it.)
 					 */
-					A_Const *s = makeNode(A_Const);
-					TypeName *d;
-
-					s->val.type = T_String;
-					s->val.val.str = "now";
-					s->typeName = SystemTypeName("text");
-
-					d = SystemTypeName("date");
-
-					$$ = (Node *)makeTypeCast((Node *)s, d, -1);
+					Node *n;
+					n = makeStringConstCast("now", @1, SystemTypeName("text"));
+					$$ = makeTypeCast(n, SystemTypeName("date"), -1);
 				}
 			| CURRENT_TIME
 				{
@@ -11613,16 +11608,9 @@ func_expr:	simple_func FILTER '(' WHERE a_expr ')'
 					 * Translate as "'now'::text::timetz".
 					 * See comments for CURRENT_DATE.
 					 */
-					A_Const *s = makeNode(A_Const);
-					TypeName *d;
-
-					s->val.type = T_String;
-					s->val.val.str = "now";
-					s->typeName = SystemTypeName("text");
-
-					d = SystemTypeName("timetz");
-
-					$$ = (Node *)makeTypeCast((Node *)s, d, -1);
+					Node *n;
+					n = makeStringConstCast("now", @1, SystemTypeName("text"));
+					$$ = makeTypeCast(n, SystemTypeName("timetz"), -1);
 				}
 			| CURRENT_TIME '(' Iconst ')'
 				{
@@ -11630,16 +11618,13 @@ func_expr:	simple_func FILTER '(' WHERE a_expr ')'
 					 * Translate as "'now'::text::timetz(n)".
 					 * See comments for CURRENT_DATE.
 					 */
-					A_Const *s = makeNode(A_Const);
+					Node *n;
 					TypeName *d;
-
-					s->val.type = T_String;
-					s->val.val.str = "now";
-					s->typeName = SystemTypeName("text");
+					n = makeStringConstCast("now", @1, SystemTypeName("text"));
 					d = SystemTypeName("timetz");
 					d->typmods = list_make1(makeIntConst($3, @3));
 
-					$$ = (Node *)makeTypeCast((Node *)s, d, -1);
+					$$ = makeTypeCast(n, d, -1);
 				}
 			| CURRENT_TIMESTAMP
 				{
@@ -11664,17 +11649,13 @@ func_expr:	simple_func FILTER '(' WHERE a_expr ')'
 					 * Translate as "'now'::text::timestamptz(n)".
 					 * See comments for CURRENT_DATE.
 					 */
-					A_Const *s = makeNode(A_Const);
+					Node *n;
 					TypeName *d;
-
-					s->val.type = T_String;
-					s->val.val.str = "now";
-					s->typeName = SystemTypeName("text");
-
+					n = makeStringConstCast("now", @1, SystemTypeName("text"));
 					d = SystemTypeName("timestamptz");
 					d->typmods = list_make1(makeIntConst($3, @3));
 
-					$$ = (Node *)makeTypeCast((Node *)s, d, -1);
+					$$ = makeTypeCast(n, d, -1);
 				}
 			| LOCALTIME
 				{
@@ -11682,16 +11663,9 @@ func_expr:	simple_func FILTER '(' WHERE a_expr ')'
 					 * Translate as "'now'::text::time".
 					 * See comments for CURRENT_DATE.
 					 */
-					A_Const *s = makeNode(A_Const);
-					TypeName *d;
-
-					s->val.type = T_String;
-					s->val.val.str = "now";
-					s->typeName = SystemTypeName("text");
-
-					d = SystemTypeName("time");
-
-					$$ = (Node *)makeTypeCast((Node *)s, d, -1);
+					Node *n;
+					n = makeStringConstCast("now", @1, SystemTypeName("text"));
+					$$ = makeTypeCast((Node *)n, SystemTypeName("time"), -1);
 				}
 			| LOCALTIME '(' Iconst ')'
 				{
@@ -11699,16 +11673,13 @@ func_expr:	simple_func FILTER '(' WHERE a_expr ')'
 					 * Translate as "'now'::text::time(n)".
 					 * See comments for CURRENT_DATE.
 					 */
-					A_Const *s = makeNode(A_Const);
+					Node *n;
 					TypeName *d;
-
-					s->val.type = T_String;
-					s->val.val.str = "now";
-					s->typeName = SystemTypeName("text");
+					n = makeStringConstCast("now", @1, SystemTypeName("text"));
 					d = SystemTypeName("time");
 					d->typmods = list_make1(makeIntConst($3, @3));
 
-					$$ = (Node *)makeTypeCast((Node *)s, d, -1);
+					$$ = (Node *)makeTypeCast((Node *)n, d, -1);
 				}
 			| LOCALTIMESTAMP
 				{
@@ -11716,16 +11687,9 @@ func_expr:	simple_func FILTER '(' WHERE a_expr ')'
 					 * Translate as "'now'::text::timestamp".
 					 * See comments for CURRENT_DATE.
 					 */
-					A_Const *s = makeNode(A_Const);
-					TypeName *d;
-
-					s->val.type = T_String;
-					s->val.val.str = "now";
-					s->typeName = SystemTypeName("text");
-
-					d = SystemTypeName("timestamp");
-
-					$$ = (Node *)makeTypeCast((Node *)s, d, -1);
+					Node *n;
+					n = makeStringConstCast("now", @1, SystemTypeName("text"));
+					$$ = makeTypeCast(n, SystemTypeName("timestamp"), -1);
 				}
 			| LOCALTIMESTAMP '(' Iconst ')'
 				{
@@ -11733,17 +11697,13 @@ func_expr:	simple_func FILTER '(' WHERE a_expr ')'
 					 * Translate as "'now'::text::timestamp(n)".
 					 * See comments for CURRENT_DATE.
 					 */
-					A_Const *s = makeNode(A_Const);
+					Node *n;
 					TypeName *d;
-
-					s->val.type = T_String;
-					s->val.val.str = "now";
-					s->typeName = SystemTypeName("text");
-
+					n = makeStringConstCast("now", @1, SystemTypeName("text"));
 					d = SystemTypeName("timestamp");
 					d->typmods = list_make1(makeIntConst($3, @3));
 
-					$$ = (Node *)makeTypeCast((Node *)s, d, -1);
+					$$ = makeTypeCast(n, d, -1);
 				}
 			| CURRENT_ROLE
 				{
@@ -11971,6 +11931,7 @@ func_expr:	simple_func FILTER '(' WHERE a_expr ')'
 				{
 					CoalesceExpr *c = makeNode(CoalesceExpr);
 					c->args = $3;
+					c->location = @1;
 					$$ = (Node *)c;
 				}
 			| GREATEST '(' expr_list ')'
@@ -11978,6 +11939,7 @@ func_expr:	simple_func FILTER '(' WHERE a_expr ')'
 					MinMaxExpr *v = makeNode(MinMaxExpr);
 					v->args = $3;
 					v->op = IS_GREATEST;
+					v->location = @1;
 					$$ = (Node *)v;
 				}
 			| LEAST '(' expr_list ')'
@@ -11985,6 +11947,7 @@ func_expr:	simple_func FILTER '(' WHERE a_expr ')'
 					MinMaxExpr *v = makeNode(MinMaxExpr);
 					v->args = $3;
 					v->op = IS_LEAST;
+					v->location = @1;
 					$$ = (Node *)v;
 				}
             | GROUPING '(' expr_list ')'
@@ -12426,6 +12389,7 @@ substr_list:
 					A_Const *n = makeNode(A_Const);
 					n->val.type = T_Integer;
 					n->val.val.ival = 1;
+					n->location = -1;
 					$$ = list_make3($1, (Node *) n,
 									makeTypeCast($2, SystemTypeName("int4"), -1));
 				}
@@ -12512,14 +12476,14 @@ case_arg:	a_expr									{ $$ = $1; }
 
 /*
  * Oracle-compatible DECODE function:
- * DECODE(lhs, rhs, res [, rhs2, res2 ]... [, def_res]): 
+ * DECODE(lhs, rhs, res [, rhs2, res2 ]... [, def_res]):
  * 		returns resX if lhs = rhsX, or def_res if no match found
- * It is transformed into: 
+ * It is transformed into:
  *		CASE lhs WHEN IS NOT DISTINCT FROM rhs THEN res
- *				[WHEN IS NOT DISTINCT FROM rhs2 THEN res2] ... 
+ *				[WHEN IS NOT DISTINCT FROM rhs2 THEN res2] ...
  *			ELSE def_res END
  */
-decode_expr:	
+decode_expr:
 			DECODE '(' a_expr search_result_list decode_default ')'
 				{
 					CaseExpr *c = makeNode(CaseExpr);
@@ -12530,8 +12494,8 @@ decode_expr:
 					$$ = (Node *) c;
 				}
 		;
-			
-search_result_list: 
+
+search_result_list:
 			search_result							{ $$ = list_make1($1); }
 			| search_result_list search_result		{ $$ = lappend($1, $2); }
 		;
@@ -12546,8 +12510,8 @@ search_result:
 					$$ = (Node *) w;
 				}
 		;
-				
-decode_default: 	
+
+decode_default:
 			',' a_expr	 					{ $$ = $2; }
 			| /*EMPTY*/						{ $$ = NULL; }
 		;
@@ -12616,7 +12580,12 @@ opt_asymmetric: ASYMMETRIC
 
 ctext_expr:
 			a_expr					{ $$ = (Node *) $1; }
-			| DEFAULT				{ $$ = (Node *) makeNode(SetToDefault); }
+			| DEFAULT
+				{
+					SetToDefault *n = makeNode(SetToDefault);
+					n->location = @1;
+					$$ = (Node *) n;
+				}
 		;
 
 ctext_expr_list:
@@ -12807,35 +12776,19 @@ func_name:	type_function_name
  */
 AexprConst: Iconst
 				{
-					A_Const *n = makeNode(A_Const);
-					n->val.type = T_Integer;
-					n->val.val.ival = $1;
-					n->location = @1;                   /*CDB*/
-					$$ = (Node *)n;
+					$$ = makeIntConst($1, @1);
 				}
 			| FCONST
 				{
-					A_Const *n = makeNode(A_Const);
-					n->val.type = T_Float;
-					n->val.val.str = $1;
-					n->location = @1;                   /*CDB*/
-					$$ = (Node *)n;
+					$$ = makeFloatConst($1, @1);
 				}
 			| Sconst
 				{
-					A_Const *n = makeNode(A_Const);
-					n->val.type = T_String;
-					n->val.val.str = $1;
-					n->location = @1;                   /*CDB*/
-					$$ = (Node *)n;
+					$$ = makeStringConst($1, NULL, @1);
 				}
 			| BCONST
 				{
-					A_Const *n = makeNode(A_Const);
-					n->val.type = T_BitString;
-					n->val.val.str = $1;
-					n->location = @1;                   /*CDB*/
-					$$ = (Node *)n;
+					$$ = makeBitStringConst($1, @1);
 				}
 			| XCONST
 				{
@@ -12844,66 +12797,41 @@ AexprConst: Iconst
 					 * a <general literal> shall not be a
 					 * <bit string literal> or a <hex string literal>.
 					 */
-					A_Const *n = makeNode(A_Const);
-					n->val.type = T_BitString;
-					n->val.val.str = $1;
-					n->location = @1;                   /*CDB*/
-					$$ = (Node *)n;
+					$$ = makeBitStringConst($1, @1);
 				}
 			| func_name Sconst
 				{
 					/* generic type 'literal' syntax */
-					A_Const *n = makeNode(A_Const);
-					n->typeName = makeTypeNameFromNameList($1);
-					n->typeName->location = @1;
-					n->val.type = T_String;
-					n->val.val.str = $2;
-					n->location = @1;                   /*CDB*/
-					$$ = (Node *)n;
+					TypeName *t = makeTypeNameFromNameList($1);
+					t->location = @1;
+					$$ = makeStringConstCast($2, @2, t);
 				}
 			| func_name '(' expr_list ')' Sconst
 				{
 					/* generic syntax with a type modifier */
-					A_Const *n = makeNode(A_Const);
-					n->typeName = makeTypeNameFromNameList($1);
-					n->typeName->typmods = $3;
-					n->typeName->location = @1;
-					n->val.type = T_String;
-					n->val.val.str = $5;
-					n->location = @1;                   /*CDB*/
-					$$ = (Node *)n;
+					TypeName *t = makeTypeNameFromNameList($1);
+					t->typmods = $3;
+					t->location = @1;
+					$$ = makeStringConstCast($5, @5, t);
 				}
 			| ConstTypename Sconst
 				{
-					A_Const *n = makeNode(A_Const);
-					n->typeName = $1;
-					n->val.type = T_String;
-					n->val.val.str = $2;
-					n->location = @2;                   /*CDB*/
-					$$ = (Node *)n;
+					$$ = makeStringConstCast($2, @2, $1);
 				}
 			| ConstInterval Sconst opt_interval
 				{
-					A_Const *n = makeNode(A_Const);
-					n->typeName = $1;
-					n->val.type = T_String;
-					n->val.val.str = $2;
-					n->location = @2;                   /*CDB*/
+					TypeName *t = $1;                 /*CDB*/
 					/* precision is not specified, but fields may be... */
 					if ($3 != INTERVAL_FULL_RANGE)
-						n->typeName->typmods = list_make1(makeIntConst($3, @3));
-					$$ = (Node *)n;
+						t->typmods = list_make1(makeIntConst($3, @3));
+					$$ = makeStringConstCast($2, @2, t);
 				}
 			| ConstInterval '(' Iconst ')' Sconst opt_interval
 				{
-					A_Const *n = makeNode(A_Const);
-					n->typeName = $1;
-					n->val.type = T_String;
-					n->val.val.str = $5;
-					n->location = @1;                   /*CDB*/
-					n->typeName->typmods = list_make2(makeIntConst($6, @6),
-													 makeIntConst($3, @3));
-					$$ = (Node *)n;
+					TypeName *t = $1;
+					t->typmods = list_make2(makeIntConst($6, @6),
+										    makeIntConst($3, @3));
+					$$ = makeStringConstCast($5, @5, t);
 				}
 			| TRUE_P
 				{
@@ -12915,10 +12843,7 @@ AexprConst: Iconst
 				}
 			| NULL_P
 				{
-					A_Const *n = makeNode(A_Const);
-					n->val.type = T_Null;
-					n->location = @1;                   /*CDB*/
-					$$ = (Node *)n;
+					$$ = makeNullAConst(@1);
 				}
 		;
 
@@ -13728,7 +13653,7 @@ reserved_keyword:
 			| ELSE
 			| END_P
 			| EXCEPT
-			| EXCLUDE 
+			| EXCLUDE
 			| FALSE_P
 			| FETCH
 			| FILTER
@@ -13863,6 +13788,7 @@ makeTypeCast(Node *arg, TypeName *typename, int location)
 	n->arg = arg;
 	n->typeName = typename;
 	n->location = location;
+	n->location = location;
 	return (Node *) n;
 }
 
@@ -13877,6 +13803,14 @@ makeStringConst(char *str, TypeName *typname, int location)
 	n->location = location;
 
 	return (Node *)n;
+}
+
+static Node *
+makeStringConstCast(char *str, int location, TypeName *typename)
+{
+	Node *s = makeStringConst(str, typename, location);
+
+	return makeTypeCast(s, typename, -1);
 }
 
 static Node *
@@ -13900,6 +13834,18 @@ makeFloatConst(char *str, int location)
 	n->val.val.str = str;
 	n->location = location;
 	n->typeName = SystemTypeName("float8");
+
+	return (Node *)n;
+}
+
+static Node *
+makeBitStringConst(char *str, int location)
+{
+	A_Const *n = makeNode(A_Const);
+
+	n->val.type = T_BitString;
+	n->val.val.str = str;
+	n->location = location;
 
 	return (Node *)n;
 }
@@ -13942,15 +13888,15 @@ makeAConst(Value *v, int location)
 /* makeBoolAConst()
  * Create an A_Const node and initialize to a boolean constant.
  */
-static A_Const *
+static Node *
 makeBoolAConst(bool state, int location)
 {
 	A_Const *n = makeNode(A_Const);
 	n->val.type = T_String;
 	n->val.val.str = (state ? "t" : "f");
-	n->typeName = SystemTypeName("bool");
 	n->location = location;
-	return n;
+
+	return makeTypeCast((Node *)n, SystemTypeName("bool"), -1);
 }
 
 /* makeOverlaps()
@@ -14268,7 +14214,7 @@ mergeTableFuncParameters(List *func_args, List *columns)
 			/* Input modes */
 			case FUNC_PARAM_IN:
 			case FUNC_PARAM_VARIADIC:
-				break;  
+				break;
 
 			/* Output modes */
 			case FUNC_PARAM_TABLE:
@@ -14313,7 +14259,7 @@ TableFuncTypeName(List *columns)
 	return result;
 }
 
-static void 
+static void
 setWindowExclude(WindowFrame *wframe, WindowExclusion exclude)
 {
 	switch (exclude)
@@ -14360,7 +14306,7 @@ static Node*
 makeIsNotDistinctFromNode(Node *expr, int position)
 {
 	Node *n = (Node *) makeA_Expr(AEXPR_NOT, NIL, NULL,
-								(Node *) makeSimpleA_Expr(AEXPR_DISTINCT, 
+								(Node *) makeSimpleA_Expr(AEXPR_DISTINCT,
 	 													"=", NULL, expr, position), position);
 	return n;
 }

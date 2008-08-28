@@ -9,6 +9,7 @@
  * the node.  Access to the original source text is needed to make use of
  * the location.
  *
+ *
  * Portions Copyright (c) 2006-2009, Greenplum inc
  * Portions Copyright (c) 1996-2009, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -182,11 +183,6 @@ typedef struct Query
  *	Most of these node types appear in raw parsetrees output by the grammar,
  *	and get transformed to something else by the analyzer.	A few of them
  *	are used as-is in transformed querytrees.
- *
- *	Many of the node types used in raw parsetrees include a "location" field.
- *	This is a byte (not character) offset in the original source text, to be
- *	used for positioning an error cursor when there is an analysis-time
- *	error related to the node.
  ****************************************************************************/
 
 /*
@@ -1251,7 +1247,7 @@ typedef struct AlterTableCmd	/* one subcommand of an ALTER TABLE */
 } AlterTableCmd;
 
 
-typedef struct SetDistributionCmd 
+typedef struct SetDistributionCmd
 {
 	NodeTag		type;
 	int	        backendId;     /* backend ID on QD */

@@ -8,7 +8,7 @@
  *
  *
  * IDENTIFICATION
- *	  $PostgreSQL: pgsql/src/backend/commands/typecmds.c,v 1.113.2.1 2009/02/24 01:38:49 tgl Exp $
+ *	  $PostgreSQL: pgsql/src/backend/commands/typecmds.c,v 1.123 2008/08/28 23:09:45 tgl Exp $
  *
  * DESCRIPTION
  *	  The "DefineFoo" routines take the parse tree and pick out the
@@ -629,7 +629,7 @@ RemoveTypeById(Oid typeOid)
 	Relation	relation;
 	HeapTuple	tup;
 
-	/* 
+	/*
 	 * It might look like the call in RemoveType() is enough for
 	 * pg_type_encoding but it's not. This case catches array type derivations
 	 * of base types.
@@ -2262,6 +2262,7 @@ domainAddConstraint(Oid domainOid, Oid domainNamespace, Oid baseTypeOid,
 	domVal = makeNode(CoerceToDomainValue);
 	domVal->typeId = baseTypeOid;
 	domVal->typeMod = typMod;
+	domVal->location = -1;		/* will be set when/if used */
 
 	pstate->p_value_substitute = (Node *) domVal;
 
@@ -2864,7 +2865,7 @@ AlterType(AlterTypeStmt *stmt)
 
 	if (typid == BPCHAROID)
 	{
-		/* 
+		/*
 		 * for character, the user specified character (N) if typmod is not
 		 * VARHDRSZ + 1.
 		 */
@@ -2941,7 +2942,7 @@ AlterType(AlterTypeStmt *stmt)
 	else
 	{
 		add_type_encoding(typid, typoptions);
-	}	
+	}
 	systable_endscan(scan);
 	heap_close(pgtypeenc, NoLock);
 

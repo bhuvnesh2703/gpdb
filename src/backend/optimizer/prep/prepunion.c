@@ -368,7 +368,7 @@ generate_union_plan(SetOperationStmt *op, PlannerInfo *root,
 						   recurse_union_children(op->rarg, root,
 												  tuple_fraction,
 												  op, refnames_tlist));
-	
+
 	/* CDB: Decide on approach, condition argument plans to suit. */
 	if ( Gp_role == GP_ROLE_DISPATCH )
 	{
@@ -463,12 +463,12 @@ generate_nonunion_plan(SetOperationStmt *op, PlannerInfo *root,
 		optype = choose_setop_type(planlist);
 		adjust_setop_arguments(planlist, optype);
 	}
-	else if ( Gp_role == GP_ROLE_UTILITY 
+	else if ( Gp_role == GP_ROLE_UTILITY
 			|| Gp_role == GP_ROLE_EXECUTE ) /* MPP-2928 */
 	{
 		optype = PSETOP_SEQUENTIAL_QD;
 	}
-	
+
 	/*
 	 * Generate tlist for Append plan node.
 	 *
@@ -498,7 +498,7 @@ generate_nonunion_plan(SetOperationStmt *op, PlannerInfo *root,
 		*sortClauses = NIL;
 		return plan;
 	}
-	
+
 	if ( optype == PSETOP_PARALLEL_PARTITIONED )
 	{
 		/* CDB: Collocate non-distinct tuples prior to sort. */
@@ -507,7 +507,7 @@ generate_nonunion_plan(SetOperationStmt *op, PlannerInfo *root,
 
 	plan = (Plan *) make_sort_from_sortclauses(root, sortList, plan);
 	mark_sort_locus(plan); /* CDB */
-	
+
 	switch (op->op)
 	{
 		case SETOP_INTERSECT:
@@ -1298,7 +1298,7 @@ adjust_appendrel_attrs_mutator(Node *node, AppendRelInfoContext *ctx)
 					rowexpr->row_format = COERCE_IMPLICIT_CAST;
 					rowexpr->colnames = NIL;
 					rowexpr->location = -1;
-					
+
 					return (Node *) rowexpr;
 				}
 			}
@@ -1339,7 +1339,7 @@ adjust_appendrel_attrs_mutator(Node *node, AppendRelInfoContext *ctx)
 	{
 		/* Copy the PlaceHolderVar node with correct mutation of subnodes */
 		PlaceHolderVar *phv;
-		
+
 		phv = (PlaceHolderVar *) expression_tree_mutator(node,
 														 adjust_appendrel_attrs_mutator,
 														 (void *) ctx);

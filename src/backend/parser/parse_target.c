@@ -1210,7 +1210,7 @@ expandRecordVariable(ParseState *pstate, Var *var, int levelsup)
 				if (ste == NULL || ste->resjunk)
 					elog(ERROR, "WITH query %s does not have attribute %d",
 						 cte->ctename, attnum);
-				
+
 				expr = (Node *) ste->expr;
 				if (IsA(expr, Var))
 				{
