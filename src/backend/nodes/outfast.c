@@ -1924,10 +1924,6 @@ _outNode(StringInfo str, void *obj)
 				_outDMLActionExpr(str, obj);
 				break;
 
-			case T_PartOidExpr:
-				_outPartOidExpr(str, obj);
-				break;
-
 			case T_PartSelectedExpr:
 				_outPartSelectedExpr(str, obj);
 				break;
