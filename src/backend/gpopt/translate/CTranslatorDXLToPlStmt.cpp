@@ -26,7 +26,7 @@
 #include "utils/lsyscache.h"
 #include "utils/uri.h"
 #include "gpos/base.h"
-
+#include "gpos/error/CAutoTrace.h"
 #include "gpopt/mdcache/CMDAccessor.h"
 #include "gpopt/translate/CTranslatorDXLToPlStmt.h"
 #include "gpopt/translate/CTranslatorUtils.h"
@@ -3341,15 +3341,25 @@ CTranslatorDXLToPlStmt::PplanPartitionSelector
 	{
 		pdrgpdxltrctxWithSiblings->AppendArray(pdrgpdxltrctxPrevSiblings);
 	}
-//	CDXLNode *pdxlnPrL = (*pdxlnPartitionSelector)[EdxlpsIndexProjList];
-	CDXLNode *pdxlnEqFilters = (*pdxlnPartitionSelector)[EdxlpsIndexEqFilters-1];
-	CDXLNode *pdxlnFilters = (*pdxlnPartitionSelector)[EdxlpsIndexFilters-1];
-	CDXLNode *pdxlnResidualFilter = (*pdxlnPartitionSelector)[EdxlpsIndexResidualFilter-1];
+
+	const DrgPdxln *pdxln = pdxlnPartitionSelector->PdrgpdxlnChildren();
+	const ULONG length = pdxln->UlLength();
+	CDXLNode *pdxlnPrL = (*pdxlnPartitionSelector)[EdxlpsIndexProjList];
+	int delta = 0;
+
+	if (length != 7)
+	{
+		pdxlnPrL = NULL;
+		delta = 1;
+	}
+	CDXLNode *pdxlnEqFilters = (*pdxlnPartitionSelector)[EdxlpsIndexEqFilters-delta];
+	CDXLNode *pdxlnFilters = (*pdxlnPartitionSelector)[EdxlpsIndexFilters-delta];
+	CDXLNode *pdxlnResidualFilter = (*pdxlnPartitionSelector)[EdxlpsIndexResidualFilter-delta];
 	CDXLNode *pdxlnPropExpr = (*pdxlnPartitionSelector)[EdxlpsIndexPropExpr-1];
-	CDXLNode *pdxlnPrintableFilter = (*pdxlnPartitionSelector)[EdxlpsIndexPrintableFilter-1];
+	CDXLNode *pdxlnPrintableFilter = (*pdxlnPartitionSelector)[EdxlpsIndexPrintableFilter-delta];
 
 	// translate proj list
-	pplan->targetlist = PlTargetListFromProjList(NULL, NULL /*pdxltrctxbt*/, pdrgpdxltrctx, pdxltrctxOut, pplan);
+	pplan->targetlist = PlTargetListFromProjList(pdxlnPrL, NULL /*pdxltrctxbt*/, pdrgpdxltrctx, pdxltrctxOut, pplan);
 
 	// translate filter lists
 	GPOS_ASSERT(pdxlnEqFilters->UlArity() == ulLevels);
