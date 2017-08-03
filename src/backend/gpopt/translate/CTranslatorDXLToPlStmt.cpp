@@ -548,6 +548,7 @@ CTranslatorDXLToPlStmt::MapLocationsFdist
 				 ulLocations, ulParticipatingSegments);
 
 		RaiseGpdbError(ERRCODE_INVALID_TABLE_DEFINITION, // errcode
+					   ERROR,
 					   msgbuf, // errmsg
 					   NULL);  // errhint
 	}
@@ -942,6 +943,7 @@ CTranslatorDXLToPlStmt::PlExternalScanUriList
 	{
 		// This should match the same error in createplan.c
 		RaiseGpdbError(ERRCODE_WRONG_OBJECT_TYPE, // errcode
+					   ERROR,
 					   "cannot read from a WRITABLE external table", // errmsg
 					   "Create the table as READABLE instead."); // errhint
 	}
@@ -972,6 +974,7 @@ CTranslatorDXLToPlStmt::PlExternalScanUriList
 		{
 			// This should match the same error in createplan.c
 			RaiseGpdbError(ERRCODE_GP_FEATURE_NOT_CONFIGURED, // errcode
+						   ERROR,
 						   "Using external tables with OS level commands (EXECUTE clause) is disabled", // errmsg
 						   "To enable set gp_external_enable_exec=on"); // errhint
 		}

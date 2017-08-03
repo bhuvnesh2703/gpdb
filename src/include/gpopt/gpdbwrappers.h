@@ -419,9 +419,9 @@ namespace gpdb {
 	char *SzMemoryContextStrdup(MemoryContext context, const char *string);
 
 	// ereport() an error
-	void RaiseGpdbErrorImpl(int xerrcode, const char *xerrmsg, const char *xerrhint, const char *filename, int lineno, const char *funcname);
-#define RaiseGpdbError(xerrcode, xerrmsg, xerrhint) \
-	gpdb::RaiseGpdbErrorImpl(xerrcode, xerrmsg, xerrhint , __FILE__, __LINE__, PG_FUNCNAME_MACRO)
+	void RaiseGpdbErrorImpl(int xerrcode, int severitylevel, const char *xerrmsg, const char *xerrhint, const char *filename, int lineno, const char *funcname);
+#define RaiseGpdbError(xerrcode, severitylevel, xerrmsg, xerrhint) \
+	gpdb::RaiseGpdbErrorImpl(xerrcode, severitylevel, xerrmsg, xerrhint , __FILE__, __LINE__, PG_FUNCNAME_MACRO)
 
 	// string representation of a node
 	char *SzNodeToString(void *obj);
