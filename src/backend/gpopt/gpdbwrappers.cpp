@@ -2222,6 +2222,20 @@ gpdb::FRelPartIsNone
 }
 
 bool
+gpdb::FRelPartIsLeaf
+(
+	Oid relid
+	)
+{
+	GP_WRAP_START;
+	{
+		return PART_STATUS_LEAF == rel_part_status(relid);
+	}
+	GP_WRAP_END;
+	return false;
+}
+
+bool
 gpdb::FHashPartitioned
 	(
 	char c

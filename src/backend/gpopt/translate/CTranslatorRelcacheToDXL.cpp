@@ -251,18 +251,23 @@ CTranslatorRelcacheToDXL::PdrgpmdidRelIndexes
 
 	List *plIndexOids = NIL;
 	
-	if (gpdb::FRelPartIsNone(rel->rd_id))
-	{
-		// not a partitioned table: obtain indexes directly from the catalog
-		plIndexOids = gpdb::PlRelationIndexes(rel);
-	}
-	else if (gpdb::FRelPartIsRoot(rel->rd_id))
+//	if (gpdb::FRelPartIsNone(rel->rd_id))
+//	{
+//		// not a partitioned table: obtain indexes directly from the catalog
+//		plIndexOids = gpdb::PlRelationIndexes(rel);
+//	}
+//	else
+	if (gpdb::FRelPartIsRoot(rel->rd_id))
 	{
 		// root of partitioned table: aggregate index information across different parts
 		plIndexOids = PlIndexOidsPartTable(rel);
 	}
-	else  
+	else if (gpdb::FRelPartIsNone(rel->rd_id) || gpdb::FRelPartIsLeaf(rel->rd_id))
 	{
+		// not a partitioned table: obtain indexes directly from the catalog
+		plIndexOids = gpdb::PlRelationIndexes(rel);
+	}
+	else {
 		// interior or leaf partition: do not consider indexes
 		return pdrgpmdidIndexes;
 	}
@@ -978,10 +983,10 @@ CTranslatorRelcacheToDXL::Pmdindex
 
 		OID oidRel = pgIndex->indrelid;
 
-		if (gpdb::FLeafPartition(oidRel))
-		{
-			oidRel = gpdb::OidRootPartition(oidRel);
-		}
+//		if (gpdb::FLeafPartition(oidRel))
+//		{
+//			oidRel = gpdb::OidRootPartition(oidRel);
+//		}
 #ifdef FAULT_INJECTOR
 		gpdb::OptTasksFaultInjector(OptRelcacheTranslatorCatalogAccess);
 #endif // FAULT_INJECTOR

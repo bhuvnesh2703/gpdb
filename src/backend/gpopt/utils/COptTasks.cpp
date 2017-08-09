@@ -987,7 +987,7 @@ COptTasks::PvOptimizeTask
 	// don't care about the return value of FMDCacheNeedsReset(). But
 	// we need to call it anyway, to give it a chance to initialize
 	// the invalidation mechanism.
-	bool reset_mdcache = gpdb::FMDCacheNeedsReset();
+	bool reset_mdcache = true;
 
 	// initialize metadata cache, or purge if needed, or change size if requested
 	if (!CMDCache::FInitialized())
