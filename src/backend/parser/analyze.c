@@ -2430,7 +2430,7 @@ transformSetOperationTree(ParseState *pstate, SelectStmt *stmt,
 			/* select common type, same as CASE et al */
 			/*8.4-9.0-MERGE-FIX-ME*/
 			rescoltype = select_common_type(pstate,
-											list_make2_oid(lcoltype, rcoltype), context, &bestexpr);
+											list_make2(lcolinfo, rcolinfo), context, &bestexpr);
 			/* if same type and same typmod, use typmod; else default */
 			if (lcoltype == rcoltype && lcoltypmod == rcoltypmod)
 				rescoltypmod = lcoltypmod;
@@ -2567,14 +2567,14 @@ collectSetopTypes(ParseState *pstate, SelectStmt *stmt,
 		{
 			TargetEntry	   *tle = (TargetEntry *) lfirst(lc);
 			List		   *typelist = (List *) lfirst(lct);
-			List		   *typmodlist = (List *) lfirst(lcm);
+//			List		   *typmodlist = (List *) lfirst(lcm);
 
 			/* Keep back to the original List */
-			lfirst(lct) = lappend_oid(typelist, exprType((Node *) tle->expr));
-			lfirst(lcm) = lappend_int(typmodlist, exprTypmod((Node *) tle->expr));
+			lfirst(lct) = lappend(typelist, tle->expr);
+//			lfirst(lcm) = lappend_int(typmodlist, exprTypmod((Node *) tle->expr));
 
 			lct = lnext(lct);
-			lcm = lnext(lcm);
+//			lcm = lnext(lcm);
 		}
 		/* They're not needed anymore */
 		free_parsestate(pstate);
@@ -2606,6 +2606,50 @@ collectSetopTypes(ParseState *pstate, SelectStmt *stmt,
 
 		return lnum;
 	}
+}
+
+/*
+ * getSetColTypes
+ *	  Get output column types/typmods of an (already transformed) set-op node
+ */
+static void
+getSetColTypes(ParseState *pstate, Node *node,
+			   List **colTypes, List **colTypmods)
+{
+	*colTypes = NIL;
+	*colTypmods = NIL;
+	if (IsA(node, RangeTblRef))
+	{
+		RangeTblRef *rtr = (RangeTblRef *) node;
+		RangeTblEntry *rte = rt_fetch(rtr->rtindex, pstate->p_rtable);
+		Query	   *selectQuery = rte->subquery;
+		ListCell   *tl;
+
+		Assert(selectQuery != NULL);
+		/* Get types of non-junk columns */
+		foreach(tl, selectQuery->targetList)
+		{
+			TargetEntry *tle = (TargetEntry *) lfirst(tl);
+
+			if (tle->resjunk)
+				continue;
+			*colTypes = lappend_oid(*colTypes,
+									exprType((Node *) tle->expr));
+			*colTypmods = lappend_int(*colTypmods,
+									  exprTypmod((Node *) tle->expr));
+		}
+	}
+	else if (IsA(node, SetOperationStmt))
+	{
+		SetOperationStmt *op = (SetOperationStmt *) node;
+
+		/* Result already computed during transformation of node */
+		Assert(op->colTypes != NIL);
+		*colTypes = op->colTypes;
+		*colTypmods = op->colTypmods;
+	}
+	else
+		elog(ERROR, "unrecognized node type: %d", (int) nodeTag(node));
 }
 
 /*

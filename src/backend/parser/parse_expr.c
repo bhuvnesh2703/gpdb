@@ -136,16 +136,17 @@ transformExpr(ParseState *pstate, Node *expr)
 				A_Const    *con = (A_Const *) expr;
 				Value	   *val = &con->val;
 				
-				TypeCast   *tc = (TypeCast *) expr;
+//				TypeCast   *tc = (TypeCast *) expr;
 
 				result = (Node *) make_const(pstate, val, con->location);
-				if (con->typeName != NULL) {
-					con->typeName->location = con->location;
-					/*8.4-9.0-MERGE-FIX-ME*/
+				/*8.4-9.0-MERGE-FIX-ME: Casting should have already happened by now.*/
+//				if (con->typeName != NULL) {
+//					con->typeName->location = con->location;
+//					/*8.4-9.0-MERGE-FIX-ME*/
 //					result = typecast_expression(pstate, result,
 //												 con->typeName);
-					result = transformTypeCast(pstate, tc);
-				}
+//					result = transformTypeCast(pstate, tc);
+//				}
 				break;
 			}
 
