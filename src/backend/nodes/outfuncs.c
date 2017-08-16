@@ -3901,7 +3901,7 @@ _outParamRef(StringInfo str, ParamRef *node)
 	WRITE_NODE_TYPE("PARAMREF");
 
 	WRITE_INT_FIELD(number);
-	WRITE_INT_FIELD(location);
+	WRITE_LOCATION_FIELD(location);
 }
 
 #ifndef COMPILING_BINARY_FUNCS

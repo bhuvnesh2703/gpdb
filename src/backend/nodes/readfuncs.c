@@ -1108,6 +1108,7 @@ _readCoerceViaIO(void)
 	READ_NODE_FIELD(arg);
 	READ_OID_FIELD(resulttype);
 	READ_ENUM_FIELD(coerceformat, CoercionForm);
+	READ_LOCATION_FIELD(location);
 
 	READ_DONE();
 }
@@ -1230,9 +1231,7 @@ _readAConst(void)
 
 	local_node->typeName = NULL;
 	READ_NODE_FIELD(typeName);
-
-    /* CDB: 'location' field is not serialized */
-    local_node->location = -1;
+	READ_LOCATION_FIELD(location);
 
 	READ_DONE();
 }
@@ -1300,7 +1299,7 @@ _readAExpr(void)
 
 	READ_NODE_FIELD(lexpr);
 	READ_NODE_FIELD(rexpr);
-	READ_INT_FIELD(location);
+	READ_LOCATION_FIELD(location);
 
 	READ_DONE();
 }
@@ -1998,7 +1997,7 @@ _readColumnRef(void)
 	READ_LOCALS(ColumnRef);
 
 	READ_NODE_FIELD(fields);
-	READ_INT_FIELD(location);
+	READ_LOCATION_FIELD(location);
 
 	READ_DONE();
 }
@@ -2016,7 +2015,7 @@ _readTypeName(void)
 	READ_NODE_FIELD(typmods);
 	READ_INT_FIELD(typemod);
 	READ_NODE_FIELD(arrayBounds);
-	READ_INT_FIELD(location);
+	READ_LOCATION_FIELD(location);
 
 	READ_DONE();
 }

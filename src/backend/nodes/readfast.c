@@ -737,7 +737,7 @@ _readAConst(void)
 
 	local_node->typeName = NULL;
 	READ_NODE_FIELD(typeName);
-    READ_INT_FIELD(location);   /*CDB*/
+	READ_LOCATION_FIELD(location);
 	READ_DONE();
 }
 
@@ -818,7 +818,7 @@ _readAExpr(void)
 
 	READ_NODE_FIELD(lexpr);
 	READ_NODE_FIELD(rexpr);
-	READ_INT_FIELD(location);
+	READ_LOCATION_FIELD(location);
 
 	READ_DONE();
 }
