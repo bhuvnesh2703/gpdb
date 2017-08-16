@@ -1554,10 +1554,6 @@ _readSubLink(void)
 	READ_ENUM_FIELD(subLinkType, SubLinkType);
 	READ_NODE_FIELD(testexpr);
 	READ_NODE_FIELD(operName);
-
-    /* CDB: 'location' field is not serialized */
-    local_node->location = -1;
-
 	READ_NODE_FIELD(subselect);
 	READ_LOCATION_FIELD(location);
 
