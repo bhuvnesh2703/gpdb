@@ -118,6 +118,8 @@ static bool isSimplyUpdatableQuery(Query *query);
 static bool isSetopLeaf(SelectStmt *stmt);
 static int collectSetopTypes(ParseState *pstate, SelectStmt *stmt,
 							 List **types, List **typmods);
+static int collectSetopExprs(ParseState *pstate, SelectStmt *stmt,
+							 List **exprs);
 static void transformLockingClause(ParseState *pstate, Query *qry, LockingClause *lc);
 static bool check_parameter_resolution_walker(Node *node, ParseState *pstate);
 
@@ -1913,6 +1915,7 @@ transformSetOperationStmt(ParseState *pstate, SelectStmt *stmt)
 	List	   *lockingClause;
 	Node	   *node;
 	ListCell   *left_tlist,
+			   *lce,
 			   *lct,
 			   *lcm,
 			   *l;
@@ -1923,7 +1926,7 @@ transformSetOperationStmt(ParseState *pstate, SelectStmt *stmt)
 			   *sv_rtable;
 	RangeTblEntry *jrte;
 	int			tllen;
-	List	   *colTypes, *colTypmods;
+	List	   *colExprs;
 
 	qry->commandType = CMD_SELECT;
 
@@ -1985,17 +1988,14 @@ transformSetOperationStmt(ParseState *pstate, SelectStmt *stmt)
 	 * types. The resjunk columns are not interesting, because type coercion
 	 * between queries is done only for each non-resjunk column in set operations.
 	 */
-	colTypes = NIL;
-	colTypmods = NIL;
+	colExprs = NIL;
 	pstate->p_setopTypes = NIL;
 	pstate->p_setopTypmods = NIL;
-	collectSetopTypes(pstate, stmt, &colTypes, &colTypmods);
-	Insist(list_length(colTypes) == list_length(colTypmods));
-	forboth (lct, colTypes, lcm, colTypmods)
+	collectSetopExprs(pstate, stmt, &colExprs);
+	foreach (lce, colExprs)
 	{
-		List	   *types = (List *) lfirst(lct);
-		List	   *typmods = (List *) lfirst(lcm);
-		ListCell   *lct2, *lcm2;
+		List	   *exprs = (List *) lfirst(lce);
+		ListCell   *lce2;
 		Oid			ptype;
 		int32		ptypmod;
 		Oid			restype;
@@ -2003,19 +2003,17 @@ transformSetOperationStmt(ParseState *pstate, SelectStmt *stmt)
 		bool		allsame, hasnontext;
 		char	   *context;
 
-		Insist(list_length(types) == list_length(typmods));
-
 		context = (stmt->op == SETOP_UNION ? "UNION" :
 				   stmt->op == SETOP_INTERSECT ? "INTERSECT" :
 				   "EXCEPT");
 		allsame = true;
 		hasnontext = false;
-		ptype = linitial_oid(types);
-		ptypmod = linitial_int(typmods);
-		forboth (lct2, types, lcm2, typmods)
+		ptype = exprType(linitial(exprs));
+		ptypmod = exprTypmod(linitial(exprs));
+		foreach (lce2, exprs)
 		{
-			Oid		ntype = lfirst_oid(lct2);
-			int32	ntypmod = lfirst_int(lcm2);
+			Oid		ntype = exprType(lfirst(lce2));
+			int32	ntypmod = exprTypmod(lfirst(lce2));
 
 			/*
 			 * In the first iteration, ntype and ptype is the same element,
@@ -2071,7 +2069,7 @@ transformSetOperationStmt(ParseState *pstate, SelectStmt *stmt)
 			 * See MPP-7509 for the issue.
 			 */
 			/*8.4-9.0-MERGE-FIX-ME*/
-			restype = select_common_type(pstate, types, context, NULL);
+			restype = select_common_type(pstate, exprs, context, NULL);
 			/*
 			 * If there's no common type, the last resort is TEXT.
 			 * See also select_common_type().
@@ -2607,6 +2605,109 @@ collectSetopTypes(ParseState *pstate, SelectStmt *stmt,
 		return lnum;
 	}
 }
+
+static int
+collectSetopExprs(ParseState *pstate, SelectStmt *stmt,
+				  List **exprs)
+{
+	if (isSetopLeaf(stmt))
+	{
+		ParseState	   *parentstate = pstate;
+		SelectStmt	   *select_stmt = stmt;
+		List		   *tlist, *temp_tlist;
+		ListCell	   *lc, *lce;
+		int				tlist_length;
+
+		/* Copy them just in case */
+		pstate = make_parsestate(parentstate);
+		stmt = copyObject(select_stmt);
+
+		if (stmt->valuesLists)
+		{
+			/* in VALUES query, we can transform all */
+			tlist = transformValuesClause(pstate, stmt)->targetList;
+		}
+		else
+		{
+			/* transform only tragetList */
+			transformFromClause(pstate, stmt->fromClause);
+			tlist = transformTargetList(pstate, stmt->targetList);
+		}
+
+		/* Filter out junk columns. */
+		temp_tlist = NIL;
+		foreach (lc, tlist)
+		{
+			TargetEntry	   *tle = (TargetEntry *) lfirst(lc);
+
+			if (tle->resjunk)
+				continue;
+			temp_tlist = lappend(temp_tlist, tle);
+		}
+		tlist = temp_tlist;
+		tlist_length = list_length(tlist);
+
+		if (*exprs == NIL)
+		{
+			/* Construct List of List for numbers of tlist */
+			foreach(lc, tlist)
+			{
+				*exprs = lappend(*exprs, NIL);
+			}
+		}
+		else if (list_length(*exprs) != tlist_length)
+		{
+			/*
+			 * Must be an error in later process.
+			 * Nothing to do in this preprocess (not an assert.)
+			 */
+			free_parsestate(pstate);
+			pfree(stmt);
+			return tlist_length;
+		}
+		lce = list_head(*exprs);
+		foreach (lc, tlist)
+		{
+			TargetEntry	   *tle = (TargetEntry *) lfirst(lc);
+			List		   *exprlist = (List *) lfirst(lce);
+
+			/* Keep back to the original List */
+			lfirst(lce) = lappend(exprlist, tle->expr);
+
+			lce = lnext(lce);
+		}
+		/* They're not needed anymore */
+		free_parsestate(pstate);
+		pfree(stmt);
+
+		return tlist_length;
+	}
+	else
+	{
+		int			lnum, rnum;
+		const char *context;
+
+		/* just recurse to the leaf */
+		lnum = collectSetopExprs(pstate, stmt->larg, exprs);
+		rnum = collectSetopExprs(pstate, stmt->rarg, exprs);
+
+		context = (stmt->op == SETOP_UNION ? "UNION" :
+				   (stmt->op == SETOP_INTERSECT ? "INTERSECT" :
+					"EXCEPT"));
+		/*
+		 * We need to report error here before doing anything with the
+		 * collected result.
+		 */
+		if (lnum != rnum)
+			ereport(ERROR,
+					(errcode(ERRCODE_SYNTAX_ERROR),
+					 errmsg("each %s query must have the same number of columns",
+							context)));
+
+		return lnum;
+	}
+}
+
 
 /*
  * getSetColTypes
