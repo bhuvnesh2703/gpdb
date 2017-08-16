@@ -402,6 +402,7 @@ _readConst(void)
 	READ_INT_FIELD(constlen);
 	READ_BOOL_FIELD(constbyval);
 	READ_BOOL_FIELD(constisnull);
+	READ_LOCATION_FIELD(location);
 
 	if (local_node->constisnull)
 		local_node->constvalue = 0;
@@ -838,6 +839,7 @@ _readAggref(void)
 	READ_BOOL_FIELD(aggdistinct);
 	READ_ENUM_FIELD(aggstage, AggStage);
     READ_NODE_FIELD(aggorder);
+	READ_LOCATION_FIELD(location);
 
 	READ_DONE();
 }
@@ -855,6 +857,7 @@ _readFuncExpr(void)
 	READ_BOOL_FIELD(funcretset);
 	READ_ENUM_FIELD(funcformat, CoercionForm);
 	READ_NODE_FIELD(args);
+	READ_LOCATION_FIELD(location);
 	READ_BOOL_FIELD(is_tablefunc);
 
 	READ_DONE();
@@ -884,6 +887,7 @@ _readOpExpr(void)
 	READ_OID_FIELD(opresulttype);
 	READ_BOOL_FIELD(opretset);
 	READ_NODE_FIELD(args);
+	READ_LOCATION_FIELD(location);
 
 	READ_DONE();
 }
@@ -902,6 +906,7 @@ _readDistinctExpr(void)
 	READ_OID_FIELD(opresulttype);
 	READ_BOOL_FIELD(opretset);
 	READ_NODE_FIELD(args);
+	READ_LOCATION_FIELD(location);
 
 	READ_DONE();
 }
@@ -919,6 +924,7 @@ _readScalarArrayOpExpr(void)
 
 	READ_BOOL_FIELD(useOr);
 	READ_NODE_FIELD(args);
+	READ_LOCATION_FIELD(location);
 
 	READ_DONE();
 }
@@ -934,6 +940,7 @@ _readBoolExpr(void)
 	READ_ENUM_FIELD(boolop, BoolExprType);
 
 	READ_NODE_FIELD(args);
+	READ_LOCATION_FIELD(location);
 
 	READ_DONE();
 }
@@ -951,6 +958,7 @@ _readSubLink(void)
 	READ_NODE_FIELD(operName);
 	READ_INT_FIELD(location);   /*CDB*/
 	READ_NODE_FIELD(subselect);
+	READ_LOCATION_FIELD(location);
 
 	READ_DONE();
 }
@@ -1012,6 +1020,7 @@ _readNullIfExpr(void)
 	READ_OID_FIELD(opresulttype);
 	READ_BOOL_FIELD(opretset);
 	READ_NODE_FIELD(args);
+	READ_LOCATION_FIELD(location);
 
 	READ_DONE();
 }

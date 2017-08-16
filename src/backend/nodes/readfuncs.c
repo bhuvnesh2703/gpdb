@@ -144,13 +144,6 @@ inline static char extended_char(char* token, size_t length)
 /* Read a parse location field (and throw away the value, per notes above) */
 #define READ_LOCATION_FIELD(fldname) READ_SCALAR_FIELD(fldname, -1)
 
-/*8.4-9.0-MERGE-FIX-ME*/
-///* Read a parse location field (and throw away the value, per notes above) */
-//#define READ_LOCATION_FIELD(fldname) \
-//	token = pg_strtok(&length);		/* skip :fldname */ \
-//	token = pg_strtok(&length);		/* get field value */ \
-//	local_node->fldname = -1		/* set field to "unknown" */
-
 /* Read a Node field */
 #define READ_NODE_FIELD(fldname) \
     do { \
@@ -1133,6 +1126,7 @@ _readArrayCoerceExpr(void)
 	READ_INT_FIELD(resulttypmod);
 	READ_BOOL_FIELD(isExplicit);
 	READ_ENUM_FIELD(coerceformat, CoercionForm);
+	READ_LOCATION_FIELD(location);
 
 	READ_DONE();
 }

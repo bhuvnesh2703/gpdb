@@ -1378,12 +1378,6 @@ _outSubLink(StringInfo str, SubLink *node)
 	WRITE_ENUM_FIELD(subLinkType, SubLinkType);
 	WRITE_NODE_FIELD(testexpr);
 	WRITE_NODE_FIELD(operName);
-    /*
-     * CDB: For now we don't serialize the 'location' field, for compatibility
-     * so stored sublinks can be read by pre-3.2 releases.  Anyway it's only
-     * meaningful with the original source string, which isn't kept when a
-     * view or rule definition is stored in the catalog.
-     */
 	WRITE_NODE_FIELD(subselect);
 	WRITE_LOCATION_FIELD(location);
 }

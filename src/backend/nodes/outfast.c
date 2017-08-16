@@ -538,6 +538,7 @@ _outConst(StringInfo str, Const *node)
 	WRITE_INT_FIELD(constlen);
 	WRITE_BOOL_FIELD(constbyval);
 	WRITE_BOOL_FIELD(constisnull);
+	WRITE_LOCATION_FIELD(location);
 
 	if (!node->constisnull)
 		_outDatum(str, node->constvalue, node->constlen, node->constbyval);
@@ -558,6 +559,7 @@ _outAggref(StringInfo str, Aggref *node)
 	WRITE_ENUM_FIELD(aggstage, AggStage);
     WRITE_NODE_FIELD(aggorder);
 
+	WRITE_LOCATION_FIELD(location);
 }
 
 static void
@@ -570,6 +572,7 @@ _outFuncExpr(StringInfo str, FuncExpr *node)
 	WRITE_BOOL_FIELD(funcretset);
 	WRITE_ENUM_FIELD(funcformat, CoercionForm);
 	WRITE_NODE_FIELD(args);
+	WRITE_LOCATION_FIELD(location);
 	WRITE_BOOL_FIELD(is_tablefunc);
 }
 
@@ -580,6 +583,7 @@ _outBoolExpr(StringInfo str, BoolExpr *node)
 	WRITE_ENUM_FIELD(boolop, BoolExprType);
 
 	WRITE_NODE_FIELD(args);
+	WRITE_LOCATION_FIELD(location);
 }
 
 static void
@@ -590,8 +594,8 @@ _outSubLink(StringInfo str, SubLink *node)
 	WRITE_ENUM_FIELD(subLinkType, SubLinkType);
 	WRITE_NODE_FIELD(testexpr);
 	WRITE_NODE_FIELD(operName);
-	WRITE_INT_FIELD(location);      /*CDB*/
 	WRITE_NODE_FIELD(subselect);
+	WRITE_LOCATION_FIELD(location);
 }
 
 static void
@@ -840,7 +844,7 @@ _outTypeName(StringInfo str, TypeName *node)
 	WRITE_NODE_FIELD(typmods);
 	WRITE_INT_FIELD(typemod);
 	WRITE_NODE_FIELD(arrayBounds);
-	WRITE_INT_FIELD(location);
+	WRITE_LOCATION_FIELD(location);
 }
 
 static void
@@ -850,6 +854,7 @@ _outTypeCast(StringInfo str, TypeCast *node)
 
 	WRITE_NODE_FIELD(arg);
 	WRITE_NODE_FIELD(typeName);
+	WRITE_LOCATION_FIELD(location);
 }
 
 static void
@@ -1006,7 +1011,7 @@ _outAExpr(StringInfo str, A_Expr *node)
 
 	WRITE_NODE_FIELD(lexpr);
 	WRITE_NODE_FIELD(rexpr);
-	WRITE_INT_FIELD(location);
+	WRITE_LOCATION_FIELD(location);
 }
 
 static void
@@ -1046,8 +1051,7 @@ _outAConst(StringInfo str, A_Const *node)
 
 	_outValue(str, &(node->val));
 	WRITE_NODE_FIELD(typeName);
-	WRITE_INT_FIELD(location);  /*CDB*/
-
+	WRITE_LOCATION_FIELD(location);
 }
 
 static void
