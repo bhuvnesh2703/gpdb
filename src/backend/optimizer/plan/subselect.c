@@ -1110,7 +1110,10 @@ convert_IN_to_join(PlannerInfo *root, List **rtrlist_inout, SubLink *sublink)
     			|| subselect->groupClause
     			|| subselect->hasWindFuncs
     			|| subselect->distinctClause
-    			|| subselect->setOperations)
+    			|| subselect->setOperations
+    			|| subselect->limitOffset
+    			|| subselect->limitCount
+			)
     		return (Node *) sublink;
     	
 		/*
