@@ -763,6 +763,15 @@ ParallelizeSubplan(SubPlan *spExpr, PlanProfile *context)
 	}
 
 	Assert(newPlan);
+	if (IsA(newPlan->lefttree, Limit))
+	{
+		Limit *tlimit = (Limit *) newPlan;
+		Limit *childLimit = (Limit *) newPlan->lefttree;
+		if (equal(tlimit->limitCount, childLimit->limitCount))
+		{
+			newPlan = (Plan *)childLimit;
+		}
+	}
 
 	/**
 	 * Replace subplan in global subplan list.
