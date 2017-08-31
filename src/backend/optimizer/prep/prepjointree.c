@@ -721,8 +721,8 @@ is_simple_subquery(PlannerInfo *root, Query *subquery)
 		subquery->windowClause ||
 		subquery->sortClause ||
 		subquery->distinctClause ||
-		subquery->limitOffset ||
-		subquery->limitCount ||
+//		subquery->limitOffset ||
+//		subquery->limitCount ||
 		subquery->cteList ||
 		root->parse->cteList)
 		return false;
