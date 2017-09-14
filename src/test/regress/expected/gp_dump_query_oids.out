@@ -42,6 +42,7 @@ ERROR:  syntax error at or near "with syntax"
 LINE 1: SELECT with syntax error
                ^
 QUERY:  SELECT with syntax error
+
 -- Test partition and inherited tables
 CREATE TABLE minirepro_partition_test (id int, info json);
 NOTICE:  Table doesn't have 'DISTRIBUTED BY' clause -- Using column named 'id' as the Greenplum Database data distribution key for this table.
