@@ -12,3 +12,6 @@ SELECT gp_dump_query_oids('SELECT length(proname) FROM pg_proc; SELECT abs(relpa
 -- Test error reporting on an invalid query.
 SELECT gp_dump_query_oids('SELECT * FROM nonexistent_table');
 SELECT gp_dump_query_oids('SELECT with syntax error');
+
+-- Test partition and inherited tables
+CREATE TABLE minirepro_partition_test (id int, info json);
