@@ -31,3 +31,30 @@ CREATE TABLE foo (id int, year int, a int, b int, c int, d int, region text)
 CREATE TABLE ptable (c1 text, c2 float);
 CREATE TABLE ctable (c3 char(2)) INHERITS (ptable);
 CREATE TABLE cctable (c4 char(2)) INHERITS (ctable);
+INSERT INTO minirepro_partition_test VALUES (1, (select gp_dump_query_oids('SELECT * FROM foo') ) :: json);
+INSERT INTO minirepro_partition_test VALUES (2, (select gp_dump_query_oids('SELECT * FROM ptable') ) :: json);
+INSERT INTO minirepro_partition_test VALUES (3, (select gp_dump_query_oids('SELECT * FROM pg_class') ) :: json);
+SELECT array['foo'::regclass::oid::text,
+             'foo_1_prt_outlying_years'::regclass::oid::text,
+             'foo_1_prt_outlying_years_2_prt_other_a'::regclass::oid::text,
+             'foo_1_prt_outlying_years_2_prt_other_a_3_prt_other_b'::regclass::oid::text,
+             'foo_1_prt_outlying_years_2_prt_other_a_3_prt_2'::regclass::oid::text,
+             'foo_1_prt_outlying_years_2_prt_2'::regclass::oid::text,
+             'foo_1_prt_outlying_years_2_prt_2_3_prt_other_b'::regclass::oid::text,
+             'foo_1_prt_outlying_years_2_prt_2_3_prt_2'::regclass::oid::text,
+             'foo_1_prt_2'::regclass::oid::text,
+             'foo_1_prt_2_2_prt_other_a'::regclass::oid::text,
+             'foo_1_prt_2_2_prt_other_a_3_prt_other_b'::regclass::oid::text,
+             'foo_1_prt_2_2_prt_other_a_3_prt_2'::regclass::oid::text,
+             'foo_1_prt_2_2_prt_2'::regclass::oid::text,
+             'foo_1_prt_2_2_prt_2_3_prt_other_b'::regclass::oid::text,
+             'foo_1_prt_2_2_prt_2_3_prt_2'::regclass::oid::text] <@  (string_to_array((SELECT info->>'relids' FROM minirepro_partition_test WHERE id = 1),','));
+SELECT array['ptable'::regclass::oid::text,
+             'ctable'::regclass::oid::text,
+             'cctable'::regclass::oid::text] <@  (string_to_array((SELECT info->>'relids' FROM minirepro_partition_test WHERE id = 2),','));
+SELECT array['pg_class'::regclass::oid::text] <@  (string_to_array((SELECT info->>'relids' FROM minirepro_partition_test WHERE id = 3),','));
+DROP TABLE foo;
+DROP TABLE cctable;
+DROP TABLE ctable;
+DROP TABLE ptable;
+DROP TABLE minirepro_partition_test;
