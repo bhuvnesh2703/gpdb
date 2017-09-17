@@ -2,11 +2,11 @@
  *
  * gp_dump_oids.c
  *
- * Copyright (c) 2015 Pivotal Inc. All Rights Reserved
+ * Copyright (c) 2015-Present Pivotal Software, Inc.
  *
  *
  * IDENTIFICATION
- * 	   src/backend/utils/adt/gp_dump_oids.c
+ *	    src/backend/utils/adt/gp_dump_oids.c
  *
  *---------------------------------------------------------------------
  */
