@@ -207,7 +207,7 @@ INFO:  Dispatch command to SINGLE content
 
 -- TODO: this currently not directly dispatched (AGL-1246)
 select * from direct_test_type_cidr where x = '68.44.55.111';
-INFO:  Dispatch command to ALL contents
+INFO:  Dispatch command to SINGLE content
         x        
 -----------------
  68.44.55.111/32
