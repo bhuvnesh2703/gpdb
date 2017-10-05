@@ -72,7 +72,6 @@ select * from direct_test_type_bit where x = '1';
 select * from direct_test_type_bpchar where x = 'abs';
 select * from direct_test_type_bytea where x = 'greenplum';
 
--- TODO: this currently not directly dispatched (AGL-1246)
 select * from direct_test_type_cidr where x = '68.44.55.111';
 
 select * from direct_test_type_inet where x = '68.44.55.111';

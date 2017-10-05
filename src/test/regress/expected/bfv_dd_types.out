@@ -205,7 +205,6 @@ INFO:  Dispatch command to SINGLE content
  greenplum
 (1 row)
 
--- TODO: this currently not directly dispatched (AGL-1246)
 select * from direct_test_type_cidr where x = '68.44.55.111';
 INFO:  Dispatch command to SINGLE content
         x        
