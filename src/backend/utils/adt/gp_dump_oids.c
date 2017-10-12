@@ -38,9 +38,7 @@ static void appendChildrenRelids(StringInfoData *relbuf, Oid relid)
 	List *prels = NIL;
 	prels = find_all_inheritors(relid);
 	if((prels->length) <= 1)
-	{
 		return;
-	}
 	/*we delete relid itself in the return value*/
 	prels = list_delete_first(prels);
 	ListCell   *lc;
