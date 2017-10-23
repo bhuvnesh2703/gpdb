@@ -418,6 +418,9 @@ bool		gp_log_dynamic_partition_pruning = false;
 bool		gp_cte_sharing = false;
 bool		gp_enable_relsize_collection = false;
 
+/* Join Order */
+int			optimizer_join_heuristic_model;
+int			optimizer_nary_join_result_max_entries;
 /* Optimizer related gucs */
 bool		optimizer;
 bool		optimizer_log;
@@ -519,6 +522,7 @@ bool		optimizer_remove_order_below_dml;
 bool		optimizer_multilevel_partitioning;
 bool 		optimizer_parallel_union;
 bool		optimizer_array_constraints;
+bool		optimizer_nary_join_dpmincard;
 bool		optimizer_cte_inlining;
 bool		optimizer_enable_space_pruning;
 
@@ -651,6 +655,13 @@ static const struct config_enum_entry password_hash_algorithm_options[] = {
 	/* {"none", PASSWORD_HASH_NONE}, * this option is not exposed */
 	{"MD5", PASSWORD_HASH_MD5},
 	{"SHA-256", PASSWORD_HASH_SHA_256},
+	{NULL, 0}
+};
+
+static const struct	config_enum_entry optimizer_join_heuristic_options[] = {
+	{"query", JOIN_ORDER_IN_QUERY},
+	{"cardinality", JOIN_ORDER_ON_CARDINALITY},
+	{"exhaustive", JOIN_ORDER_EXHAUSTIVE_SEARCH},
 	{NULL, 0}
 };
 
@@ -3239,6 +3250,16 @@ struct config_bool ConfigureNamesBool_gp[] =
 		&optimizer_array_constraints,
 		false, NULL, NULL
 	},
+	
+	{
+		{"optimizer_nary_join_dpmincard", PGC_USERSET, DEVELOPER_OPTIONS,
+			gettext_noop("DP Min Card"),
+			NULL,
+			GUC_NOT_IN_SAMPLE
+		},
+		&optimizer_nary_join_dpmincard,
+		false, NULL, NULL
+	},
 
 	{
 		{"optimizer_use_gpdb_allocators", PGC_POSTMASTER, RESOURCES_MEM,
@@ -4674,6 +4695,16 @@ struct config_int ConfigureNamesInt_gp[] =
 		&optimizer_join_arity_for_associativity_commutativity,
 		7, 0, INT_MAX, NULL, NULL
 	},
+	
+	{
+		{"optimizer_nary_join_result_max_entries", PGC_USERSET, QUERY_TUNING_METHOD,
+			gettext_noop("Maximum number of of resulting dynamic programming results"),
+			NULL,
+			GUC_NOT_IN_SAMPLE
+		},
+		&optimizer_nary_join_result_max_entries,
+		10, 0, 10, NULL, NULL
+	},
 
 	{
 		{"optimizer_penalize_broadcast_threshold", PGC_USERSET, QUERY_TUNING_METHOD,
@@ -5591,6 +5622,16 @@ struct config_enum ConfigureNamesEnum_gp[] =
 		},
 		&gp_workfile_type_hashjoin,
 		BFZ, gp_workfile_type_hashjoin_options, NULL, NULL
+	},
+
+	{
+		{"optimizer_join_heuristic_model", PGC_USERSET, QUERY_TUNING_OTHER,
+			gettext_noop("Set optimizer join heuristic model."),
+			gettext_noop("Valid values are query, cardinality, exhaustive"),
+			GUC_NOT_IN_SAMPLE
+		},
+		&optimizer_join_heuristic_model,
+		JOIN_ORDER_ON_CARDINALITY, optimizer_join_heuristic_options, NULL, NULL
 	},
 
 	/* End-of-list marker */

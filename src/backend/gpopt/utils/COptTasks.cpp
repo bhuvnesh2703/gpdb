@@ -748,6 +748,9 @@ COptTasks::PoconfCreate
 	ULONG ulJoinOrderThreshold = (ULONG) optimizer_join_order_threshold;
 	ULONG ulBroadcastThreshold = (ULONG) optimizer_penalize_broadcast_threshold;
 
+	ULONG ulJoinHeuristicModel = (ULONG) optimizer_join_heuristic_model;
+	ULONG ulNaryDPJoinResultMaxEntries = (ULONG) optimizer_nary_join_result_max_entries;
+
 	return GPOS_NEW(pmp) COptimizerConfig
 						(
 						GPOS_NEW(pmp) CEnumeratorConfig(pmp, ullPlanId, ullSamples, dCostThreshold),
@@ -761,8 +764,10 @@ COptTasks::PoconfCreate
 								ulArrayExpansionThreshold,
 								ulJoinOrderThreshold,
 								ulBroadcastThreshold,
-								false /* don't create Assert nodes for constraints, we'll
-								      * enforce them ourselves in the executor */
+								false, /* don't create Assert nodes for constraints, we'll
+								       * enforce them ourselves in the executor */
+								ulJoinHeuristicModel,
+								ulNaryDPJoinResultMaxEntries
 								)
 						);
 }

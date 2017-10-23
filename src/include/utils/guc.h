@@ -396,6 +396,14 @@ extern char  *data_directory;
 #define OPTIMIZER_GPDB_LEGACY           0       /* GPDB's legacy cost model */
 #define OPTIMIZER_GPDB_CALIBRATED       1       /* GPDB's calibrated cost model */
 
+/* optimizer join heuristic algo */
+#define JOIN_ORDER_IN_QUERY					0
+#define JOIN_ORDER_ON_CARDINALITY 	1
+#define JOIN_ORDER_EXHAUSTIVE_SEARCH		2
+
+/* Join Order */
+extern int optimizer_join_heuristic_model;
+extern int optimizer_nary_join_result_max_entries;
 /* Optimizer related gucs */
 extern bool	optimizer;
 extern bool optimizer_control;	/* controls whether the user can change the setting of the "optimizer" guc */
@@ -495,6 +503,7 @@ extern bool optimizer_remove_order_below_dml;
 extern bool optimizer_multilevel_partitioning;
 extern bool optimizer_parallel_union;
 extern bool optimizer_array_constraints;
+extern bool optimizer_nary_join_dpmincard;
 extern bool optimizer_cte_inlining;
 extern bool optimizer_enable_space_pruning;
 

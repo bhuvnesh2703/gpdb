@@ -353,6 +353,13 @@ CConfigParamMapping::SConfigMappingElem CConfigParamMapping::m_elem[] =
 		&optimizer_array_constraints,
 		false, // m_fNegate
 		GPOS_WSZ_LIT("Allows the constraint framework to derive array constraints in the optimizer.")
+		},
+
+		{
+		EopttraceDPMinCard,
+		&optimizer_nary_join_dpmincard,
+		false, // m_fNegate
+		GPOS_WSZ_LIT("Allow min card generate during DP")
 		}
 };
 
@@ -473,7 +480,27 @@ CConfigParamMapping::PbsPack
 		pbs->FExchangeSet(GPOPT_DISABLE_XFORM_TF(CXform::ExfIndexGet2IndexScan));
 	}
 
+	if (optimizer_join_heuristic_model == 0)
+	{
+		CBitSet *pbsJoinHeuristc = CXform::PbsUserJoinOrderXforms(pmp);
+		pbs->Union(pbsJoinHeuristc);
+		pbsJoinHeuristc->Release();
+	}
+	else if (optimizer_join_heuristic_model == 1)
+	{
+		CBitSet *pbsJoinHeuristc = CXform::PbsUserJoinOrderOnMinCardinalityXforms(pmp);
+		pbs->Union(pbsJoinHeuristc);
+		pbsJoinHeuristc->Release();
+	}
+	else if (optimizer_join_heuristic_model == 2)
+	{
+		CBitSet *pbsJoinHeuristc = CXform::PbsUserJoinOrderExhaustiveSearchXforms(pmp);
+		pbs->Union(pbsJoinHeuristc);
+		pbsJoinHeuristc->Release();
+	}
+	
 	return pbs;
+
 }
 
 // EOF
