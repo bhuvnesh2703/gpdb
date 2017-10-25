@@ -4703,7 +4703,7 @@ struct config_int ConfigureNamesInt_gp[] =
 			GUC_NOT_IN_SAMPLE
 		},
 		&optimizer_nary_join_result_max_entries,
-		10, 0, 10, NULL, NULL
+		5, 0, 10, NULL, NULL
 	},
 
 	{
