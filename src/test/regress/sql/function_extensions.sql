@@ -203,6 +203,8 @@ select * from test_srf();
 -- Since the function is marked as EXECUTE ON ANY, and IMMUTABLE, the planner
 -- can choose to run it anywhere.
 explain select * from srf_testtab, test_srf();
+INSERT INTO srf_testtab SELECT 'foo -1' from generate_series(1,1000);
+ANALYZE srf_testtab;
 explain select * from srf_testtab, test_srf() where test_srf = srf_testtab.t;
 
 -- Test ALTER FUNCTION, and that \df displays the EXECUTE ON correctly

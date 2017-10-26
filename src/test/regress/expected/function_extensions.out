@@ -323,15 +323,17 @@ explain select * from srf_testtab, test_srf();
  Optimizer status: legacy query optimizer
 (7 rows)
 
+INSERT INTO srf_testtab SELECT 'foo -1' from generate_series(1,1000);
+ANALYZE srf_testtab;
 explain select * from srf_testtab, test_srf() where test_srf = srf_testtab.t;
-                                   QUERY PLAN                                   
---------------------------------------------------------------------------------
- Gather Motion 3:1  (slice1; segments: 3)  (cost=1.02..263.62 rows=10 width=38)
-   ->  Hash Join  (cost=1.02..263.62 rows=4 width=38)
+                                    QUERY PLAN                                     
+-----------------------------------------------------------------------------------
+ Gather Motion 3:1  (slice1; segments: 3)  (cost=26.57..301.60 rows=1003 width=38)
+   ->  Hash Join  (cost=26.57..301.60 rows=335 width=38)
          Hash Cond: test_srf.test_srf = srf_testtab.t
          ->  Function Scan on test_srf  (cost=0.00..260.00 rows=334 width=32)
-         ->  Hash  (cost=1.01..1.01 rows=1 width=6)
-               ->  Seq Scan on srf_testtab  (cost=0.00..1.01 rows=1 width=6)
+         ->  Hash  (cost=14.03..14.03 rows=335 width=6)
+               ->  Seq Scan on srf_testtab  (cost=0.00..14.03 rows=335 width=6)
  Settings:  optimizer=off
  Optimizer status: legacy query optimizer
 (8 rows)

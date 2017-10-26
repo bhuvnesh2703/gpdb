@@ -323,16 +323,18 @@ explain select * from srf_testtab, test_srf();
  Optimizer status: PQO version 2.45.0
 (7 rows)
 
+INSERT INTO srf_testtab SELECT 'foo -1' from generate_series(1,1000);
+ANALYZE srf_testtab;
 explain select * from srf_testtab, test_srf() where test_srf = srf_testtab.t;
-                                    QUERY PLAN                                    
-----------------------------------------------------------------------------------
- Gather Motion 3:1  (slice1; segments: 3)  (cost=0.00..431.16 rows=1000 width=14)
-   ->  Hash Join  (cost=0.00..431.10 rows=334 width=14)
+                                    QUERY PLAN                                     
+-----------------------------------------------------------------------------------
+ Gather Motion 3:1  (slice1; segments: 3)  (cost=0.00..431.25 rows=1003 width=14)
+   ->  Hash Join  (cost=0.00..431.19 rows=335 width=14)
          Hash Cond: test_srf.test_srf = srf_testtab.t
          ->  Result  (cost=0.00..0.03 rows=334 width=8)
                ->  Function Scan on test_srf  (cost=0.00..0.01 rows=334 width=8)
-         ->  Hash  (cost=431.00..431.00 rows=1 width=6)
-               ->  Table Scan on srf_testtab  (cost=0.00..431.00 rows=1 width=6)
+         ->  Hash  (cost=431.01..431.01 rows=335 width=6)
+               ->  Table Scan on srf_testtab  (cost=0.00..431.01 rows=335 width=6)
  Settings:  optimizer=on
  Optimizer status: PQO version 2.45.0
 (9 rows)
