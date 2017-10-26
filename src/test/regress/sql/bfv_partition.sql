@@ -257,6 +257,7 @@ create index index_mpp23195_t1_i on mpp23195_t1(i);
 create table mpp23195_t2(i int);
 
 insert into mpp23195_t1 values (generate_series(1,19));
+analyze mpp23195_t1;
 insert into mpp23195_t2 values (1);
 
 -- TEST
