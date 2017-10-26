@@ -20,6 +20,8 @@ CREATE TABLE bfv_tab1 (
 	string4		name
 ) distributed by (unique1);
 create index bfv_tab1_idx1 on bfv_tab1 using btree(unique1);
+insert into bfv_tab1 (unique1, stringu1) select 1, 'a' from generate_series(1,5);
+analyze bfv_tab1;
 explain select * from bfv_tab1, (values(147, 'RFAAAA'), (931, 'VJAAAA')) as v (i, j)
     WHERE bfv_tab1.unique1 = v.i and bfv_tab1.stringu1 = v.j;
                                                 QUERY PLAN                                                 
@@ -38,13 +40,13 @@ explain select * from bfv_tab1, (values(147, 'RFAAAA'), (931, 'VJAAAA')) as v (i
     WHERE bfv_tab1.unique1 = v.i and bfv_tab1.stringu1 = v.j;
                                                 QUERY PLAN                                                 
 -----------------------------------------------------------------------------------------------------------
- Gather Motion 3:1  (slice1; segments: 3)  (cost=0.01..0.09 rows=4 width=280)
-   ->  Hash Join  (cost=0.01..0.09 rows=2 width=280)
-         Hash Cond: "*VALUES*".column1 = bfv_tab1.unique1 AND "*VALUES*".column2 = bfv_tab1.stringu1::text
-         ->  Values Scan on "*VALUES*"  (cost=0.00..0.03 rows=1 width=36)
-         ->  Hash  (cost=0.00..0.00 rows=1 width=244)
-               ->  Seq Scan on bfv_tab1  (cost=0.00..0.00 rows=1 width=244)
- Settings:  gp_enable_relsize_collection=on
+ Gather Motion 3:1  (slice1; segments: 3)  (cost=0.06..1.17 rows=4 width=280)
+   ->  Hash Join  (cost=0.06..1.17 rows=2 width=280)
+         Hash Cond: bfv_tab1.unique1 = "*VALUES*".column1 AND bfv_tab1.stringu1::text = "*VALUES*".column2
+         ->  Seq Scan on bfv_tab1  (cost=0.00..1.05 rows=2 width=244)
+         ->  Hash  (cost=0.03..0.03 rows=1 width=36)
+               ->  Values Scan on "*VALUES*"  (cost=0.00..0.03 rows=1 width=36)
+ Settings:  gp_enable_relsize_collection=on; optimizer=off
  Optimizer status: legacy query optimizer
 (8 rows)
 
