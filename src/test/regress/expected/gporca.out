@@ -3442,19 +3442,23 @@ explain  select * from orca.r, orca.s where r.a is not distinct from s.c;
 
 -- explain Hash Join with equality join condition
 -- force_explain
+begin;
+insert into orca.r select i, i from generate_series(50,1000)i;
+analyze orca.r;
 explain select * from orca.r, orca.s where r.a = s.c;
-                                  QUERY PLAN                                  
-------------------------------------------------------------------------------
- Gather Motion 3:1  (slice1; segments: 3)  (cost=3.45..6.20 rows=30 width=16)
-   ->  Hash Join  (cost=3.45..6.20 rows=10 width=16)
-         Hash Cond: s.c = r.a
-         ->  Seq Scan on s  (cost=0.00..2.30 rows=10 width=8)
-         ->  Hash  (cost=3.20..3.20 rows=7 width=8)
-               ->  Seq Scan on r  (cost=0.00..3.20 rows=7 width=8)
+                                  QUERY PLAN                                   
+-------------------------------------------------------------------------------
+ Gather Motion 3:1  (slice1; segments: 3)  (cost=2.67..18.20 rows=30 width=16)
+   ->  Hash Join  (cost=2.67..18.20 rows=10 width=16)
+         Hash Cond: r.a = s.c
+         ->  Seq Scan on r  (cost=0.00..12.72 rows=324 width=8)
+         ->  Hash  (cost=2.30..2.30 rows=10 width=8)
+               ->  Seq Scan on s  (cost=0.00..2.30 rows=10 width=8)
  Settings:  optimizer=off; optimizer_segments=3
  Optimizer status: legacy query optimizer
 (8 rows)
 
+rollback;
 -- sort
 select * from orca.r join orca.s on(r.a=s.c) order by r.a, s.d;
  a | b | c | d 

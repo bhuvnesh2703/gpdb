@@ -183,7 +183,11 @@ explain  select * from orca.r, orca.s where r.a is not distinct from s.c;
 
 -- explain Hash Join with equality join condition
 -- force_explain
+begin;
+insert into orca.r select i, i from generate_series(50,1000)i;
+analyze orca.r;
 explain select * from orca.r, orca.s where r.a = s.c;
+rollback;
 
 -- sort
 select * from orca.r join orca.s on(r.a=s.c) order by r.a, s.d;
