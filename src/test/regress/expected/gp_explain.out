@@ -85,16 +85,19 @@ CREATE TABLE mpp22263 (
         string4         name
 ) distributed by (unique1);
 create index mpp22263_idx1 on mpp22263 using btree(unique1);
+insert into mpp22263 (unique1, stringu1) select i, 'a' from generate_series(1,5)i;
+analyze mpp22263;
 explain select * from mpp22263, (values(147, 'RFAAAA'), (931, 'VJAAAA')) as v (i, j)
 WHERE mpp22263.unique1 = v.i and mpp22263.stringu1 = v.j;
                                                 QUERY PLAN                                                 
 -----------------------------------------------------------------------------------------------------------
- Gather Motion 3:1  (slice1; segments: 3)  (cost=0.06..278.70 rows=14 width=280)
-   ->  Hash Join  (cost=0.06..278.70 rows=5 width=280)
+ Gather Motion 3:1  (slice1; segments: 3)  (cost=0.06..2.17 rows=4 width=280)
+   ->  Hash Join  (cost=0.06..2.17 rows=2 width=280)
          Hash Cond: mpp22263.unique1 = "*VALUES*".column1 AND mpp22263.stringu1::text = "*VALUES*".column2
-         ->  Seq Scan on mpp22263  (cost=0.00..219.00 rows=3967 width=244)
+         ->  Seq Scan on mpp22263  (cost=0.00..2.05 rows=2 width=244)
          ->  Hash  (cost=0.03..0.03 rows=1 width=36)
                ->  Values Scan on "*VALUES*"  (cost=0.00..0.03 rows=1 width=36)
+ Settings:  optimizer=off
  Optimizer status: legacy query optimizer
 (7 rows)
 

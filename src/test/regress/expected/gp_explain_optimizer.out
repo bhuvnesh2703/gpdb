@@ -87,16 +87,18 @@ CREATE TABLE mpp22263 (
         string4         name
 ) distributed by (unique1);
 create index mpp22263_idx1 on mpp22263 using btree(unique1);
+insert into mpp22263 (unique1, stringu1) select i, 'a' from generate_series(1,5)i;
+analyze mpp22263;
 explain select * from mpp22263, (values(147, 'RFAAAA'), (931, 'VJAAAA')) as v (i, j)
 WHERE mpp22263.unique1 = v.i and mpp22263.stringu1 = v.j;
-                                         QUERY PLAN                                         
---------------------------------------------------------------------------------------------
- Gather Motion 3:1  (slice1; segments: 3)  (cost=0.00..2.00 rows=1 width=256)
-   ->  Nested Loop  (cost=0.00..2.00 rows=1 width=256)
+                                         QUERY PLAN                                          
+---------------------------------------------------------------------------------------------
+ Gather Motion 3:1  (slice1; segments: 3)  (cost=0.00..10.00 rows=2 width=256)
+   ->  Nested Loop  (cost=0.00..10.00 rows=1 width=256)
          Join Filter: true
          ->  Result  (cost=0.00..0.00 rows=1 width=12)
                ->  Values Scan on "Values"  (cost=0.00..0.00 rows=1 width=12)
-         ->  Index Scan using mpp22263_idx1 on mpp22263  (cost=0.00..2.00 rows=1 width=244)
+         ->  Index Scan using mpp22263_idx1 on mpp22263  (cost=0.00..10.00 rows=1 width=244)
                Index Cond: mpp22263.unique1 = "Values".column1
                Filter: mpp22263.stringu1::text = "Values".column2
  Optimizer status: PQO version 2.35.1
@@ -127,9 +129,9 @@ SELECT * from
 get_explain_output($$ 
 	select * from (values (1)) as f(a) join (values(2)) b(b) on a = b join foo on true join foo as foo2 on true $$) as et
 WHERE et like '%Hash Cond:%';
-                          et                          
-------------------------------------------------------
-         Hash Cond: "inner".column1 = "outer".column1
+                             et                             
+------------------------------------------------------------
+               Hash Cond: "outer".column1 = "outer".column1
 (1 row)
 
 SELECT * from

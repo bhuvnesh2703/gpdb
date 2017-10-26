@@ -76,6 +76,8 @@ CREATE TABLE mpp22263 (
 ) distributed by (unique1);
 
 create index mpp22263_idx1 on mpp22263 using btree(unique1);
+insert into mpp22263 (unique1, stringu1) select i, 'a' from generate_series(1,5)i;
+analyze mpp22263;
 
 explain select * from mpp22263, (values(147, 'RFAAAA'), (931, 'VJAAAA')) as v (i, j)
 WHERE mpp22263.unique1 = v.i and mpp22263.stringu1 = v.j;
