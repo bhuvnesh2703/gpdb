@@ -1041,25 +1041,22 @@ explain select * from table_a where a0=3;
 (5 rows)
 
 explain select a0 from table_a where a0 in (select max(a1) from table_a);
-                                              QUERY PLAN                                              
-------------------------------------------------------------------------------------------------------
- Gather Motion 3:1  (slice3; segments: 3)  (cost=0.00..862.00 rows=1 width=4)
-   ->  Hash Join  (cost=0.00..862.00 rows=1 width=4)
-         Hash Cond: "outer".max = public.table_a.a0
-         ->  Redistribute Motion 1:3  (slice2)  (cost=0.00..431.00 rows=1 width=4)
-               Hash Key: max
-               ->  Aggregate  (cost=0.00..431.00 rows=1 width=4)
-                     ->  Gather Motion 3:1  (slice1; segments: 3)  (cost=0.00..431.00 rows=1 width=4)
-                           ->  Aggregate  (cost=0.00..431.00 rows=1 width=4)
-                                 ->  Table Scan on table_a  (cost=0.00..431.00 rows=1 width=4)
-         ->  Hash  (cost=431.00..431.00 rows=1 width=4)
-               ->  Table Scan on table_a  (cost=0.00..431.00 rows=1 width=4)
+                                           QUERY PLAN                                           
+------------------------------------------------------------------------------------------------
+ Hash Semi Join  (cost=0.00..862.00 rows=1 width=4)
+   Hash Cond: public.table_a.a0 = (max((max(public.table_a.a1))))
+   ->  Gather Motion 3:1  (slice1; segments: 3)  (cost=0.00..431.00 rows=1 width=4)
+         ->  Table Scan on table_a  (cost=0.00..431.00 rows=1 width=4)
+   ->  Hash  (cost=431.00..431.00 rows=1 width=4)
+         ->  Aggregate  (cost=0.00..431.00 rows=1 width=4)
+               ->  Gather Motion 3:1  (slice2; segments: 3)  (cost=0.00..431.00 rows=1 width=4)
+                     ->  Aggregate  (cost=0.00..431.00 rows=1 width=4)
+                           ->  Table Scan on table_a  (cost=0.00..431.00 rows=1 width=4)
  Settings:  optimizer=on
- Optimizer status: PQO version 1.624
-(13 rows)
+ Optimizer status: PQO version 2.48.1
+(11 rows)
 
 select a0 from table_a where a0 in (select max(a1) from table_a);
-INFO:  Dispatch command to ALL contents
 INFO:  Dispatch command to ALL contents
 INFO:  Dispatch command to ALL contents
  a0 
@@ -1081,23 +1078,21 @@ INFO:  Dispatch command to ALL contents
 (1 row)
 
 explain select a0 from table_a where a0 in (select max(a1) from table_a where a0=1);
-                                              QUERY PLAN                                              
-------------------------------------------------------------------------------------------------------
- Gather Motion 3:1  (slice3; segments: 3)  (cost=0.00..862.00 rows=1 width=4)
-   ->  Hash Join  (cost=0.00..862.00 rows=1 width=4)
-         Hash Cond: "outer".max = public.table_a.a0
-         ->  Redistribute Motion 1:3  (slice2)  (cost=0.00..431.00 rows=1 width=4)
-               Hash Key: max
-               ->  Aggregate  (cost=0.00..431.00 rows=1 width=4)
-                     ->  Gather Motion 3:1  (slice1; segments: 3)  (cost=0.00..431.00 rows=1 width=4)
-                           ->  Aggregate  (cost=0.00..431.00 rows=1 width=4)
-                                 ->  Table Scan on table_a  (cost=0.00..431.00 rows=1 width=4)
-                                       Filter: a0 = 1
-         ->  Hash  (cost=431.00..431.00 rows=1 width=4)
-               ->  Table Scan on table_a  (cost=0.00..431.00 rows=1 width=4)
+                                           QUERY PLAN                                           
+------------------------------------------------------------------------------------------------
+ Hash Semi Join  (cost=0.00..862.00 rows=1 width=4)
+   Hash Cond: public.table_a.a0 = (max((max(public.table_a.a1))))
+   ->  Gather Motion 3:1  (slice1; segments: 3)  (cost=0.00..431.00 rows=1 width=4)
+         ->  Table Scan on table_a  (cost=0.00..431.00 rows=1 width=4)
+   ->  Hash  (cost=431.00..431.00 rows=1 width=4)
+         ->  Aggregate  (cost=0.00..431.00 rows=1 width=4)
+               ->  Gather Motion 3:1  (slice2; segments: 3)  (cost=0.00..431.00 rows=1 width=4)
+                     ->  Aggregate  (cost=0.00..431.00 rows=1 width=4)
+                           ->  Table Scan on table_a  (cost=0.00..431.00 rows=1 width=4)
+                                 Filter: a0 = 1
  Settings:  optimizer=on
- Optimizer status: PQO version 1.624
-(14 rows)
+ Optimizer status: PQO version 2.48.1
+(12 rows)
 
 --start_ignore
 drop table table_a cascade;
