@@ -473,6 +473,32 @@ CConfigParamMapping::PbsPack
 		pbs->FExchangeSet(GPOPT_DISABLE_XFORM_TF(CXform::ExfIndexGet2IndexScan));
 	}
 
+	CBitSet *pbsJoinHeuristc = NULL;
+	switch (optimizer_join_heuristic_model)
+	{
+		case 0:
+			pbsJoinHeuristc = CXform::PbsUserJoinOrderXforms(pmp);
+			break;
+		case 1:
+			pbsJoinHeuristc = CXform::PbsUserJoinOrderOnMinCardinalityXforms(pmp);
+			break;
+		case 2:
+			pbsJoinHeuristc = CXform::PbsUserJoinOrderOnGreedyXforms(pmp);
+			break;
+		case 3:
+			pbsJoinHeuristc = GPOS_NEW(pmp) CBitSet(pmp, EopttraceSentinel);
+			break;
+		default:
+			elog(ERROR, "Invalid value for optimizer_join_heuristic_model, must \
+				 not come here");
+#ifdef GPOS_DEBUG
+			GPOS_ASSERT("Must not come here");
+#endif // GPOS_DEBUG
+			break;
+	}
+	pbs->Union(pbsJoinHeuristc);
+	pbsJoinHeuristc->Release();
+
 	return pbs;
 }
 

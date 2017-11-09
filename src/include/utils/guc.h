@@ -529,6 +529,14 @@ extern int codegen_optimization_level;
  */
 extern bool	optimizer_partition_selection_log;
 
+/* optimizer join heuristic models */
+#define JOIN_ORDER_IN_QUERY                 0
+#define JOIN_ORDER_ON_CARDINALITY           1
+#define JOIN_ORDER_GREEDY_SEARCH            2
+#define JOIN_ORDER_EXHAUSTIVE_SEARCH        3
+
+extern int optimizer_join_heuristic_model;
+
 extern char  *gp_email_smtp_server;
 extern char  *gp_email_smtp_userid;
 extern char  *gp_email_smtp_password;
