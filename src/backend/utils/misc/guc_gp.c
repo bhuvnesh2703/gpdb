@@ -5621,7 +5621,7 @@ struct config_enum ConfigureNamesEnum_gp[] =
 			GUC_NOT_IN_SAMPLE
 		},
 		&optimizer_join_heuristic_model,
-		JOIN_ORDER_EXHAUSTIVE_SEARCH, optimizer_join_heuristic_models, NULL, NULL
+		JOIN_ORDER_GREEDY_SEARCH, optimizer_join_heuristic_models, NULL, NULL
 	},
 
 	/* End-of-list marker */
