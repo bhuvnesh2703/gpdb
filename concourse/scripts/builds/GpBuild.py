@@ -25,7 +25,7 @@ class GpBuild(GpdbBuildBase):
         cmd_with_options.extend(self.configure_options)
         source_cmd = ''
         if self.gcc_env_file:
-            source_cmd = "source {0} && ".format(gcc_env_file)
+            source_cmd = "source {0} && ".format(self.gcc_env_file)
         cmd = source_cmd + " ".join(cmd_with_options)
         return subprocess.call(cmd, shell=True, cwd="gpdb_src")
 
