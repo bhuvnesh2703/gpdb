@@ -43,6 +43,10 @@ def main():
     parser.add_option("--package-gpdb-with-orca", dest="package_gpdb_with_orca", help="Package ORCA header and library files with GPDB tarball")
     (options, args) = parser.parse_args()
 
+    print options.configure_option
+    if  options.configure_option:
+        print  options.configure_option
+    sys.exit(1)
     ci_common = GpBuild(ORCA_CODEGEN_DEFAULT_MODE)
     if options.mode == ORCA_MODE:
         ci_common = GpBuild(options.mode)

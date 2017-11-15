@@ -49,7 +49,7 @@ class GpBuild(GpdbBuildBase):
             {2} \"".format(INSTALL_DIR, self.mode, make_command)], cwd="gpdb_src", shell=True)
 
     def append_configure_options(self, configure_options):
-        if len(configure_options) > 0:
+        if configure_options:
             self.configure_options.extend(configure_options)
 
     def set_gcc_env_file(self, gcc_env_file):
