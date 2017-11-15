@@ -81,7 +81,7 @@ def main():
             status = ci_common.install_dependency(dependency, install_dir)
             if status:
                 return status
-    else options.required-action == 'test':
+    else if options.required-action == 'test':
         status = ci_common.install_dependency(options.gpdb_name, INSTALL_DIR)
         if status:
             return status
