@@ -37,10 +37,11 @@ def main():
     parser.add_option("--compiler", dest="compiler")
     parser.add_option("--cxxflags", dest="cxxflags")
     parser.add_option("--output_dir", dest="output_dir", default=INSTALL_DIR)
-    parser.add_option("--configure_options", dest="configure_options", help="Comma separated configure flags, \
-                                                                            ex: '--disable-gpcloud, --disable-orca'")
+    parser.add_option("--configure_option", dest="configure_option", action="append", help="Configure flags, \
+                                                                                            ex --configure_option=--disable-orca --configure_option=--disable-gpcloud")
     parser.add_option("--gcc_env_file", dest="gcc_env_file", help="GCC env file to be sourced")
     (options, args) = parser.parse_args()
+
     ci_common = GpBuild(ORCA_CODEGEN_DEFAULT_MODE)
     if options.mode == ORCA_MODE:
         ci_common = GpBuild(options.mode)
@@ -51,28 +52,29 @@ def main():
         status = ci_common.install_dependency(dependency)
         if status:
             return status
+ 
     status = print_compiler_version()
     if status:
         return status
 
-   
     ci_common.set_gcc_env_file(options.gcc_env_file)
-    configure_options = []
-    if options.configure_options:
-        configure_options = [option.strip() for option in options.configure_options.split(',')]
-    ci_common.append_configure_options(configure_options)
+    ci_common.append_configure_options(options.configure_option)
     status = ci_common.configure()
     if status:
         return status
+
     status = ci_common.make()
     if status:
         return status
+
     status = ci_common.unittest()
     if status:
         return status
+
     status = ci_common.make_install()
     if status:
         return status
+
     status = copy_installed(options.output_dir)
     if status:
         return status
