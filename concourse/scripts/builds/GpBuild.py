@@ -23,10 +23,9 @@ class GpBuild(GpdbBuildBase):
             self.configure_options.append("--disable-orca")
         cmd_with_options = ["./configure"]
         cmd_with_options.extend(self.configure_options)
-        source_cmd = ''
+        cmd = " ".join(cmd_with_options)
         if self.gcc_env_file:
-            source_cmd = "source {0} && ".format(self.gcc_env_file)
-        cmd = source_cmd + " ".join(cmd_with_options)
+            cmd = "source {0} && ".format(self.gcc_env_file) + cmd
         return subprocess.call(cmd, shell=True, cwd="gpdb_src")
 
     @staticmethod
@@ -57,3 +56,10 @@ class GpBuild(GpdbBuildBase):
 
     def set_gcc_env_file(self, gcc_env_file):
         self.gcc_env_file = gcc_env_file
+
+    def make(self):
+        num_cpus = super(GpBuild, self).num_cpus()
+        cmd = ["make", "-j" + str(num_cpus), "-l" + str(2 * num_cpus)]
+        if self.gcc_env_file:
+            cmd = "source {0} && ".format(self.gcc_env_file) + cmd 
+        return subprocess.call(" ".join(cmd), shell=True, cwd="gpdb_src")
