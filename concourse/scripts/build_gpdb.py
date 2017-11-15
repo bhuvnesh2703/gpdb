@@ -14,18 +14,6 @@ PLANNER_MODE = 'planner'
 INSTALL_DIR = "/usr/local/gpdb"
 
 
-def make(num_cpus, gcc_env_file):
-    return subprocess.call(["source", gcc_env_file, "&&", "make",
-                            "-j" + str(num_cpus),
-                            "-l" + str(2 * num_cpus),
-                            ],
-                           cwd="gpdb_src")
-
-
-def install():
-    return subprocess.call("make install", cwd="gpdb_src", shell=True)
-
-
 def copy_installed(output_dir):
     if os.path.normpath(INSTALL_DIR) != os.path.normpath(output_dir):
         status = subprocess.call("mkdir -p " + output_dir, shell=True)
@@ -33,10 +21,6 @@ def copy_installed(output_dir):
             return status
         return subprocess.call("cp -r %s/*  %s" % (INSTALL_DIR, output_dir), shell=True)
     return
-
-
-def unittest():
-    return subprocess.call("make -s unittest-check", cwd="gpdb_src/src/backend", shell=True)
 
 
 def print_compiler_version():
@@ -83,10 +67,10 @@ def main():
     status = ci_common.make()
     if status:
         return status
-    status = unittest()
+    status = ci_common.unittest()
     if status:
         return status
-    status = install()
+    status = ci_common.make_install()
     if status:
         return status
     status = copy_installed(options.output_dir)

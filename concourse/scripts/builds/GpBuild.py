@@ -24,9 +24,7 @@ class GpBuild(GpdbBuildBase):
         cmd_with_options = ["./configure"]
         cmd_with_options.extend(self.configure_options)
         cmd = " ".join(cmd_with_options)
-        if self.gcc_env_file:
-            cmd = "source {0} && ".format(self.gcc_env_file) + cmd
-        return subprocess.call(cmd, shell=True, cwd="gpdb_src")
+        return run_cmd(cmd, "gpdb_src")
 
     @staticmethod
     def create_demo_cluster():
@@ -61,6 +59,17 @@ class GpBuild(GpdbBuildBase):
         num_cpus = self.num_cpus()
         cmd = ["make", "-j" + str(num_cpus), "-l" + str(2 * num_cpus)]
         cmd = " ".join(cmd)
+        return run_cmd(cmd, "gpdb_src")
+
+    def run_cmd(self, cmd, working_dir)
         if self.gcc_env_file:
-            cmd = "source {0} && ".format(self.gcc_env_file) + cmd
-        return subprocess.call(cmd, shell=True, cwd="gpdb_src")
+            cmd =  "source {0} && ".format(self.gcc_env_file) + cmd
+        return  subprocess.call(cmd, shell=True, cwd=working_dir)
+
+    def make_install(self)
+        cmd = "make install"
+        return run_cmd(cmd, "gpdb_src")
+
+    def unittest():
+        cmd = "make -s unittest-check"
+        return run_cmd(cmd, "gpdb_src/src/backend")
