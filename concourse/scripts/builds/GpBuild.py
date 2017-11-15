@@ -23,9 +23,11 @@ class GpBuild(GpdbBuildBase):
             self.configure_options.append("--disable-orca")
         cmd_with_options = ["./configure"]
         cmd_with_options.extend(self.configure_options)
+        source_cmd = ''
         if self.gcc_env_file:
-            cmd_with_options.insert(0, "source {0} && ".format(self.gcc_env_file))
-        return subprocess.call(cmd_with_options, cwd="gpdb_src")
+            source_cmd = "source {0} && ".format(gcc_env_file)
+        cmd = source_cmd + " ".join(cmd_with_options)
+        return subprocess.call(cmd, shell=True, cwd="gpdb_src")
 
     @staticmethod
     def create_demo_cluster():
