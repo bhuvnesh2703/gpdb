@@ -83,7 +83,6 @@ def main():
                 return status
 
     status = copy_installed(options.output_dir)
-    sys.exit(1)
     if status:
         return status
     return 0
