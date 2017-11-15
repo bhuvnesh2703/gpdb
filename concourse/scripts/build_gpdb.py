@@ -80,7 +80,7 @@ def main():
     status = ci_common.configure()
     if status:
         return status
-    status = make(ci_common.num_cpus(), gcc_env_file)
+    status = make(ci_common.num_cpus(), options.gcc_env_file)
     if status:
         return status
     status = unittest()
