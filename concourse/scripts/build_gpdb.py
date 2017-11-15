@@ -68,9 +68,9 @@ def main():
     if status:
         return status
 
-    status = ci_common.unittest()
-    if status:
-        return status
+    #status = ci_common.unittest()
+    #if status:
+    #    return status
 
     status = ci_common.make_install()
     if status:
