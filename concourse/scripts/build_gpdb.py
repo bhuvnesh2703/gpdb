@@ -40,7 +40,7 @@ def main():
     parser.add_option("--configure_option", dest="configure_option", action="append", help="Configure flags, \
                                                                                             ex --configure_option=--disable-orca --configure_option=--disable-gpcloud")
     parser.add_option("--gcc_env_file", dest="gcc_env_file", help="GCC env file to be sourced")
-    parser.add_option("--package-gpdb-with-orca", dest="package_gpdb_with_orca", action="store_false", help="Package ORCA header and library files with GPDB tarball")
+    parser.add_option("--package-gpdb-with-orca", dest="package_gpdb_with_orca", action="store_true", help="Package ORCA header and library files with GPDB tarball")
     (options, args) = parser.parse_args()
 
     ci_common = GpBuild(ORCA_CODEGEN_DEFAULT_MODE)
