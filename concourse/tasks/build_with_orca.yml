@@ -14,7 +14,6 @@ run:
   path: gpdb_src/concourse/scripts/build_gpdb.py
   args:
     - --mode=orca
-    - --output_dir=bin_gpdb/install
     - --gcc_env_file=/opt/gcc_env.sh
     - --package-gpdb-with-orca
     - bin_orca

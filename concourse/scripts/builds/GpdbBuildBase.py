@@ -23,6 +23,7 @@ class GpdbBuildBase:
         return 2
 	
     def install_dependency(self, dependency_name, untar_dir="/usr/local"):
+        subprocess.call("mkdir -p {0}".format(untar_dir), shell=True)
         subprocess.call("tar -xzf {0}/*.tar.gz -C {1}".format(dependency_name, untar_dir), shell=True)
         return subprocess.call(["ldconfig", os.path.join(untar_dir, "lib")])
     
