@@ -37,21 +37,21 @@ def main():
     parser.add_option("--compiler", dest="compiler")
     parser.add_option("--cxxflags", dest="cxxflags")
     parser.add_option("--output_dir", dest="output_dir", default=INSTALL_DIR)
-    parser.add_option("--configure_option", dest="configure_option", action="append", help="Configure flags, \
+    parser.add_option("--configure-option", dest="configure_option", action="append", help="Configure flags, \
                                                                                             ex --configure_option=--disable-orca --configure_option=--disable-gpcloud")
-    parser.add_option("--gcc_env_file", dest="gcc_env_file", help="GCC env file to be sourced")
+    parser.add_option("--gcc-env-file", dest="gcc_env_file", help="GCC env file to be sourced")
     parser.add_option("--package-gpdb-with-orca", dest="package_gpdb_with_orca", action="store_true", help="Package ORCA header and library files with GPDB tarball")
     (options, args) = parser.parse_args()
 
-    configure_options = options.configure_option
     ci_common = GpBuild(ORCA_CODEGEN_DEFAULT_MODE)
     if options.mode == ORCA_MODE:
         ci_common = GpBuild(options.mode)
     elif options.mode == PLANNER_MODE:
         ci_common = GpBuild(options.mode)
 
+    install_dir = INSTALL_DIR if options.package_gpdb_with_orca else "/usr/local"
     for dependency in args:
-        status = ci_common.install_dependency(dependency)
+        status = ci_common.install_dependency(dependency, install_dir)
         if status:
             return status
  
@@ -61,10 +61,14 @@ def main():
 
     ci_common.set_gcc_env_file(options.gcc_env_file)
 
+    configure_option = []
+    if options.configure_option:
+        configure_option.extend(options.configure_option)
+
     if options.package_gpdb_with_orca:
-        configure_options.append("--with-libs={0}".format(os.path.join(INSTALL_DIR, "lib")))
-        configure_options.append("--with-includes={0}".format(os.path.join(INSTALL_DIR, "include")))
-    ci_common.append_configure_options(configure_options)
+        configure_option.append("--with-libs={0}".format(os.path.join(install_dir, "lib")))
+        configure_option.append("--with-includes={0}".format(os.path.join(install_dir, "include")))
+    ci_common.append_configure_options(configure_option)
 
     status = ci_common.configure()
     if status:
