@@ -40,6 +40,7 @@ def main():
     parser.add_option("--configure_option", dest="configure_option", action="append", help="Configure flags, \
                                                                                             ex --configure_option=--disable-orca --configure_option=--disable-gpcloud")
     parser.add_option("--gcc_env_file", dest="gcc_env_file", help="GCC env file to be sourced")
+    parser.add_option("--package-gpdb-with-orca", dest="package_gpdb_with_orca", help="Package ORCA header and library files with GPDB tarball")
     (options, args) = parser.parse_args()
 
     ci_common = GpBuild(ORCA_CODEGEN_DEFAULT_MODE)
@@ -74,6 +75,12 @@ def main():
     status = ci_common.make_install()
     if status:
         return status
+
+    if options.package_gpdb_with_orca:
+        for dependency in args:
+            status = ci_common.install_dependency(dependency, "/usr/local/gpdb")
+            if status:
+                return status
 
     status = copy_installed(options.output_dir)
     if status:
