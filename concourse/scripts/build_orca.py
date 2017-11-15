@@ -8,7 +8,7 @@ import sys
 BASE_DIR = os.getcwd()
 def build_install_orca(prefix, path):
     # by default conan will install the files under /usr/local
-    return subprocess.call(["./configure --prefix={0} && make && make install_local".format(prefix)],
+    return subprocess.call(["./configure --prefix={0} && CC=/usr/bin/gcc-5 CXX=/usr/bin/g++-5 && make && make install_local".format(prefix)],
                            shell=True,
                            cwd="gpdb_src/depends",
                            env={"PATH": path,
