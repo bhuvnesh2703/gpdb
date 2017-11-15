@@ -53,7 +53,7 @@ class GpBuild(GpdbBuildBase):
             self.configure_options.extend(configure_options)
 
     def set_gcc_env_file(self, gcc_env_file):
-        if len(gcc_env_file) > 0:
+        if gcc_env_file is not None:
             self.source_gcc_env_cmd = "source {0} &&".format(gcc_env_file)
 
     def make(self):

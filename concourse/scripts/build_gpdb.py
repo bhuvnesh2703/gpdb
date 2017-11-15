@@ -62,7 +62,7 @@ def main():
                                                                                             ex --configure_option=--disable-orca --configure_option=--disable-gpcloud")
     parser.add_option("--gcc-env-file", dest="gcc_env_file", help="GCC env file to be sourced")
     parser.add_option("--install-orca-in-gpdb-location", dest="install_orca_in_gpdb_location", action="store_true", help="Instal ORCA header and library files in GPDB install directory")
-    parser.add_option("--required-action", choices=['build', 'test'], dest="required_option", help="Build GPDB or Run Install Check")
+    parser.add_option("--required-action", choices=['build', 'test'], dest="required_action", help="Build GPDB or Run Install Check")
     parser.add_option("--gpdb_name", dest="gpdb_name")
     (options, args) = parser.parse_args()
 
