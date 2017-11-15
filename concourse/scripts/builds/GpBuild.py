@@ -16,7 +16,7 @@ class GpBuild(GpdbBuildBase):
                                     "--with-python",
                                     "--prefix={0}".format(INSTALL_DIR)
                                   ]
-        self.gcc_env_file = ''
+        self.source_gcc_env_cmd = ''
 
     def configure(self):
         if self.mode == 'off':
@@ -29,8 +29,8 @@ class GpBuild(GpdbBuildBase):
     @staticmethod
     def create_demo_cluster():
         return subprocess.call([
-            "runuser gpadmin -c \"source %s/greenplum_path.sh \
-            && make create-demo-cluster DEFAULT_QD_MAX_CONNECT=150\"" % INSTALL_DIR],
+            "runuser gpadmin -c \"source {0}/greenplum_path.sh \
+            && {1} make create-demo-cluster DEFAULT_QD_MAX_CONNECT=150\"".format(INSTALL_DIR, self.source_gcc_env_cmd)],
             cwd="gpdb_src/gpAux/gpdemo", shell=True)
 
     def install_check(self, option='good'):
@@ -53,7 +53,8 @@ class GpBuild(GpdbBuildBase):
             self.configure_options.extend(configure_options)
 
     def set_gcc_env_file(self, gcc_env_file):
-        self.gcc_env_file = gcc_env_file
+        if len(gcc_env_file) > 0:
+            self.source_gcc_env_cmd = "source {0} &&".format(self.gcc_env_file)
 
     def make(self):
         num_cpus = self.num_cpus()
@@ -62,8 +63,7 @@ class GpBuild(GpdbBuildBase):
         return self.run_cmd(cmd, "gpdb_src")
 
     def run_cmd(self, cmd, working_dir):
-        if self.gcc_env_file:
-            cmd =  "source {0} && ".format(self.gcc_env_file) + cmd
+        cmd =  self.source_gcc_env_cmd + cmd
         return  subprocess.call(cmd, shell=True, cwd=working_dir)
 
     def make_install(self):
