@@ -60,6 +60,7 @@ class GpBuild(GpdbBuildBase):
     def make(self):
         num_cpus = self.num_cpus()
         cmd = ["make", "-j" + str(num_cpus), "-l" + str(2 * num_cpus)]
+        cmd = " ".join(cmd)
         if self.gcc_env_file:
-            cmd = "source {0} && ".format(self.gcc_env_file) + cmd 
-        return subprocess.call(" ".join(cmd), shell=True, cwd="gpdb_src")
+            cmd = "source {0} && ".format(self.gcc_env_file) + cmd
+        return subprocess.call(cmd, shell=True, cwd="gpdb_src")
