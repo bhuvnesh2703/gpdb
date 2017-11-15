@@ -17,5 +17,6 @@ run:
     - --gcc-env-file=/opt/gcc_env.sh
     - --output_dir=bin_gpdb/install
     - --install-orca-in-gpdb-location
+    - --required-action=build
     - bin_orca
     - bin_xerces
