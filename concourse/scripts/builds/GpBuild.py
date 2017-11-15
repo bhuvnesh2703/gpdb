@@ -58,7 +58,7 @@ class GpBuild(GpdbBuildBase):
         self.gcc_env_file = gcc_env_file
 
     def make(self):
-        num_cpus = super(GpBuild, self).num_cpus()
+        num_cpus = self.num_cpus()
         cmd = ["make", "-j" + str(num_cpus), "-l" + str(2 * num_cpus)]
         if self.gcc_env_file:
             cmd = "source {0} && ".format(self.gcc_env_file) + cmd 
