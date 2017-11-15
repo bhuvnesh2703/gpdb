@@ -15,5 +15,6 @@ run:
   args:
     - --mode=orca
     - --output_dir=bin_gpdb/install
+    - --gcc_env_file=/opt/gcc_env.sh
     - bin_orca
     - bin_xerces
