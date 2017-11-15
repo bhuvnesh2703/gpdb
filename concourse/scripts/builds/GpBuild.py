@@ -16,12 +16,15 @@ class GpBuild(GpdbBuildBase):
                                     "--with-python",
                                     "--prefix={0}".format(INSTALL_DIR)
                                   ]
+        self.gcc_env_file = ''
 
     def configure(self):
         if self.mode == 'off':
             self.configure_options.append("--disable-orca")
         cmd_with_options = ["./configure"]
         cmd_with_options.extend(self.configure_options)
+        if self.gcc_env_file:
+            cmd_with_options.insert(0, "source {0} && ".format(self.gcc_env_file))
         return subprocess.call(cmd_with_options, cwd="gpdb_src")
 
     @staticmethod
@@ -49,3 +52,6 @@ class GpBuild(GpdbBuildBase):
     def append_configure_options(self, configure_options):
         if len(configure_options) > 0:
             self.configure_options.extend(configure_options)
+
+    def set_gcc_env_file(self, gcc_env_file)
+        self.gcc_env_file = gcc_env_file
