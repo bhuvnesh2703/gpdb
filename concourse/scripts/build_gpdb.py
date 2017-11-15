@@ -53,6 +53,8 @@ def main():
     parser.add_option("--compiler", dest="compiler")
     parser.add_option("--cxxflags", dest="cxxflags")
     parser.add_option("--output_dir", dest="output_dir", default=INSTALL_DIR)
+    parser.add_option("--configure_options", dest="configure_options", help="Comma separated configure flags, \
+                                                                            ex: '--disable-gpcloud, --disable-orca'")
     (options, args) = parser.parse_args()
     ci_common = GpBuild(ORCA_CODEGEN_DEFAULT_MODE)
     if options.mode == ORCA_MODE:
@@ -67,6 +69,11 @@ def main():
     status = print_compiler_version()
     if status:
         return status
+
+    configure_options = []
+    if options.configure_options:
+        configure_options = [option.strip() for option in options.configure_options.split(',')]
+    ci_common.append_configure_options(configure_options)
     status = ci_common.configure()
     if status:
         return status
