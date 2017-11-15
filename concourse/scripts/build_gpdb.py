@@ -81,7 +81,7 @@ def main():
             status = ci_common.install_dependency(dependency, install_dir)
             if status:
                 return status
-    else if options.required-action == 'test':
+    elif options.required-action == 'test':
         status = ci_common.install_dependency(options.gpdb_name, INSTALL_DIR)
         if status:
             return status
@@ -115,7 +115,7 @@ def main():
         status = copy_installed(options.output_dir)
         if status:
             return status
-    else if options.required-action == 'test':
+    elif options.required-action == 'test':
         status = create_gpadmin_user()
         if status:
             return status
