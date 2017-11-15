@@ -53,5 +53,5 @@ class GpBuild(GpdbBuildBase):
         if len(configure_options) > 0:
             self.configure_options.extend(configure_options)
 
-    def set_gcc_env_file(self, gcc_env_file)
+    def set_gcc_env_file(self, gcc_env_file):
         self.gcc_env_file = gcc_env_file
