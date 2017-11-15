@@ -62,7 +62,7 @@ def main():
                                                                                             ex --configure_option=--disable-orca --configure_option=--disable-gpcloud")
     parser.add_option("--gcc-env-file", dest="gcc_env_file", help="GCC env file to be sourced")
     parser.add_option("--install-orca-in-gpdb-location", dest="install_orca_in_gpdb_location", action="store_true", help="Instal ORCA header and library files in GPDB install directory")
-    parser.add_option("--required-action", choices=['build', 'test'], help="Build GPDB or Run Install Check")
+    parser.add_option("--required-action", choices=['build', 'test'], dest="required_option", help="Build GPDB or Run Install Check")
     parser.add_option("--gpdb_name", dest="gpdb_name")
     (options, args) = parser.parse_args()
 
@@ -75,13 +75,13 @@ def main():
 
     ci_common.set_gcc_env_file(options.gcc_env_file)
 
-    if options.required-action == 'build':
+    if options.required_action == 'build':
         install_dir = INSTALL_DIR if options.install_orca_in_gpdb_location else "/usr/local"
         for dependency in args:
             status = ci_common.install_dependency(dependency, install_dir)
             if status:
                 return status
-    elif options.required-action == 'test':
+    elif options.required_action == 'test':
         status = ci_common.install_dependency(options.gpdb_name, INSTALL_DIR)
         if status:
             return status
@@ -99,7 +99,7 @@ def main():
     if status:
         return status
 
-    if options.required-action == 'build':
+    if options.required_action == 'build':
         status = ci_common.make()
         if status:
             return status
@@ -115,7 +115,7 @@ def main():
         status = copy_installed(options.output_dir)
         if status:
             return status
-    elif options.required-action == 'test':
+    elif options.required_action == 'test':
         status = create_gpadmin_user()
         if status:
             return status
