@@ -14,8 +14,8 @@ PLANNER_MODE = 'planner'
 INSTALL_DIR = "/usr/local/gpdb"
 
 
-def make(num_cpus):
-    return subprocess.call(["make",
+def make(num_cpus, gcc_env_file):
+    return subprocess.call(["source", gcc_env_file, "&&", "make",
                             "-j" + str(num_cpus),
                             "-l" + str(2 * num_cpus),
                             ],
@@ -80,7 +80,7 @@ def main():
     status = ci_common.configure()
     if status:
         return status
-    status = make(ci_common.num_cpus())
+    status = make(ci_common.num_cpus(), gcc_env_file)
     if status:
         return status
     status = unittest()
