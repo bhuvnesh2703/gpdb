@@ -61,15 +61,15 @@ class GpBuild(GpdbBuildBase):
         cmd = " ".join(cmd)
         return run_cmd(cmd, "gpdb_src")
 
-    def run_cmd(self, cmd, working_dir)
+    def run_cmd(self, cmd, working_dir):
         if self.gcc_env_file:
             cmd =  "source {0} && ".format(self.gcc_env_file) + cmd
         return  subprocess.call(cmd, shell=True, cwd=working_dir)
 
-    def make_install(self)
+    def make_install(self):
         cmd = "make install"
         return run_cmd(cmd, "gpdb_src")
 
-    def unittest():
+    def unittest(self):
         cmd = "make -s unittest-check"
         return run_cmd(cmd, "gpdb_src/src/backend")
