@@ -40,7 +40,7 @@ def main():
     parser.add_option("--configure-option", dest="configure_option", action="append", help="Configure flags, \
                                                                                             ex --configure_option=--disable-orca --configure_option=--disable-gpcloud")
     parser.add_option("--gcc-env-file", dest="gcc_env_file", help="GCC env file to be sourced")
-    parser.add_option("--package-gpdb-with-orca", dest="package_gpdb_with_orca", action="store_true", help="Package ORCA header and library files with GPDB tarball")
+    parser.add_option("--install-orca-in-gpdb-location", dest="install_orca_in_gpdb_location", action="store_true", help="Instal ORCA header and library files in GPDB install directory")
     (options, args) = parser.parse_args()
 
     ci_common = GpBuild(ORCA_CODEGEN_DEFAULT_MODE)
@@ -49,7 +49,7 @@ def main():
     elif options.mode == PLANNER_MODE:
         ci_common = GpBuild(options.mode)
 
-    install_dir = INSTALL_DIR if options.package_gpdb_with_orca else "/usr/local"
+    install_dir = INSTALL_DIR if options.install_orca_in_gpdb_location else "/usr/local"
     for dependency in args:
         status = ci_common.install_dependency(dependency, install_dir)
         if status:
@@ -65,7 +65,7 @@ def main():
     if options.configure_option:
         configure_option.extend(options.configure_option)
 
-    if options.package_gpdb_with_orca:
+    if options.install_orca_in_gpdb_location:
         configure_option.append("--with-libs={0}".format(os.path.join(install_dir, "lib")))
         configure_option.append("--with-includes={0}".format(os.path.join(install_dir, "include")))
     ci_common.append_configure_options(configure_option)
