@@ -54,7 +54,7 @@ class GpBuild(GpdbBuildBase):
 
     def set_gcc_env_file(self, gcc_env_file):
         if len(gcc_env_file) > 0:
-            self.source_gcc_env_cmd = "source {0} &&".format(self.gcc_env_file)
+            self.source_gcc_env_cmd = "source {0} &&".format(gcc_env_file)
 
     def make(self):
         num_cpus = self.num_cpus()
