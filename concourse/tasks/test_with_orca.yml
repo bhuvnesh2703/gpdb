@@ -18,7 +18,5 @@ run:
     - --gpdb_name=bin_gpdb
     - --action=test
     - --configure-option=--disable-gpcloud
-    - bin_orca
-    - bin_xerces
 params:
   BLDWRAP_POSTGRES_CONF_ADDONS: "fsync=off"
