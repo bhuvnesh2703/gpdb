@@ -66,8 +66,6 @@ def main():
     parser.add_option("--gpdb_name", dest="gpdb_name")
     (options, args) = parser.parse_args()
 
-
-
     ci_common = GpBuild(options.mode)
     status = print_compiler_version()
     if status:
@@ -120,9 +118,9 @@ def main():
         if status:
             return status
         if os.getenv("TEST_SUITE", "icg") == 'icw':
-          status = ciCommon.install_check('world')
+          status = ci_common.install_check('world')
         else:
-          status = ciCommon.install_check()
+          status = ci_common.install_check()
         if status:
             copy_output()
         return status
