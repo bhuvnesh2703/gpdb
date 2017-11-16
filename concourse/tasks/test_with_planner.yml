@@ -17,6 +17,7 @@ run:
     - --mode=planner
     - --gpdb_name=bin_gpdb
     - --required-action=test
+    - --gcc-env-file=/opt/gcc_env.sh
     - bin_orca
     - bin_xerces
 params:
