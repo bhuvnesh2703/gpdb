@@ -26,8 +26,7 @@ class GpBuild(GpdbBuildBase):
         cmd = " ".join(cmd_with_options)
         return self.run_cmd(cmd, "gpdb_src")
 
-    @staticmethod
-    def create_demo_cluster():
+    def create_demo_cluster(self):
         return subprocess.call([
             "runuser gpadmin -c \"source {0}/greenplum_path.sh \
             && {1} make create-demo-cluster DEFAULT_QD_MAX_CONNECT=150\"".format(INSTALL_DIR, self.source_gcc_env_cmd)],
