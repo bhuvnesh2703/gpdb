@@ -132,7 +132,7 @@ def main():
           if status:
               copy_output()
           return status
-
+    sys.exit(1)
     return 0
 
 if __name__ == "__main__":
