@@ -14,6 +14,7 @@ ORCA_CODEGEN_DEFAULT_MODE = "orca_codegen"
 ORCA_MODE = 'orca'
 PLANNER_MODE = 'planner'
 INSTALL_DIR = "/usr/local/gpdb"
+DEPENDENCY_INSTALL_DIR = "/usr/local"
 
 
 def copy_installed(output_dir):
@@ -70,7 +71,7 @@ def main():
     parser.add_option("--configure-option", dest="configure_option", action="append", help="Configure flags, \
                                                                                             ex --configure_option=--disable-orca --configure_option=--disable-gpcloud")
     parser.add_option("--gcc-env-file", dest="gcc_env_file", help="GCC env file to be sourced")
-    parser.add_option("--install-orca-in-gpdb-location", dest="install_orca_in_gpdb_location", action="store_true", help="Install ORCA header and library files in GPDB install directory")
+    parser.add_option("--orca-in-gpdb-install-location", dest="orca_in_gpdb_install_location", action="store_true", help="Install ORCA header and library files in GPDB install directory")
     parser.add_option("--action", choices=['build', 'test'], dest="action", default='build', help="Build GPDB or Run Install Check")
     parser.add_option("--gpdb_name", dest="gpdb_name")
     (options, args) = parser.parse_args()
@@ -84,25 +85,25 @@ def main():
 
     # for building gpdb, orca and xerces library & header should be available
     # if required install the files in the install directory of gpdb to avoid packaging from multiple directories
+    install_dir = INSTALL_DIR if options.orca_in_gpdb_install_location else DEPENDENCY_INSTALL_DIR
     if options.action == 'build':
-        install_dir = INSTALL_DIR if options.install_orca_in_gpdb_location else "/usr/local"
         install_dependencies(ci_common, args, install_dir)
     # for testing, install the gpdb package assuming it has all the required dependencies
     elif options.action == 'test':
+        #install gpdb
         status = ci_common.install_dependency(options.gpdb_name, INSTALL_DIR)
         fail_on_error(status)
-        # if orca and xerces are not available in the gpdb package, install them separately if passed as dependency
-        status = install_dependencies(ci_common, args, "/usr/local")
+        # if dependency available as args, install them
+        status = install_dependencies(ci_common, args, install_dir)
         fail_on_error(status)
 
     configure_option = []
     if options.configure_option:
         configure_option.extend(options.configure_option)
 
-    # if orca and xerces files are available inside gpdb package, add them to the configure command lib and include path
-    if options.install_orca_in_gpdb_location:
-        configure_option.append("--with-libs={0}".format(os.path.join(install_dir, "lib")))
-        configure_option.append("--with-includes={0}".format(os.path.join(install_dir, "include")))
+    # add DEPENDENCY_INSTALL_LOC and INSTALL_DIR paths to configure options
+    configure_option.append('"--with-libs={0} {1}"'.format(os.path.join(DEPENDENCY_INSTALL_LOC, "lib"), os.path.join(INSTALL_DIR, "lib")))
+    configure_option.append('"--with-includes={0} {1}"'.format(os.path.join(DEPENDENCY_INSTALL_LOC, "include"), os.path.join(INSTALL_DIR, "lib")))
     ci_common.append_configure_options(configure_option)
 
     status = ci_common.configure()
