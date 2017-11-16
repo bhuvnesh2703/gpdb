@@ -102,8 +102,8 @@ def main():
         configure_option.extend(options.configure_option)
 
     # add DEPENDENCY_INSTALL_LOC and INSTALL_DIR paths to configure options
-    configure_option.append('"--with-libs={0} {1}"'.format(os.path.join(DEPENDENCY_INSTALL_LOC, "lib"), os.path.join(INSTALL_DIR, "lib")))
-    configure_option.append('"--with-includes={0} {1}"'.format(os.path.join(DEPENDENCY_INSTALL_LOC, "include"), os.path.join(INSTALL_DIR, "lib")))
+    configure_option.append('"--with-libs={0} {1}"'.format(os.path.join(DEPENDENCY_INSTALL_DIR, "lib"), os.path.join(INSTALL_DIR, "lib")))
+    configure_option.append('"--with-includes={0} {1}"'.format(os.path.join(DEPENDENCY_INSTALL_DIR, "include"), os.path.join(INSTALL_DIR, "include")))
     ci_common.append_configure_options(configure_option)
 
     status = ci_common.configure()
