@@ -16,4 +16,4 @@ run:
     - --output_dir=bin_gpdb/install
     - bin_orca
     - --action=build
-    - --gcc-env-file=/opt/gcc_env.sh
+    - --configure-option=--disable-gpcloud
