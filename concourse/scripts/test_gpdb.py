@@ -51,9 +51,9 @@ def configure():
                             "--with-libxml",
                             "--with-python",
                             "--disable-gpcloud",
-                            "--with-libs=/usr/local/gpdb/lib"
-                            "--with-includes=/usr/local/gpdb/include"
-                            "--prefix=/usr/local/gpdb"], env=p_env, shell=True, cwd="gpdb_src")
+                            "--with-libs=/usr/local/gpdb/lib",
+                            "--with-includes=/usr/local/gpdb/include",
+                            "--prefix=/usr/local/gpdb"], env=p_env, cwd="gpdb_src")
 
 def main():
     parser = optparse.OptionParser()
