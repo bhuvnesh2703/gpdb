@@ -30,6 +30,7 @@
 
 #include "cdb/cdbvars.h"
 #include "utils/guc.h"
+#include "utils/fmgroids.h"
 
 #include "gpos/base.h"
 #include "gpos/error/CException.h"
@@ -806,7 +807,8 @@ COptTasks::PoconfCreate
 								ulBroadcastThreshold,
 								false /* don't create Assert nodes for constraints, we'll
 								      * enforce them ourselves in the executor */
-								)
+								),
+						GPOS_NEW(pmp) CWindowOids(OID(F_WINDOW_ROW_NUMBER), OID(F_WINDOW_RANK))
 						);
 }
 
