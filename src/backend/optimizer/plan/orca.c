@@ -135,6 +135,7 @@ optimize_query(Query *parse, ParamListInfo boundParams)
 	result = PplstmtOptimize(pqueryCopy, &fUnexpectedFailure);
 
 	log_optimizer(result, fUnexpectedFailure);
+	
 
 	CHECK_FOR_INTERRUPTS();
 

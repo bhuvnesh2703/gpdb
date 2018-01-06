@@ -2624,7 +2624,7 @@ compute_scalar_stats(VacAttrStatsP stats,
 	fmgr_info(cmpFn, &f_cmpfn);
 
 	if(!optimizer_log)
-		stats->stahll = hll_create(DEFAULT_NDISTINCT, DEFAULT_ERROR, 1);
+		stats->stahll = hll_create(DEFAULT_NDISTINCT, DEFAULT_ERROR, PACKED);
 	/* Initial scan to find sortable values */
 	for (i = 0; i < samplerows; i++)
 	{
@@ -3284,18 +3284,18 @@ acquire_ndv_by_hll(Relation onerel, int nattrs, VacAttrStats **attrstats)
 				return;
 			}
 			Datum *values;
-			int nvalues;
+			int nvalues = 0;
 			double ndistinct = 0.0;
 			get_attstatsslot(heaptupleStats, InvalidOid, 0, STATISTIC_KIND_HLL, InvalidOid, &values, &nvalues, NULL, NULL);
 			if(nvalues>0)
 			{
 				HLLCounter hllcounter = (HLLCounter) DatumGetByteaP(values[0]);
-				hyperloglog_length(hllcounter);
+				//hyperloglog_length(hllcounter);
 				ndistinct = hyperloglog_get_estimate(hllcounter);
-				if(ndistinct < 0.1)
-					return;
-			}
 
+			}
+			if(ndistinct < 0.1)
+				return;
 			attrstats[j]->stadistinct = ndistinct;
 			attrstats[j]->stats_valid = true;
 		}
@@ -3307,12 +3307,35 @@ acquire_ndv_by_hll(Relation onerel, int nattrs, VacAttrStats **attrstats)
 		Assert(pn);
 
 		List *oid_list = all_leaf_partition_relids(pn); /* all leaves */
+		
+		
+		ListCell *lc;
+		float *relTuples = (float *) palloc(sizeof(float) * list_length(oid_list));
+		int relNum = 0;
+		float totalTuples = 0;
+
+		foreach(lc, oid_list)
+		{
+			Oid pkrelid = lfirst_oid(lc);
+			HeapTuple	pkStatsTuple;
+			
+			
+			/* SELECT reltuples FROM pg_class */
+			pkStatsTuple = SearchSysCache1(RELOID, ObjectIdGetDatum(pkrelid));
+			if (HeapTupleIsValid(pkStatsTuple))
+			{
+				Form_pg_class classForm = (Form_pg_class) GETSTRUCT(pkStatsTuple);
+				relTuples[relNum] = classForm->reltuples;
+				totalTuples = totalTuples + classForm->reltuples;
+				relNum++;
+			}
+		}
 
 		int numPartitions = list_length(oid_list);
 
 		for (j = 0; j < nattrs; j++)
 		{
-			// NDV calculations
+			int colAvgWidth = 0;			// NDV calculations
 			HLLCounter *hllcounters = (HLLCounter *) palloc(numPartitions * sizeof(HLLCounter));
 			HLLCounter finalHLL;
 			int i;
@@ -3327,54 +3350,73 @@ acquire_ndv_by_hll(Relation onerel, int nattrs, VacAttrStats **attrstats)
 					return;
 				}
 				Datum *values;
-				int nvalues;
+				int nvalues = 0;
 
 				get_attstatsslot(heaptupleStats, InvalidOid, 0, STATISTIC_KIND_HLL, InvalidOid, &values, &nvalues, NULL, NULL);
-				if(nvalues>0)
+				if(nvalues > 0)
 				{
 					hllcounters[i] = (HLLCounter) DatumGetByteaP(values[0]);
-					hyperloglog_length(hllcounters[i]);
-					ndistinct = hyperloglog_get_estimate(hllcounters[i]);
-					if(ndistinct < 0.1)
-						return;
+					//hyperloglog_length(hllcounters[i]);
+					
+					if (i == 0)
+					{
+						finalHLL = hll_copy(hllcounters[0]);
+					}
+					else
+					{
+						finalHLL = hll_merge(hll_unpack(finalHLL), hll_unpack(hllcounters[i]));
+					}
+					if (i == numPartitions-1)
+					{
+						ndistinct = hyperloglog_get_estimate(finalHLL);
+						if(ndistinct < 0.1)
+							return;
+					}
 				}
-
-				if (i == 0)
-				{
-					finalHLL = hll_copy(hllcounters[0]);
-				}
-				else
-				{
-					hll_merge(finalHLL, hllcounters[i]);
-				}
+				
+				colAvgWidth = colAvgWidth + get_attavgwidth(list_nth_oid(oid_list, i), j+1) * relTuples[i];
 			}
 
 			// finalize NDV calculation
-			ndistinct = hyperloglog_get_estimate(finalHLL);
-			if(ndistinct < 0.1)
-				return;
-			attrstats[j]->stadistinct = ndistinct;
+			
+			attrstats[j]->stadistinct = ndistinct ;
 			attrstats[j]->stats_valid = true;
+			attrstats[j]->stawidth = colAvgWidth / totalTuples;
 
 			MemoryContext old_context;
 			
 			old_context = MemoryContextSwitchTo(attrstats[j]->anl_context);
 
-			ArrayType *result[2];
+			void *result[2];
+			int stupid = aggregate_leaf_partition_MCVs(relid, j+1, 100, result);
+			MemoryContextSwitchTo(old_context);
 			
-			
-				int stupid = aggregate_leaf_partition_MCVs(relid, j+1, 100, result);
-				MemoryContextSwitchTo(old_context);
-			
-				attrstats[j]->stakind[1] = STATISTIC_KIND_MCV;
-				//attrstats[j]->staop[1] = mystats->eqopr;
-				attrstats[j]->stanumbers[1] = result[1];
-				attrstats[j]->numnumbers[1] = stupid;
-				attrstats[j]->stavalues[1] = result[0];
-				attrstats[j]->numvalues[1] = stupid;
-
+			attrstats[j]->stakind[1] = STATISTIC_KIND_MCV;
+			//attrstats[j]->staop[1] = mystats->eqopr;
+			attrstats[j]->stavalues[1] = (Datum *)result[0];
+			attrstats[j]->numvalues[1] = stupid;
+			attrstats[j]->stanumbers[1] = (float4 *)result[1];
+			attrstats[j]->numnumbers[1] = stupid;
 			///-------------------------------------------------------------------------------------
 			// MCV calculations
+	
+	
+			// Histogram calculation
+			MemoryContext old_context1;
+			old_context1 = MemoryContextSwitchTo(attrstats[j]->anl_context);
+			
+			void *resultHistogram[1];
+			int num_hist = aggregate_leaf_partition_histograms(relid, j+1, 100, resultHistogram);
+			MemoryContextSwitchTo(old_context1);
+			attrstats[j]->stakind[2] = STATISTIC_KIND_HISTOGRAM;
+//			attrstats[j]->staop[2] = mystats->ltopr;
+			attrstats[j]->stavalues[2] = (Datum *) resultHistogram[0];
+			attrstats[j]->numvalues[2] = num_hist;
+			
+
+			
+	
+	
 	}
 	}
 }

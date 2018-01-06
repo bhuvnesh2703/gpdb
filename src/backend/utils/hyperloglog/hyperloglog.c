@@ -261,10 +261,10 @@ hll_merge(HLLCounter counter1, HLLCounter counter2)
 	int upper_bound = POW2(result->b);
 
 	/* check compatibility first */
-	//if (counter1->b != counter2->b && -1*counter1->b != counter2->b)
-	//elog(ERROR, "index size of estimators differs (%d != %d)", counter1->b, counter2->b);
-	//else if (counter1->binbits != counter2->binbits)
-	//elog(ERROR, "bin size of estimators differs (%d != %d)", counter1->binbits, counter2->binbits);
+	if (counter1->b != counter2->b && -1*counter1->b != counter2->b)
+		elog(ERROR, "index size of estimators differs (%d != %d)", counter1->b, counter2->b);
+	else if (counter1->binbits != counter2->binbits)
+		elog(ERROR, "bin size of estimators differs (%d != %d)", counter1->binbits, counter2->binbits);
 
 
 	/* Keep the maximum register value for each bin */
@@ -790,6 +790,7 @@ sparse_to_dense_unpacked(HLLCounter hloglog)
 
         if (hloglog->format == PACKED){
 	    hloglog->format = UNPACKED;
+//		hloglog->format = PACKED_UNPACKED;
         } else if (hloglog->format == PACKED_UNPACKED) {
             hloglog->format = UNPACKED_UNPACKED;
         } else {

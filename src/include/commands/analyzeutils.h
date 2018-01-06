@@ -18,5 +18,10 @@ extern int aggregate_leaf_partition_MCVs(Oid relationOid,
 		unsigned int nEntries,
 		void **result);
 extern bool datumCompare(Datum d1, Datum d2, Oid opFuncOid);
+extern int aggregate_leaf_partition_histograms(Oid relationOid,
+		AttrNumber attnum,
+		unsigned int nEntries,
+		void **result);
+
 
 #endif  /* ANALYZEUTILS_H */

@@ -112,6 +112,16 @@ static int DatumHeapComparator(void *lhs, void *rhs, void *context);
 static void advanceCursor(int pid, int *cursors, int *nBounds);
 static Datum getMinBound(Datum **histData, int *cursors, int *nBounds, int nParts, Oid ltFuncOid);
 static Datum getMaxBound(Datum **histData, int *nBounds, int nParts, Oid ltFuncOid);
+static void getHistogramHeapTuple(List *lRelOids,
+		Datum **histData,
+		int *nBounds,
+		TypInfo *typInfo,
+		AttrNumber attnum,
+		float4 *partsReltuples,
+		float4 *sumReltuples,
+		int *numNotNullParts);
+static void initDatumHeap(CdbHeap *hp, Datum **histData, int *cursors, int nParts);
+
 /* A few variables that don't seem worth passing around as parameters */
 static int	elevel = -1;
 static void
@@ -582,8 +592,8 @@ initTypInfo(TypInfo *typInfo, Oid typOid)
 	typInfo->typOid = typOid;
 	get_typlenbyval(typOid, &typInfo->typlen, &typInfo->typbyval);
 	get_sort_group_operators(typOid, true, true, false, &typInfo->ltFuncOp, &typInfo->eqFuncOp, NULL);
-//	typInfo->ltFuncOp = ordering_oper_funcid(typOid);
-//	typInfo->eqFuncOp = equality_oper_funcid(typOid);
+	typInfo->eqFuncOp = get_opcode(typInfo->eqFuncOp);
+	typInfo->ltFuncOp = get_opcode(typInfo->ltFuncOp);
 }
 
 /*
@@ -708,23 +718,24 @@ getMaxBound(Datum **histData, int *nBounds, int nParts, Oid ltFuncOid)
  * Output:
  *  an array containing the aggregated histogram bounds
  */
-static ArrayType *
+static Datum *
 buildHistogramEntryForStats
 	(
 	List *ldatum,
-	TypInfo* typInfo
+	TypInfo* typInfo,
+	int *num_hist
 	)
 {
 
 	Assert(ldatum);
 	Assert(typInfo);
 
-	ArrayType *histArray = NULL;
-	ArrayBuildState *astate = NULL;
-
+	Datum *histArray = (Datum *)palloc(sizeof(Datum)*list_length(ldatum));
+	
 	ListCell *lc = NULL;
 	Datum *prevDatum = (Datum *) linitial(ldatum);
 	int idx = 0;
+	*num_hist = 0;
 
 	foreach_with_count (lc, ldatum, idx)
 	{
@@ -736,15 +747,100 @@ buildHistogramEntryForStats
 			continue;
 		}
 
-		astate = accumArrayResult(astate, *pdatum, false, typInfo->typOid, CurrentMemoryContext);
+		histArray[*num_hist] = *pdatum;
+		*num_hist = *num_hist+1;
 		*prevDatum = *pdatum;
 	}
 
-	if (astate)
-	{
-		histArray = DatumGetArrayTypeP(makeArrayResult(astate, CurrentMemoryContext));
-	}
 	return histArray;
+}
+
+
+/*
+ * Obtain all histogram bounds from every partition and store them in a 2D array (histData)
+ * Input:
+ * 	lRelOids - list of part Oids
+ * 	typInfo - type info
+ * 	attnum - attribute number
+ * Output:
+ * 	histData - 2D array of all histogram bounds from every partition
+ * 	nBounds - array of the number of histogram bounds (from each partition)
+ * 	partsReltuples - array of the number of tuples (from each partition)
+ * 	sumReltuples - sum of number of tuples in all partitions
+ */
+static void
+getHistogramHeapTuple
+	(
+	List *lRelOids,
+	Datum **histData,
+	int *nBounds,
+	TypInfo *typInfo,
+	AttrNumber attnum,
+	float4 *partsReltuples,
+	float4 *sumReltuples,
+	int *numNotNullParts
+	)
+{
+	int pid = 0;
+
+	ListCell *le = NULL;
+	foreach (le, lRelOids)
+	{
+		Oid partOid = lfirst_oid(le);
+		float4 nTuples;
+		float4 relPages;
+		analyzeEstimateReltuplesRelpages(partOid, &nTuples, &relPages,false);
+		partsReltuples[pid] = nTuples;
+		*sumReltuples += nTuples;
+		HeapTuple heaptupleStats = get_att_stats(partOid, attnum);
+
+		if (!HeapTupleIsValid(heaptupleStats))
+		{
+			continue;
+		}
+
+		(void) get_attstatsslot
+				(
+				heaptupleStats,
+				typInfo->typOid,
+				-1,
+				STATISTIC_KIND_HISTOGRAM,
+				InvalidOid,
+				&histData[pid], &nBounds[pid],
+				NULL, /* most common frequencies */
+				NULL  /* number of entries for most common frequencies */
+				);
+
+		heap_freetuple(heaptupleStats);
+
+		if (nBounds[pid] > 0)
+		{
+			pid++;
+		}
+	}
+	*numNotNullParts = pid;
+}
+/*
+ * Initialize heap by inserting the second histogram bound from each partition histogram.
+ * Input:
+ * 	hp - heap
+ * 	histData - all histogram bounds from each part
+ * 	cursors - cursor vector
+ * 	nParts - number of partitions
+ */
+static void
+initDatumHeap(CdbHeap *hp, Datum **histData, int *cursors, int nParts)
+{
+	for (int pid = 0; pid < nParts; pid++)
+	{
+		if (cursors[pid] > 0) /* do nothing if part histogram only has one element */
+		{
+			PartDatum pd;
+			pd.partId = pid;
+			pd.datum = histData[pid][cursors[pid]];
+			CdbHeap_Insert(hp, &pd);
+		}
+	}
 }
 
 /*
@@ -759,4 +855,191 @@ datumCompare(Datum d1, Datum d2, Oid opFuncOid)
 	FmgrInfo	ltproc;
 	fmgr_info(opFuncOid, &ltproc);
 	return DatumGetBool(FunctionCall2(&ltproc, d1, d2));
+}
+
+/*
+ * Main function for aggregating leaf partition histogram to compute
+ * root or interior partition histogram
+ * Input:
+ * 	- relationOid: Oid of root or interior partition
+ * 	- attnum: column number
+ * 	- nEntries: target number of histogram bounds to be collected, the real number of
+ * 	histogram bounds returned may be less
+ * Output:
+ * 	- result: an array of aggregated histogram bounds
+ * Algorithm:
+ *
+ * 	We use the following example to explain how the aggregating algorithm works.
+
+	Suppose a parent table 'lineitem' has 3 partitions 'lineitem_prt_1', 'lineitem_prt_2',
+	'lineitem_prt_3'. The histograms of the column of interest of the parts are:
+
+	hist(prt_1): {0,19,38,59}
+	hist(prt_2): {2,18,40,62}
+	hist(prt_3): {1,22,39,61}
+
+	Note the histograms are equi-depth, which implies each bucket should contain the same number of tuples.
+
+	The number of tuples in each part is:
+
+	nTuples(prt_1) = 300
+	nTuples(prt_2) = 270
+	nTuples(prt_3) = 330
+
+	Some notation:
+
+	hist(agg): the aggregated histogram
+	hist(parts): the histograms of the partitions, i.e., {hist(prt_1), hist(prt_2), hist(prt_3)}
+	nEntries: the target number of histogram buckets in hist(agg). Usually this is the same as in the partitions. In this example, nEntries = 3.
+	nParts: the number of partitions. nParts = 3 in this example.
+
+	Since we know the target number of tuples in each bucket of hist(agg), the basic idea is to fill the buckets of hist(agg) using the buckets in hist(parts). And once a bucket in hist(agg) is filled up, we look at which bucket from hist(parts) is the current bucket, and use its bound as the bucket bound in hist(agg).
+	Continue with our example we have,
+
+	bucketSize(prt_1) = 300/3 = 100
+	bucketSize(prt_2) = 270/3 = 90
+	bucketSize(prt_3) = 330/3 = 110
+	bucketSize(agg) = (300+270+330)/3 = 300
+
+	Now, to begin with, we find the minimum of the first boundary point across hist(parts) and use it as the first boundary of hist(agg), i.e.,
+	hist(agg) = {min({0,2,1})} = {0}
+
+	We need to maintain a priority queue in order to decide on the next bucket from hist(parts) to work with.
+	Each element in the queue is a (Datum, partID) pair, where Datum is a boundary from hist(parts) and partID is the ID of the part the Datum comes from.
+	Each time we dequeue(), we get the minimum datum in the queue as the next datum we will work on.
+	The priority queue contains up to nParts entries. In our example, we first enqueue
+	the second boundary across hist(parts), i.e., 19, 18, 22, along with their part ID.
+
+	Continue with filling the bucket of hist(agg), we dequeue '18' from the queue and fill in
+	the first bucket (having 90 tuples). Since bucketSize(agg) = 300, we need more buckets
+	from hist(parts) to fill it. At the same time, we dequeue 18 and enqueue the next bound (which is 40).
+	The first bucket of hist(agg) will be filled up by '22' (90+100+110 >= 300), at this time we put '22' as the next boundary value in hist(agg), i.e.
+	hist(agg) = {0,22}
+
+	Continue with the iteration, we will finally fill all the buckets
+	hist(agg) = {0,22,40,62}
+ *
+ */
+int
+aggregate_leaf_partition_histograms
+	(
+	Oid relationOid,
+	AttrNumber attnum,
+	unsigned int nEntries,
+	void **result
+	)
+{
+	List *lRelOids = rel_get_leaf_children_relids(relationOid);
+	int nParts = list_length(lRelOids);
+	Assert(nParts > 0);
+
+	/* get type information */
+	TypInfo typInfo;
+	Oid typOid = get_atttype(relationOid, attnum);
+	initTypInfo(&typInfo, typOid);
+
+	Datum *histData[nParts]; /* array of nParts histograms, all histogram bounds from all parts are stored here */
+	int nBounds[nParts]; /* the number of histogram bounds for each part */
+	float4 sumReltuples = 0;
+	float4 partsReltuples[nParts]; /* the number of tuples for each part */
+	memset(histData, 0, nParts * sizeof(Datum *));
+	memset(partsReltuples, 0, nParts * sizeof(float4));
+	memset(nBounds, 0, nParts * sizeof(int));
+
+	int numNotNullParts = 0;
+	/* populate histData, nBounds, partsReltuples and sumReltuples */
+	getHistogramHeapTuple(lRelOids, histData, nBounds, &typInfo, attnum, partsReltuples, &sumReltuples, &numNotNullParts);
+
+	if (0 == numNotNullParts)
+	{
+		/* if all the parts histograms are empty, we return nothing */
+		result = NULL;
+		return 0;
+	}
+
+	/* reset nParts to the number of non-null parts */
+	nParts = numNotNullParts;
+
+	/* now define the state variables needed for the aggregation loop */
+	float4 bucketSize = sumReltuples / (nEntries + 1); /* target bucket size in the aggregated histogram */
+	float4 nTuplesToFill = bucketSize; /* remaining number of tuples to fill in the current bucket
+									 of the aggregated histogram, reset to bucketSize when a new
+									 bucket is added */
+	int cursors[nParts]; /* the index of current bucket for each histogram, set to -1
+								  after the histogram has been traversed */
+	float4 eachBucket[nParts]; /* the number of data points in each bucket for each histogram */
+	float4 remainingSize[nParts]; /* remaining number of tuples in the current bucket of a part */
+	memset(cursors, 0, nParts * sizeof(int));
+	memset(eachBucket, 0, nParts * sizeof(float4));
+	memset(remainingSize, 0, nParts * sizeof(float4));
+
+	/* initialize eachBucket[] and remainingSize[] */
+	for (int i = 0; i < nParts; i++)
+	{
+		if (1 < nBounds[i])
+		{
+			eachBucket[i] = partsReltuples[i] / (nBounds[i] - 1);
+			remainingSize[i] = eachBucket[i];
+		}
+	}
+
+	int pid = 0; /* part id */
+	/* we maintain a priority queue (min heap) of PartDatum */
+	CdbHeap *dhp = CdbHeap_Create(DatumHeapComparator,
+								&typInfo,
+								nParts /* nSlotMax */,
+								sizeof(PartDatum),
+								NULL /* slotArray */);
+
+	List *ldatum = NIL; /* list of pointers to the selected bounds */
+	/* the first bound in the aggregated histogram will be the minimum of the first bounds of all parts */
+	Datum minBound = getMinBound(histData, cursors, nBounds, nParts, typInfo.ltFuncOp);
+	ldatum = lappend(ldatum, &minBound);
+
+	/* continue filling the aggregated histogram, starting from the second bound */
+	initDatumHeap(dhp, histData, cursors, nParts);
+
+	/* loop continues when DatumHeap is not empty yet and the number of histogram boundaries
+	 * has not reached nEntries */
+	while (((pid = getNextPartDatum(dhp)) >= 0) && list_length(ldatum) <= nEntries)
+	{
+		if (remainingSize[pid] < nTuplesToFill)
+		{
+			nTuplesToFill -= remainingSize[pid];
+			advanceCursor(pid, cursors, nBounds);
+			remainingSize[pid] = eachBucket[pid];
+			CdbHeap_DeleteMin(dhp);
+			if (cursors[pid] > 0)
+			{
+				PartDatum pd;
+				pd.partId = pid;
+				pd.datum = histData[pid][cursors[pid]];
+				CdbHeap_Insert(dhp, &pd);
+			}
+		}
+		else
+		{
+			ldatum = lappend(ldatum, &histData[pid][cursors[pid]]);
+			remainingSize[pid] -= nTuplesToFill;
+			nTuplesToFill = bucketSize;
+		}
+	}
+
+	/* adding the max boundary across all histograms to the aggregated histogram */
+	Datum maxBound = getMaxBound(histData, nBounds, nParts, typInfo.ltFuncOp);
+	ldatum = lappend(ldatum, &maxBound);
+
+	/* now ldatum contains the resulting boundaries */
+	int num_hist;
+	Datum *out = buildHistogramEntryForStats(ldatum, &typInfo, &num_hist);
+
+	/* clean up */
+	CdbHeap_Destroy(dhp);
+	for (int j = 0; j < nParts; j++)
+	{
+		free_attstatsslot(typOid, histData[j], nBounds[j], NULL, 0);
+	}
+
+	*result = out;
+	return num_hist;
 }
