@@ -86,7 +86,6 @@ static bool adjustPlanFlow(Plan *plan,
 
 static void motion_sanity_check(PlannerInfo *root, Plan *plan);
 static bool loci_compatible(List *hashExpr1, List *hashExpr2);
-static Plan *materialize_subplan(PlannerInfo *root, Plan *subplan);
 
 /* ------------------------------------------------------------------------- *
  * Function cdbparallelize() is the main entry point.
@@ -390,7 +389,7 @@ MapVarsMutator(Node *expr, MapVarsMutatorContext *ctx)
 /**
  * Add a materialize node to prevent rescan of subplan.
  */
-static Plan *
+Plan *
 materialize_subplan(PlannerInfo *root, Plan *subplan)
 {
 	Plan	   *mat = materialize_finished_plan(root, subplan);

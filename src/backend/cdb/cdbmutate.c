@@ -113,6 +113,7 @@ static bool replace_shareinput_targetlists_walker(Node *node, PlannerGlobal *glo
 
 static bool fixup_subplan_walker(Node *node, SubPlanWalkerContext *context);
 
+static bool insert_materialize_walker(Node *node, SubPlanWalkerContext *context);
 /*
  * Is target list of a Result node all-constant?
  *
@@ -3023,6 +3024,67 @@ fixup_subplan_walker(Node *node, SubPlanWalkerContext *context)
 	return plan_tree_walker(node, fixup_subplan_walker, context);
 }
 
+static bool
+insert_materialize_walker(Node *node, SubPlanWalkerContext *context)
+{
+	if (node == NULL)
+		return false;
+
+
+	if (IsA(node, Result))
+	{
+		Result *result = (Result *) node;
+		List *tlist = result->plan.targetlist;
+			ListCell *lc;
+		bool f = false;
+		
+		foreach(lc, tlist)
+		{
+			TargetEntry *targetentry = (TargetEntry *)lfirst(lc);
+			Expr *expr = targetentry->expr;
+			if (IsA(expr, SubPlan))
+			{
+				f = true;
+				break;
+			}
+		}
+
+		if (f)
+		{
+			result->plan.lefttree = materialize_subplan((PlannerInfo *)(context->base).node, result->plan.lefttree);
+			return false;
+		}
+
+		
+	}
+	if (IsA(node, HashJoin))
+	{
+		HashJoin    *hashjoin = (HashJoin *) node;
+		List		*tlist = (hashjoin->join).plan.targetlist;
+		ListCell *lc;
+		bool f = false;
+		
+		foreach(lc, tlist)
+		{
+			TargetEntry *targetentry = (TargetEntry *)lfirst(lc);
+			Expr *expr = targetentry->expr;
+			if (IsA(expr, SubPlan))
+			{
+				f = true;
+				break;
+			}
+		}
+
+		if (f)
+		{
+			(hashjoin->join).plan.lefttree = materialize_subplan((PlannerInfo *)(context->base).node, (hashjoin->join).plan.lefttree);
+		}
+		
+		return false;
+	}
+	return plan_tree_walker(node, insert_materialize_walker, context);
+}
+
 /*
  * Entry point for fixing subplan references. A SubPlan node
  * cannot be parallelized twice, so if multiple subplan node
@@ -3045,6 +3107,13 @@ fixup_subplans(Plan *top_plan, PlannerInfo *root, SubPlanWalkerContext *context)
 	fixup_subplan_walker((Node *) top_plan, context);
 }
 
+void
+insert_materialize(Plan *top_plan, PlannerInfo *root)
+{
+	SubPlanWalkerContext context;
+	context.base.node = (Node*) root;
+	insert_materialize_walker((Node *) top_plan, &context);
+}
 
 /*
  * Remove unused subplans from PlannerGlobal subplans

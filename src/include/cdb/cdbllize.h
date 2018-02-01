@@ -40,5 +40,5 @@ extern bool repartitionPlanForGroupClauses(struct PlannerInfo *root, Plan *plan,
 							   bool stable, bool rescannable,
 							   List *sortclauses, List *targetlist);
 extern bool broadcastPlan(Plan *plan, bool stable, bool rescannable);
-
+extern Plan *materialize_subplan(struct PlannerInfo *root, Plan *subplan);
 #endif   /* CDBLLIZE_H */

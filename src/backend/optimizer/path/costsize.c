@@ -1426,7 +1426,7 @@ cost_material(Path *path, PlannerInfo *root,
 	double		nbytes = relation_byte_size(tuples, width);
 
 	/* disk costs */
-	if (nbytes > global_work_mem(root))
+	if (root != NULL && (nbytes > global_work_mem(root)))
 	{
 		double		npages = ceil(nbytes / BLCKSZ);
 

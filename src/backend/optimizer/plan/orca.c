@@ -228,6 +228,7 @@ optimize_query(Query *parse, ParamListInfo boundParams)
 	glob->relationOids = list_concat(glob->relationOids, relationOids);
 	glob->invalItems = list_concat(glob->invalItems, invalItems);
 
+	insert_materialize(result->planTree, NULL);
 	/*
 	 * All done! Copy the PlannerGlobal fields that we modified back to the
 	 * PlannedStmt before returning.

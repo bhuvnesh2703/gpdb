@@ -360,6 +360,7 @@ standard_planner(Query *parse, int cursorOptions, ParamListInfo boundParams)
 	/* walk subplans and fixup subplan node referring to same plan_id */
 	SubPlanWalkerContext subplan_context;
 	fixup_subplans(top_plan, root, &subplan_context);
+	insert_materialize(top_plan, root);
 
 	if (Gp_role == GP_ROLE_DISPATCH)
 	{
