@@ -2475,7 +2475,7 @@ struct config_bool ConfigureNamesBool_gp[] =
 			GUC_NO_SHOW_ALL | GUC_NOT_IN_SAMPLE
 		},
 		&optimizer_force_multistage_agg,
-		true, NULL, NULL
+		false, NULL, NULL
 	},
 
 	{
@@ -2741,7 +2741,7 @@ struct config_bool ConfigureNamesBool_gp[] =
 			GUC_NO_SHOW_ALL | GUC_NOT_IN_SAMPLE
 		},
 		&optimizer_force_three_stage_scalar_dqa,
-		true, NULL, NULL
+		false, NULL, NULL
 	},
 
 	{
