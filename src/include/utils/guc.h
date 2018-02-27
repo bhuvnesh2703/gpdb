@@ -468,6 +468,7 @@ extern double optimizer_nestloop_factor;
 extern double optimizer_sort_factor;
 
 /* Optimizer hints */
+extern int optimizer_dp_alternatives;
 extern int optimizer_array_expansion_threshold;
 extern int optimizer_join_order_threshold;
 extern int optimizer_join_order;
@@ -487,6 +488,7 @@ extern bool optimizer_parallel_union;
 extern bool optimizer_array_constraints;
 extern bool optimizer_cte_inlining;
 extern bool optimizer_enable_space_pruning;
+extern bool optimizer_enable_associativity_xform;
 
 /* Analyze related GUCs for Optimizer */
 extern bool optimizer_analyze_root_partition;

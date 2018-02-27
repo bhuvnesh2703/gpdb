@@ -424,6 +424,7 @@ double		optimizer_nestloop_factor;
 double		optimizer_sort_factor;
 
 /* Optimizer hints */
+int 		optimizer_dp_alternatives;
 int			optimizer_join_arity_for_associativity_commutativity;
 int         optimizer_array_expansion_threshold;
 int         optimizer_join_order_threshold;
@@ -443,6 +444,7 @@ bool 		optimizer_parallel_union;
 bool		optimizer_array_constraints;
 bool		optimizer_cte_inlining;
 bool		optimizer_enable_space_pruning;
+bool		optimizer_enable_associativity_xform;
 
 /* Analyze related GUCs for Optimizer */
 bool		optimizer_analyze_root_partition;
@@ -601,6 +603,16 @@ IndexCheckType gp_indexcheck_vacuum = INDEX_CHECK_NONE;
 
 struct config_bool ConfigureNamesBool_gp[] =
 {
+	{
+		{"optimizer_enable_associativity_xform", PGC_POSTMASTER, CUSTOM_OPTIONS,
+			gettext_noop("Enable/Disable Associativity xform"),
+			NULL,
+			GUC_NO_SHOW_ALL | GUC_NOT_IN_SAMPLE
+		},
+		&optimizer_enable_associativity_xform,
+		true, NULL, NULL
+	},
+	
 	{
 		{"maintenance_mode", PGC_POSTMASTER, CUSTOM_OPTIONS,
 			gettext_noop("Maintenance Mode"),
@@ -4022,6 +4034,16 @@ struct config_int ConfigureNamesInt_gp[] =
 		},
 		&gp_server_version_num,
 		GP_VERSION_NUM, GP_VERSION_NUM, GP_VERSION_NUM, NULL, NULL
+	},
+	
+	{
+		{"optimizer_dp_alternatives", PGC_USERSET, QUERY_TUNING_OTHER,
+			gettext_noop("Set maximum number of dynamic programming alternatives."),
+			gettext_noop("Max value 10"),
+			GUC_NOT_IN_SAMPLE
+		},
+		&optimizer_dp_alternatives,
+		5, 5, 10, NULL, NULL
 	},
 
 	/* End-of-list marker */

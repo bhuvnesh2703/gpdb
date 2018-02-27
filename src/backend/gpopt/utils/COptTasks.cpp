@@ -748,6 +748,8 @@ COptTasks::PoconfCreate
 	ULONG ulArrayExpansionThreshold = (ULONG) optimizer_array_expansion_threshold;
 	ULONG ulJoinOrderThreshold = (ULONG) optimizer_join_order_threshold;
 	ULONG ulBroadcastThreshold = (ULONG) optimizer_penalize_broadcast_threshold;
+	
+	ULLONG ulDPAlternatives = (ULLONG) optimizer_dp_alternatives;
 
 	return GPOS_NEW(pmp) COptimizerConfig
 						(
@@ -762,8 +764,9 @@ COptTasks::PoconfCreate
 								ulArrayExpansionThreshold,
 								ulJoinOrderThreshold,
 								ulBroadcastThreshold,
-								false /* don't create Assert nodes for constraints, we'll
+								false, /* don't create Assert nodes for constraints, we'll
 								      * enforce them ourselves in the executor */
+								ulDPAlternatives
 								),
 						GPOS_NEW(pmp) CWindowOids(OID(F_WINDOW_ROW_NUMBER), OID(F_WINDOW_RANK))
 						);
