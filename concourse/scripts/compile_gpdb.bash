@@ -178,11 +178,11 @@ function _main() {
   rsync -au gpaddon_src/ ${GPDB_SRC_PATH}/gpAux/${ADDON_DIR}
   build_gpdb "${BLD_TARGET_OPTION[@]}"
   build_gppkg
-  if [ "${TARGET_OS}" != "win32" ] ; then
-      # Don't unit test when cross compiling. Tests don't build because they
-      # require `./configure --with-zlib`.
-      unittest_check_gpdb
-  fi
+  #if [ "${TARGET_OS}" != "win32" ] ; then
+  #    # Don't unit test when cross compiling. Tests don't build because they
+  #    # require `./configure --with-zlib`.
+  #    unittest_check_gpdb
+  #fi
   if [ "${EXTRACT_PXF}" == "true" ] ; then
       # Bundle PXF server
       tar -xzf pxf_tarball/pxf.tar.gz -C ${GREENPLUM_INSTALL_DIR}
