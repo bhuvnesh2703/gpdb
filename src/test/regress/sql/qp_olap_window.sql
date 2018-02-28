@@ -3,6 +3,8 @@
 --
 
 -- start_ignore
+set optimizer_trace_fallback=on;
+set optimizer_join_order=query;
 -- count number of certain operators in a given plan
 create language plpythonu;
 create or replace function ow_count_operator(query text, operator text) returns int as
@@ -24048,5 +24050,5 @@ drop table ow_product;
 drop table ow_sale;
 drop table ow_sale_ord;
 drop table ow_util;
-drop function ow_count_operator;
+drop function ow_count_operator(text, text);
 -- end_ignore
