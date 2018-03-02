@@ -4043,7 +4043,7 @@ struct config_int ConfigureNamesInt_gp[] =
 			GUC_NOT_IN_SAMPLE
 		},
 		&optimizer_dp_alternatives,
-		5, 5, 10, NULL, NULL
+		5, 5, 11, NULL, NULL
 	},
 
 	/* End-of-list marker */
