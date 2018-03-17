@@ -1665,3 +1665,11 @@ SELECT bar.*, count(*) OVER() AS e FROM foo, bar where foo.b = bar.d;
 
 reset optimizer_segments;
 drop table foo, bar;
+
+-- test predicate push down in subqueries for quals containing windowref nodes
+-- start_ignore
+create table windowagg(a int, b int);
+-- end_ignore
+
+-- predicate should be pushed down
+explain select b from (select b, row_number() over (partition by b) from windowagg ) f where b = 1;
