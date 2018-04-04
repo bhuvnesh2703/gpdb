@@ -1,6 +1,6 @@
 COMMAND NAME:  gpexpand
 
-Expands an existing Greenplum Database across new hosts in the array.
+EEExpands an existing Greenplum Database across new hosts in the array.
 
 ******************************************************
 SYNOPSIS
