@@ -28,4 +28,5 @@ elif action == 'test':
     environment_variables = os.environ['BLDWRAP_POSTGRES_CONF_ADDONS']
 
     test_gpdb_cmd = "env {0} gpdb_src/concourse/scripts/build_gpdb.py --mode={1} --gpdb_name=bin_gpdb --action={2} --configure-option={3}".format(environment_variables, mode, action, configure_option) 
+    exec_command(test_gpdb_cmd)
 
