@@ -9,6 +9,7 @@ inputs:
   - name: bin_xerces
   - name: bin_gpdb
   - name: gpdb_main_src
+  - name: gpdb_tarball
 outputs:
   - name: icg_output
 run:
