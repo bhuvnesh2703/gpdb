@@ -1594,6 +1594,80 @@ compare_tlist_datatypes(List *tlist, List *colTypes,
 }
 
 /*
+ * qual_contains_winref
+ *
+ * does qual include a window ref node?
+ *
+ */
+static bool
+qual_contains_winref(Query *topquery,
+					 Index rti,  /* index of RTE of subquery where qual needs to be checked */
+					 Node *qual)
+{
+	Assert(topquery);
+	
+	/*
+	 * extract subquery where qual needs to be checked
+	 */
+	RangeTblEntry *rte = rt_fetch(rti, topquery->rtable);
+	Query *subquery =  rte->subquery;
+	bool result = false;
+	if (NULL != subquery && NIL != subquery->windowClause)
+	{
+		/*
+		 * qual needs to be resolved first to map qual columns
+		 * to the underlying set of produced columns,
+		 * e.g., if we work on a setop child
+		 */
+		Node *qualNew = ResolveNew(qual, rti, 0, rte,
+								   subquery->targetList,
+								   CMD_SELECT, 0, NULL);
+		
+		result = contain_window_function(qualNew);
+		pfree(qualNew);
+	}
+	
+	return result;
+}
+
+
+/*
+ * qual_is_pushdown_safe_set_operation
+ *
+ * is a particular qual safe to push down set operation?
+ *
+ */
+static bool
+qual_is_pushdown_safe_set_operation(Query *subquery, Node *qual)
+{
+	Assert(subquery);
+	
+	SetOperationStmt *setop = (SetOperationStmt *)subquery->setOperations;
+	Assert(setop);
+	
+	/*
+	 * MPP-21075
+	 * for queries of the form:
+	 *   SELECT * from (SELECT max(i) over () as w from X Union Select 1 as w) as foo where w > 0
+	 * the qual (w > 0) is not push_down_safe since it uses a window ref
+	 *
+	 * we check if this is the case for either left or right setop inputs
+	 *
+	 */
+	Index rtiLeft = ((RangeTblRef *)setop->larg)->rtindex;
+	Index rtiRight = ((RangeTblRef *)setop->rarg)->rtindex;
+	if (qual_contains_winref(subquery, rtiLeft, qual) ||
+		qual_contains_winref(subquery, rtiRight, qual))
+	{
+		return false;
+	}
+	
+	return true;
+}
+
+
+
+/*
  * qual_is_pushdown_safe - is a particular qual safe to push down?
  *
  * qual is a restriction clause applying to the given subquery (whose RTE
@@ -1647,7 +1721,11 @@ qual_is_pushdown_safe(Query *subquery, Index rti, Node *qual,
 	 * the moment we could never see any in a qual anyhow.  (The same applies
 	 * to aggregates, which we check for in pull_var_clause below.)
 	 */
-	Assert(!contain_window_function(qual));
+	if (NULL != subquery->setOperations &&
+		!qual_is_pushdown_safe_set_operation(subquery, qual))
+	{
+		return false;
+	}
 
 	/*
 	 * Examine all Vars used in clause; since it's a restriction clause, all
