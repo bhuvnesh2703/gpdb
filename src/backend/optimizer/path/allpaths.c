@@ -1624,11 +1624,7 @@ static bool
 qual_is_pushdown_safe_set_operation(Query *subquery1, RangeTblEntry *rte, Index rti, Node *qual)
 {
 	
-	Query *subquery = NULL;
-	if (rte->rtekind == RTE_CTE)
-		subquery = subquery1;
-	else
-		subquery = rte->subquery;
+	Query *subquery = subquery = rte->subquery;
 	Assert(subquery);
 	
 	SetOperationStmt *setop = (SetOperationStmt *)subquery->setOperations;
