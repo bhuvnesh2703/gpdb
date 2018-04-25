@@ -1560,9 +1560,14 @@ qual_is_pushdown_safe_set_operation(Query *query, RangeTblEntry *rte, Index rti,
 	 * should be resolved via the input query
 	 */
 	if (rte->rtekind == RTE_CTE)
+	{
 		subquery = query;
+	}
 	else
+	{
+		Assert(rte->rtekind == RTE_SUBQUERY);
 		subquery = rte->subquery;
+	}
 	Assert(subquery);
 
 	SetOperationStmt *setop = (SetOperationStmt *)subquery->setOperations;
