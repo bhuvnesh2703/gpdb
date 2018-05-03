@@ -386,6 +386,7 @@ CTranslatorDXLToScalar::PstrarrayopexprFromDXLNodeScArrayComp
 	Expr *pexprRight = PexprFromDXLNodeScalar(pdxlnRight, pmapcidvar);
 
 	parrayopexpr->args = ListMake2(pexprLeft, pexprRight);
+	parrayopexpr->inputcollid = gpdb::OidExprCollation((Node *) parrayopexpr->args);
 
 	return (Expr *)parrayopexpr;
 }
