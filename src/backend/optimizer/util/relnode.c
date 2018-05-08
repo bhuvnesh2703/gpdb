@@ -938,9 +938,27 @@ cdb_make_rel_dedup_info(PlannerInfo *root, RelOptInfo *rel)
                 partial = true;
 
             /* Does rel have exactly the relids of uncorrelated "= ANY" subq? */
-            if (ininfo->try_join_unique &&
-                bms_equal(ininfo->righthand, rel->relids))
-                join_unique_ininfo = ininfo;
+			if (ininfo->try_join_unique)
+			{
+				if(bms_equal(ininfo->righthand, rel->relids))
+					join_unique_ininfo = ininfo;
+				else
+				{
+					
+					Relids  tmprelids = bms_intersect(ininfo->righthand, rel->relids);
+					int relidtemp;
+					while ((relidtemp = bms_first_member(tmprelids)) >= 0)
+					{
+						RelOptInfo *rel = find_base_rel(root, relidtemp);
+						RangeTblEntry *rte = list_nth(root->parse->rtable, rel->relid - 1);
+						if (rte->inh)
+						{
+							join_unique_ininfo = ininfo;
+						}
+					}
+				}
+			}
+
         }
         else if (bms_overlap(ininfo->righthand, rel->relids))
             partial = true;
