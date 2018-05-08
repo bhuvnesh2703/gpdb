@@ -938,9 +938,13 @@ cdb_make_rel_dedup_info(PlannerInfo *root, RelOptInfo *rel)
                 partial = true;
 
             /* Does rel have exactly the relids of uncorrelated "= ANY" subq? */
-            if (ininfo->try_join_unique &&
-                bms_equal(ininfo->righthand, rel->relids))
-                join_unique_ininfo = ininfo;
+//            if (ininfo->try_join_unique &&
+//                bms_equal(ininfo->righthand, rel->relids))
+//                join_unique_ininfo = ininfo;
+			
+			if (ininfo->try_join_unique &&
+				partial)
+				join_unique_ininfo = ininfo;
         }
         else if (bms_overlap(ininfo->righthand, rel->relids))
             partial = true;
