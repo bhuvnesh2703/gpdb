@@ -1225,8 +1225,8 @@ convert_IN_to_join(PlannerInfo *root, List **rtrlist_inout, SubLink *sublink)
 	 * The left-hand expressions must contain some Vars of the current query,
 	 * else it's not gonna be a join.
 	 */
-	left_varnos = pull_varnos((Node *) left_exprs);
-	ininfo->lefthand = left_varnos;
+//	left_varnos = pull_varnos((Node *) left_exprs);
+//	ininfo->lefthand = left_varnos;
 
 	/*
 	 * ininfo->sub_targetlist must be filled with a list of expressions that
