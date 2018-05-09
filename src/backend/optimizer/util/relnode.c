@@ -953,7 +953,9 @@ cdb_make_rel_dedup_info(PlannerInfo *root, RelOptInfo *rel)
 						RangeTblEntry *rte = list_nth(root->parse->rtable, rel->relid - 1);
 						if (rte->inh)
 						{
-							join_unique_ininfo = ininfo;
+							try_postjoin_dedup = true;
+							subqueries_unfinished--;
+							partial = false;
 						}
 					}
 				}
