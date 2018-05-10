@@ -1052,7 +1052,7 @@ convert_IN_to_join(PlannerInfo *root, List **rtrlist_inout, SubLink *sublink)
 	List	   *in_operators;
 	List	   *left_exprs = NIL;
 	List	   *right_exprs = NIL;
-	Relids		left_varnos;
+//	Relids		left_varnos;
 	int			rtindex;
 	RangeTblEntry *rte;
 	RangeTblRef *rtr;
@@ -1225,8 +1225,28 @@ convert_IN_to_join(PlannerInfo *root, List **rtrlist_inout, SubLink *sublink)
 	 * The left-hand expressions must contain some Vars of the current query,
 	 * else it's not gonna be a join.
 	 */
-	left_varnos = pull_varnos((Node *) left_exprs);
-	ininfo->lefthand = left_varnos;
+//	left_varnos = pull_varnos((Node *) left_exprs);
+	Relids leftvarrelids = NULL;
+	
+	List *varlist = extract_nodes(NULL, (Node *) left_exprs, T_Var);
+	ListCell *lcVarlist;
+	foreach(lcVarlist, varlist)
+	{
+		Var *var = (Var *) lfirst(lcVarlist);
+		RangeTblEntry *rteCurVar = list_nth(parse->rtable, var->varno - 1);
+		if (rteCurVar->rtekind == RTE_JOIN)
+		{
+			List *joinaliasvars = rteCurVar->joinaliasvars;
+			Var *joinaliasvarno = list_nth(joinaliasvars, var->varattno - 1);
+			leftvarrelids = bms_add_member(leftvarrelids, joinaliasvarno->varno);
+		}
+		else
+		{
+			leftvarrelids = bms_add_member(leftvarrelids, var->varno);
+		}
+	}
+	
+	ininfo->lefthand = leftvarrelids;
 
 	/*
 	 * ininfo->sub_targetlist must be filled with a list of expressions that
