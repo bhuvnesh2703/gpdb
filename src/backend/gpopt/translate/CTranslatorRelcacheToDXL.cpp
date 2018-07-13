@@ -1118,7 +1118,13 @@ CTranslatorRelcacheToDXL::Pmdindex
 			emdindt = IMDIndex::EmdindBitmap;
 			pmdidItemType = GPOS_NEW(pmp) CMDIdGPDB(GPDB_ANY);
 		}
-		
+
+		if (GIST_AM_OID == relIndex->rd_rel->relam)
+		{
+			emdindt = IMDIndex::EmdindGist;
+			pmdidItemType = GPOS_NEW(pmp) CMDIdGPDB(GPDB_ANY);
+		}
+
 		// get the index name
 		CHAR *szIndexName = NameStr(relIndex->rd_rel->relname);
 		CWStringDynamic *pstrName = CDXLUtils::PstrFromSz(pmp, szIndexName);
@@ -1374,14 +1380,20 @@ CTranslatorRelcacheToDXL::PmdindexPartTable
 
 	pdrgpulDefaultLevels->Release();
 	pmdidIndex->AddRef();
-	
-	GPOS_ASSERT(INDTYPE_BITMAP == pidxinfo->indType || INDTYPE_BTREE == pidxinfo->indType);
-	
+
+	GPOS_ASSERT(INDTYPE_BITMAP == pidxinfo->indType || INDTYPE_BTREE == pidxinfo->indType || INDTYPE_GIST == pidxinfo->indType);
+
 	IMDIndex::EmdindexType emdindt = IMDIndex::EmdindBtree;
 	IMDId *pmdidItemType = NULL;
 	if (INDTYPE_BITMAP == pidxinfo->indType)
 	{
 		emdindt = IMDIndex::EmdindBitmap;
+		pmdidItemType = GPOS_NEW(pmp) CMDIdGPDB(GPDB_ANY);
+	}
+
+	if (INDTYPE_GIST == pidxinfo->indType)
+	{
+		emdindt = IMDIndex::EmdindGist;
 		pmdidItemType = GPOS_NEW(pmp) CMDIdGPDB(GPDB_ANY);
 	}
 	
@@ -3419,7 +3431,7 @@ CTranslatorRelcacheToDXL::FIndexSupported
 	// index expressions and index constraints not supported
 	return gpdb::FHeapAttIsNull(pht, Anum_pg_index_indexprs) &&
 		gpdb::FHeapAttIsNull(pht, Anum_pg_index_indpred) && 
-		(BTREE_AM_OID == relIndex->rd_rel->relam || BITMAP_AM_OID == relIndex->rd_rel->relam);
+		(BTREE_AM_OID == relIndex->rd_rel->relam || BITMAP_AM_OID == relIndex->rd_rel->relam || GIST_AM_OID == relIndex->rd_rel->relam);
 }
 
 //---------------------------------------------------------------------------

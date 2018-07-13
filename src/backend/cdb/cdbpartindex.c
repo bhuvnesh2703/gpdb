@@ -588,6 +588,11 @@ recordIndexesOnLeafPart(PartitionIndexNode **pNodePtr,
 			}
 		}
 
+		if (GIST_AM_OID == indRel->rd_rel->relam)
+		{
+			indType = INDTYPE_GIST;
+		}
+
 		/* 
 		 * when constructing hash key, we need to map attnums in part indexes
 		 * to root attnums. Get the attMap needed for mapping.
@@ -1501,6 +1506,11 @@ logicalIndexInfoForIndexOid(Oid rootOid, Oid indexOid)
 		{
 			plogicalIndexInfo->indType = INDTYPE_BTREE;
 		}
+	}
+
+	if (GIST_AM_OID == indRel->rd_rel->relam)
+	{
+		plogicalIndexInfo->indType = INDTYPE_GIST;
 	}
 
 	index_close(indRel, AccessShareLock);
