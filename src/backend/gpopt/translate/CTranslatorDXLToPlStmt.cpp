@@ -1525,7 +1525,7 @@ CTranslatorDXLToPlStmt::PnljFromDXLNLJ
 	if (pdxlnlj->FIndexNLJ())
 	{
 
-		const DrgPdxlcr *pdrgdxlcrOuterRefs = pdxlnlj->DrgdxlcrOuterRefs();
+		const DrgPdxlcr *pdrgdxlcrOuterRefs = pdxlnlj->GetNestLoopParams();
 
 		const ULONG ulLen = pdrgdxlcrOuterRefs->UlLength();
 
