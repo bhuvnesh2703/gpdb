@@ -505,6 +505,8 @@ CConfigParamMapping::PbsPack
 	{
 		pbs->FExchangeSet(GPOPT_DISABLE_XFORM_TF(CXform::ExfJoinAssociativity));
 	}
+	
+	pbs->FExchangeSet(EopttraceEnableNestLoopParams);
 
 	return pbs;
 }
