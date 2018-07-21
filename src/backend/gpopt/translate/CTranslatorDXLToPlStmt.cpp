@@ -1578,9 +1578,11 @@ CTranslatorDXLToPlStmt::PnljFromDXLNLJ
 			IMDId *pmdid = pdxlcr->PmdidType();
 			ULONG ulColid = pdxlcr->UlID();
 			const TargetEntry *pte1 = dxltrctxLeft.Pte(ulColid);
+			Var *oldvar = (Var *)pte1->expr;
+			Var *var = gpdb::PvarMakeVar(OUTER, oldvar->varattno, oldvar->vartype, oldvar->vartypmod, oldvar->varlevelsup);
 			NestLoopParam *nlp = MakeNode(NestLoopParam);
 			nlp->paramno = dxltrctxRight.Pmecolidparamid(ulColid)->UlParamId();
-			nlp->paramval = (Var *) pte1->expr;
+			nlp->paramval = var;
 			nestparams = gpdb::PlAppendElement(nestparams, (void *) nlp);
 			
 		}
