@@ -1569,7 +1569,22 @@ CTranslatorDXLToPlStmt::PnljFromDXLNLJ
 
 	if (pdxlnlj->FIndexNLJ())
 	{
-		SetNLParams(pplan, &dxltrctxRight);
+		const DrgPdxlcr *pdrgdxlcrOuterRefs = pdxlnlj->GetNestLoopParams();
+		const ULONG ulLen = pdrgdxlcrOuterRefs->UlLength();
+		List *nestparams = NIL;
+		for (ULONG ul = 0; ul < ulLen; ul++)
+		{
+			CDXLColRef *pdxlcr = (*pdrgdxlcrOuterRefs)[ul];
+			IMDId *pmdid = pdxlcr->PmdidType();
+			ULONG ulColid = pdxlcr->UlID();
+			const TargetEntry *pte1 = dxltrctxLeft.Pte(ulColid);
+			NestLoopParam *nlp = MakeNode(NestLoopParam);
+			nlp->paramno = dxltrctxRight.Pmecolidparamid(ulColid)->UlParamId();
+			nlp->paramval = (Var *) pte1->expr;
+			nestparams = gpdb::PlAppendElement(nestparams, (void *) nlp);
+			
+		}
+		((NestLoop *)pplan)->nestParams = nestparams;
 	}
 	pplan->lefttree = pplanLeft;
 	pplan->righttree = pplanRight;
