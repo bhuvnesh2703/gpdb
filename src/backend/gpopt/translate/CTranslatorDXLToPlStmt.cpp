@@ -1575,11 +1575,12 @@ CTranslatorDXLToPlStmt::PnljFromDXLNLJ
 		for (ULONG ul = 0; ul < ulLen; ul++)
 		{
 			CDXLColRef *pdxlcr = (*pdrgdxlcrOuterRefs)[ul];
-			IMDId *pmdid = pdxlcr->PmdidType();
 			ULONG ulColid = pdxlcr->UlID();
 			const TargetEntry *pte1 = dxltrctxLeft.Pte(ulColid);
 			Var *oldvar = (Var *)pte1->expr;
-			Var *var = gpdb::PvarMakeVar(OUTER, oldvar->varattno, oldvar->vartype, oldvar->vartypmod, oldvar->varlevelsup);
+			Var *var = gpdb::PvarMakeVar(OUTER, pte1->resno, oldvar->vartype, oldvar->vartypmod, oldvar->varlevelsup);
+			var->varnoold = oldvar->varnoold;
+			var->varoattno = oldvar->varoattno;
 			NestLoopParam *nlp = MakeNode(NestLoopParam);
 			nlp->paramno = dxltrctxRight.Pmecolidparamid(ulColid)->UlParamId();
 			nlp->paramval = var;

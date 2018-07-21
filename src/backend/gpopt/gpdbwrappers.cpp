@@ -3227,20 +3227,4 @@ gpdb::PMakeGpPolicy
 {
        return makeGpPolicy(mcxt, ptype, nattrs);
 }
-
-bool
-gpdb::PbmsIsMember
-	(
-	int x,
-	Bitmapset *a
-	)
-{
-	GP_WRAP_START;
-	{
-		return bms_is_member(x, a);
-	}
-	GP_WRAP_END;
-	return NULL;
-}
-
 // EOF
