@@ -1905,6 +1905,11 @@ CTranslatorDXLToScalar::PexprFromDXLNodeScId
 	{
 		// outer ref -> create param node
 		pexprResult = (Expr *) pmapcidvarplstmt->PparamFromDXLNodeScId(pdxlop);
+		int paramno = ((Param *) pexprResult)->paramid;
+		NestLoopParam *nlp = MakeNode(NestLoopParam);
+		nlp->paramno = paramno;
+		nlp->paramval = (Var *) pmapcidvar->PvarFromDXLNodeScId(pdxlop);
+		pmapcidvarplstmt->PpdxltrctxOut()->SetCurOuterParams(gpdb::PlAppendElement(pmapcidvarplstmt->PpdxltrctxOut()->GetCurOuterParams(), (void *) nlp));
 	}
 
 	if (NULL  == pexprResult)

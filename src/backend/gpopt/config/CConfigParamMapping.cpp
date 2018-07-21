@@ -419,7 +419,7 @@ CConfigParamMapping::PbsPack
 	// GPDB_91_MERGE_FIXME - Disabling index scans under nested loop joins,
 	// as the executor now expects a Param, rather than a Var with an OUTER
 	// table reference for rescans.
-	/*if (!optimizer_enable_indexjoin) */
+	if (!optimizer_enable_indexjoin)
 	{
 		CBitSet *pbsIndexJoin = CXform::PbsIndexJoinXforms(pmp);
 		pbs->Union(pbsIndexJoin);
@@ -505,6 +505,8 @@ CConfigParamMapping::PbsPack
 	{
 		pbs->FExchangeSet(GPOPT_DISABLE_XFORM_TF(CXform::ExfJoinAssociativity));
 	}
+	
+	pbs->FExchangeSet(EopttraceEnableNestLoopParams);
 
 	return pbs;
 }

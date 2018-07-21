@@ -658,6 +658,8 @@ namespace gpdb {
 	bool FAbortRequested(void);
 
 	GpPolicy *PMakeGpPolicy(MemoryContext mcxt, GpPolicyType ptype, int nattrs);
+	
+	bool PbmsIsMember(int x, Bitmapset *a);
 
 } //namespace gpdb
 

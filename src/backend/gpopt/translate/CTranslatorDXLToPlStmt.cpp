@@ -1499,6 +1499,27 @@ CTranslatorDXLToPlStmt::PnljFromDXLNLJ
 	Plan *pplanRight = NULL;
 	if (pdxlnlj->FIndexNLJ())
 	{
+		const DrgPdxlcr *pdrgdxlcrOuterRefs = pdxlnlj->GetNestLoopParams();
+		const ULONG ulLen = pdrgdxlcrOuterRefs->UlLength();
+		for (ULONG ul = 0; ul < ulLen; ul++)
+		{
+			CDXLColRef *pdxlcr = (*pdrgdxlcrOuterRefs)[ul];
+			IMDId *pmdid = pdxlcr->PmdidType();
+			ULONG ulColid = pdxlcr->UlID();
+			INT iTypeModifier = pdxlcr->ITypeModifier();
+			
+			if (NULL == dxltrctxRight.Pmecolidparamid(ulColid))
+			{
+				CMappingElementColIdParamId *pmecolidparamid = GPOS_NEW(m_pmp) CMappingElementColIdParamId(ulColid, m_pctxdxltoplstmt->UlNextParamId(), pmdid, iTypeModifier);
+#ifdef GPOS_DEBUG
+					BOOL fInserted =
+#endif
+						dxltrctxRight.FInsertParamMapping(ulColid, pmecolidparamid);
+#ifdef GPOS_DEBUG
+					GPOS_ASSERT(fInserted);
+#endif
+			}
+		}
 		// right child (the index scan side) has references to left child's columns,
 		// we need to translate left child first to load its columns into translation context
 		pplanLeft = PplFromDXL(pdxlnLeft, &dxltrctxLeft, pdrgpdxltrctxPrevSiblings);
@@ -1546,6 +1567,10 @@ CTranslatorDXLToPlStmt::PnljFromDXLNLJ
 					pdxltrctxOut
 					);
 
+	if (pdxlnlj->FIndexNLJ())
+	{
+		SetNLParams(pplan, &dxltrctxRight);
+	}
 	pplan->lefttree = pplanLeft;
 	pplan->righttree = pplanRight;
 	pplan->nMotionNodes = pplanLeft->nMotionNodes + pplanRight->nMotionNodes;
@@ -3451,6 +3476,8 @@ CTranslatorDXLToPlStmt::PplanSequence
 
 	Plan *pplanLastChild = PplFromDXL(pdxlnLastChild, &dxltrctxChild, pdrgpdxltrctxPrevSiblings);
 	pplan->nMotionNodes = pplanLastChild->nMotionNodes;
+	
+	pdxltrctxOut->SetCurOuterParams(dxltrctxChild.GetCurOuterParams());
 
 	CDXLNode *pdxlnPrL = (*pdxlnSequence)[0];
 
@@ -5590,6 +5617,23 @@ CTranslatorDXLToPlStmt::PplanValueScan
 	pplan->targetlist = plTargetList;
 
 	return (Plan *) pvaluescan;
+}
+
+void
+CTranslatorDXLToPlStmt::SetNLParams(Plan* pplan, CDXLTranslateContext *ctxt)
+{
+	ListCell *lc;
+	Bitmapset  *nljparam_bitmapset = NULL;
+
+	List *cur_outer_params = ctxt->GetCurOuterParams();
+	foreach(lc, cur_outer_params)
+	{
+		NestLoopParam *param = (NestLoopParam *) lfirst(lc);
+		if(gpdb::PbmsIsMember(param->paramno, nljparam_bitmapset))
+			continue;
+		((NestLoop *)pplan)->nestParams = gpdb::PlAppendElement(((NestLoop *)pplan)->nestParams, (void *) param);
+		nljparam_bitmapset = gpdb::PbmsAddMember(nljparam_bitmapset, param->paramno);
+	}
 }
 
 

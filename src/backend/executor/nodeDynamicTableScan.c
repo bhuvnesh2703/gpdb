@@ -279,6 +279,7 @@ void
 ExecEndDynamicTableScan(DynamicTableScanState *node)
 {
 	DynamicTableScanEndCurrentScan(node);
+	ExecFreeExprContext(&node->tableScanState.ss.ps);
 
 	/* We do not close the relation. We closed it in DynamicScan_CleanupOneRelation. */
 	FreeScanRelationInternal((ScanState *)node, false /* closeCurrentRelation */);
