@@ -1568,28 +1568,7 @@ CTranslatorDXLToPlStmt::PnljFromDXLNLJ
 	// create nest loop params for index nested loop joins
 	if (pdxlnlj->FIndexNLJ())
 	{
-		const DrgPdxlcr *pdrgdxlcrOuterRefs = pdxlnlj->GetNestLoopParams();
-		List *nest_params_list = NIL;
-		for (ULONG ul = 0; ul < pdrgdxlcrOuterRefs->UlLength(); ul++)
-		{
-			CDXLColRef *pdxlcr = (*pdrgdxlcrOuterRefs)[ul];
-			ULONG ulColid = pdxlcr->UlID();
-			const TargetEntry *target_entry = dxltrctxLeft.Pte(ulColid);
-			GPOS_ASSERT(NULL != target_entry);
-			Var *old_var = (Var *) target_entry->expr;
-
-			Var *new_var = gpdb::PvarMakeVar(OUTER, target_entry->resno, old_var->vartype, old_var->vartypmod, 0/*varlevelsup*/);
-			new_var->varnoold = old_var->varnoold;
-			new_var->varoattno = old_var->varoattno;
-
-			NestLoopParam *nest_params = MakeNode(NestLoopParam);
-			const CMappingElementColIdParamId *colid_param_mapping = dxltrctxRight.Pmecolidparamid(ulColid);
-			GPOS_ASSERT(NULL != colid_param_mapping);
-			nest_params->paramno = colid_param_mapping->UlParamId();
-			nest_params->paramval = new_var;
-			nest_params_list = gpdb::PlAppendElement(nest_params_list, (void *) nest_params);
-		}
-		((NestLoop *)pplan)->nestParams = nest_params_list;
+		((NestLoop *)pplan)->nestParams = TranslateNestLoopParamList(pdxlnlj->GetNestLoopParams(), &dxltrctxLeft, &dxltrctxRight);
 	}
 	pplan->lefttree = pplanLeft;
 	pplan->righttree = pplanRight;
@@ -5637,4 +5616,34 @@ CTranslatorDXLToPlStmt::PplanValueScan
 	return (Plan *) pvaluescan;
 }
 
+List *
+CTranslatorDXLToPlStmt::TranslateNestLoopParamList
+	(
+	DrgPdxlcr *pdrgdxlcrOuterRefs,
+	CDXLTranslateContext *dxltrctxLeft,
+	CDXLTranslateContext *dxltrctxRight
+	)
+{
+	List *nest_params_list = NIL;
+	for (ULONG ul = 0; ul < pdrgdxlcrOuterRefs->UlLength(); ul++)
+	{
+		CDXLColRef *pdxlcr = (*pdrgdxlcrOuterRefs)[ul];
+		ULONG ulColid = pdxlcr->UlID();
+		const TargetEntry *target_entry = dxltrctxLeft->Pte(ulColid);
+		GPOS_ASSERT(NULL != target_entry);
+		Var *old_var = (Var *) target_entry->expr;
+
+		Var *new_var = gpdb::PvarMakeVar(OUTER, target_entry->resno, old_var->vartype, old_var->vartypmod, 0/*varlevelsup*/);
+		new_var->varnoold = old_var->varnoold;
+		new_var->varoattno = old_var->varoattno;
+
+		NestLoopParam *nest_params = MakeNode(NestLoopParam);
+		const CMappingElementColIdParamId *colid_param_mapping = dxltrctxRight->Pmecolidparamid(ulColid);
+		GPOS_ASSERT(NULL != colid_param_mapping);
+		nest_params->paramno = colid_param_mapping->UlParamId();
+		nest_params->paramval = new_var;
+		nest_params_list = gpdb::PlAppendElement(nest_params_list, (void *) nest_params);
+	}
+	return nest_params_list;
+}
 // EOF

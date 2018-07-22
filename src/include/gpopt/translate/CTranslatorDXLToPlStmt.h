@@ -690,6 +690,8 @@ namespace gpdxl
 			// hash a DXL datum with GPDB's hash function
 			ULONG UlCdbHash(DrgPdxldatum *pdrgpdxldatum);
 
+		List *TranslateNestLoopParamList(DrgPdxlcr *pdrgdxlcrOuterRefs, CDXLTranslateContext *dxltrctxLeft, CDXLTranslateContext *dxltrctxRight);
+
 	};
 }
 
