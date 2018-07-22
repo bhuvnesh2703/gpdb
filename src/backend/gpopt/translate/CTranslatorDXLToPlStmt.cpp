@@ -3494,8 +3494,6 @@ CTranslatorDXLToPlStmt::PplanSequence
 
 	Plan *pplanLastChild = PplFromDXL(pdxlnLastChild, &dxltrctxChild, pdrgpdxltrctxPrevSiblings);
 	pplan->nMotionNodes = pplanLastChild->nMotionNodes;
-	
-	pdxltrctxOut->SetCurOuterParams(dxltrctxChild.GetCurOuterParams());
 
 	CDXLNode *pdxlnPrL = (*pdxlnSequence)[0];
 
@@ -5636,23 +5634,5 @@ CTranslatorDXLToPlStmt::PplanValueScan
 
 	return (Plan *) pvaluescan;
 }
-
-void
-CTranslatorDXLToPlStmt::SetNLParams(Plan* pplan, CDXLTranslateContext *ctxt)
-{
-	ListCell *lc;
-	Bitmapset  *nljparam_bitmapset = NULL;
-
-	List *cur_outer_params = ctxt->GetCurOuterParams();
-	foreach(lc, cur_outer_params)
-	{
-		NestLoopParam *param = (NestLoopParam *) lfirst(lc);
-		if(gpdb::PbmsIsMember(param->paramno, nljparam_bitmapset))
-			continue;
-		((NestLoop *)pplan)->nestParams = gpdb::PlAppendElement(((NestLoop *)pplan)->nestParams, (void *) param);
-		nljparam_bitmapset = gpdb::PbmsAddMember(nljparam_bitmapset, param->paramno);
-	}
-}
-
 
 // EOF

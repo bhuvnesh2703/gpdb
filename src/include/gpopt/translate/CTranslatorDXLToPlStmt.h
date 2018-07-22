@@ -689,8 +689,6 @@ namespace gpdxl
 			
 			// hash a DXL datum with GPDB's hash function
 			ULONG UlCdbHash(DrgPdxldatum *pdrgpdxldatum);
-		
-			void SetNLParams(Plan *, CDXLTranslateContext *);
 
 	};
 }

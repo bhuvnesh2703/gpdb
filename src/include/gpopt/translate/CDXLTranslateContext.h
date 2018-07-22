@@ -22,8 +22,6 @@
 #include "gpos/base.h"
 #include "gpos/common/CHashMap.h"
 #include "gpos/common/CHashMapIter.h"
-#include "postgres_ext.h"
-#include "nodes/pg_list.h"
 
 
 // fwd decl
@@ -76,8 +74,6 @@ namespace gpdxl
 			// TODO: antovl - Jan 26, 2011; remove this when Agg node in GPDB is fixed
 			// to use OUTER instead of 0 for Var::varno in Agg target lists (MPP-12034)
 			BOOL m_fChildAggNode;
-		
-			List *m_cur_outer_params;
 
 			// copy the params hashmap
 			void CopyParamHashmap(HMColParam *phmOriginal);
@@ -110,13 +106,6 @@ namespace gpdxl
 
 			// store the mapping of the given column id and param id
 			BOOL FInsertParamMapping(ULONG ulColId, CMappingElementColIdParamId *pmecolidparamid);
-		
-			void SetCurOuterParams(List *cur_outer_params)
-			{
-				m_cur_outer_params = cur_outer_params;
-			}
-		
-			List *GetCurOuterParams();
 	};
 
 

@@ -33,8 +33,7 @@ CDXLTranslateContext::CDXLTranslateContext
 	)
 	:
 	m_pmp(pmp),
-	m_fChildAggNode(fChildAggNode),
-	m_cur_outer_params(NIL)
+	m_fChildAggNode(fChildAggNode)
 {
 	// initialize hash table
 	m_phmulte = GPOS_NEW(m_pmp) HMUlTe(m_pmp);
@@ -57,8 +56,7 @@ CDXLTranslateContext::CDXLTranslateContext
 	)
 	:
 	m_pmp(pmp),
-	m_fChildAggNode(fChildAggNode),
-	m_cur_outer_params(NIL)
+	m_fChildAggNode(fChildAggNode)
 {
 	m_phmulte = GPOS_NEW(m_pmp) HMUlTe(m_pmp);
 	m_phmcolparam = GPOS_NEW(m_pmp) HMColParam(m_pmp);
@@ -205,9 +203,4 @@ CDXLTranslateContext::FInsertParamMapping
 	return m_phmcolparam->FInsert(pulKey, pmecolidparamid);
 }
 
-List*
-CDXLTranslateContext::GetCurOuterParams()
-{
-	return m_cur_outer_params;
-}
 // EOF
