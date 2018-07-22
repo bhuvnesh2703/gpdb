@@ -1507,7 +1507,7 @@ CTranslatorDXLToPlStmt::PnljFromDXLNLJ
 			IMDId *pmdid = pdxlcr->PmdidType();
 			ULONG ulColid = pdxlcr->UlID();
 			INT iTypeModifier = pdxlcr->ITypeModifier();
-			
+
 			if (NULL == dxltrctxRight.Pmecolidparamid(ulColid))
 			{
 				CMappingElementColIdParamId *pmecolidparamid = GPOS_NEW(m_pmp) CMappingElementColIdParamId(ulColid, m_pctxdxltoplstmt->UlNextParamId(), pmdid, iTypeModifier);
@@ -1515,9 +1515,7 @@ CTranslatorDXLToPlStmt::PnljFromDXLNLJ
 					BOOL fInserted =
 #endif
 						dxltrctxRight.FInsertParamMapping(ulColid, pmecolidparamid);
-#ifdef GPOS_DEBUG
 					GPOS_ASSERT(fInserted);
-#endif
 			}
 		}
 		// right child (the index scan side) has references to left child's columns,
@@ -1567,27 +1565,31 @@ CTranslatorDXLToPlStmt::PnljFromDXLNLJ
 					pdxltrctxOut
 					);
 
+	// create nest loop params for index nested loop joins
 	if (pdxlnlj->FIndexNLJ())
 	{
 		const DrgPdxlcr *pdrgdxlcrOuterRefs = pdxlnlj->GetNestLoopParams();
-		const ULONG ulLen = pdrgdxlcrOuterRefs->UlLength();
-		List *nestparams = NIL;
-		for (ULONG ul = 0; ul < ulLen; ul++)
+		List *nest_params_list = NIL;
+		for (ULONG ul = 0; ul < pdrgdxlcrOuterRefs->UlLength(); ul++)
 		{
 			CDXLColRef *pdxlcr = (*pdrgdxlcrOuterRefs)[ul];
 			ULONG ulColid = pdxlcr->UlID();
-			const TargetEntry *pte1 = dxltrctxLeft.Pte(ulColid);
-			Var *oldvar = (Var *)pte1->expr;
-			Var *var = gpdb::PvarMakeVar(OUTER, pte1->resno, oldvar->vartype, oldvar->vartypmod, oldvar->varlevelsup);
-			var->varnoold = oldvar->varnoold;
-			var->varoattno = oldvar->varoattno;
-			NestLoopParam *nlp = MakeNode(NestLoopParam);
-			nlp->paramno = dxltrctxRight.Pmecolidparamid(ulColid)->UlParamId();
-			nlp->paramval = var;
-			nestparams = gpdb::PlAppendElement(nestparams, (void *) nlp);
-			
+			const TargetEntry *target_entry = dxltrctxLeft.Pte(ulColid);
+			GPOS_ASSERT(NULL != target_entry);
+			Var *old_var = (Var *) target_entry->expr;
+
+			Var *new_var = gpdb::PvarMakeVar(OUTER, target_entry->resno, old_var->vartype, old_var->vartypmod, 0/*varlevelsup*/);
+			new_var->varnoold = old_var->varnoold;
+			new_var->varoattno = old_var->varoattno;
+
+			NestLoopParam *nest_params = MakeNode(NestLoopParam);
+			const CMappingElementColIdParamId *colid_param_mapping = dxltrctxRight.Pmecolidparamid(ulColid);
+			GPOS_ASSERT(NULL != colid_param_mapping);
+			nest_params->paramno = colid_param_mapping->UlParamId();
+			nest_params->paramval = new_var;
+			nest_params_list = gpdb::PlAppendElement(nest_params_list, (void *) nest_params);
 		}
-		((NestLoop *)pplan)->nestParams = nestparams;
+		((NestLoop *)pplan)->nestParams = nest_params_list;
 	}
 	pplan->lefttree = pplanLeft;
 	pplan->righttree = pplanRight;
