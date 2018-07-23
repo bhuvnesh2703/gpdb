@@ -532,6 +532,23 @@ DynamicScan_ReScan(ScanState *scanState)
 
 	/* TODO: ADD comment here */
 	scanState->scan_state = SCAN_INIT;
+	
+	MemoryContext partitionContext = DynamicScan_GetPartitionMemoryContext(scanState);
+	BitmapTableScan *plan = (BitmapTableScan*)(scanState->ps.plan);
+	MemoryContext oldCxt = NULL;
+	if (NULL != partitionContext)
+	{
+		oldCxt = MemoryContextSwitchTo(partitionContext);
+	}
+	
+	((BitmapTableScanState* )scanState)->bitmapqualorig = (List *)
+	ExecInitExpr((Expr *) plan->bitmapqualorig,
+				 (PlanState *) scanState);
+	
+	if (NULL != oldCxt)
+	{
+		MemoryContextSwitchTo(oldCxt);
+	}
 
 	/* Notify controller about the request for rescan */
 	DynamicScan_Controller(scanState, SCAN_RESCAN, NULL /* PartitionInitMethod */,
