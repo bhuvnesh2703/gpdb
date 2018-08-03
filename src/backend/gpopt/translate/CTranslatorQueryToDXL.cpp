@@ -3024,7 +3024,14 @@ CTranslatorQueryToDXL::PdxlnFromRelation
 	ULONG //ulCurrQueryLevel 
 	)
 {
-	if (false == prte->inh)
+	// construct table descriptor for the scan node from the range table entry
+	CDXLTableDescr *pdxltabdesc = CTranslatorUtils::Pdxltabdesc(m_pmp, m_pmda, m_pidgtorCol, prte, &m_fHasDistributedTables);
+
+	CDXLLogicalGet *pdxlop = NULL;
+	const IMDRelation *pmdrel = m_pmda->Pmdrel(pdxltabdesc->Pmdid());
+
+	// for external tables inh is set to false, but is true for other types of relation
+	if (false == prte->inh && IMDRelation::ErelstorageExternal != pmdrel->Erelstorage())
 	{
 		GPOS_ASSERT(RTE_RELATION == prte->rtekind);
 		// RangeTblEntry::inh is set to false iff there is ONLY in the FROM
@@ -3032,11 +3039,6 @@ CTranslatorQueryToDXL::PdxlnFromRelation
 		GPOS_RAISE(gpdxl::ExmaDXL, gpdxl::ExmiQuery2DXLUnsupportedFeature, GPOS_WSZ_LIT("ONLY in the FROM clause"));
 	}
 
-	// construct table descriptor for the scan node from the range table entry
-	CDXLTableDescr *pdxltabdesc = CTranslatorUtils::Pdxltabdesc(m_pmp, m_pmda, m_pidgtorCol, prte, &m_fHasDistributedTables);
-
-	CDXLLogicalGet *pdxlop = NULL;
-	const IMDRelation *pmdrel = m_pmda->Pmdrel(pdxltabdesc->Pmdid());
 	if (IMDRelation::ErelstorageExternal == pmdrel->Erelstorage())
 	{
 		pdxlop = GPOS_NEW(m_pmp) CDXLLogicalExternalGet(m_pmp, pdxltabdesc);
