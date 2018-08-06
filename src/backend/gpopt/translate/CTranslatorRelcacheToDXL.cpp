@@ -1390,8 +1390,7 @@ CTranslatorRelcacheToDXL::PmdindexPartTable
 		emdindt = IMDIndex::EmdindBitmap;
 		pmdidItemType = GPOS_NEW(pmp) CMDIdGPDB(GPDB_ANY);
 	}
-
-	if (INDTYPE_GIST == pidxinfo->indType)
+	else if (INDTYPE_GIST == pidxinfo->indType)
 	{
 		emdindt = IMDIndex::EmdindGist;
 		pmdidItemType = GPOS_NEW(pmp) CMDIdGPDB(GPDB_ANY);

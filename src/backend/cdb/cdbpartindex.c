@@ -577,20 +577,14 @@ recordIndexesOnLeafPart(PartitionIndexNode **pNodePtr,
 		 */
 		indRel = index_open(indexoid, NoLock);
 
-		/* for AO and AOCO tables we assume the index is bitmap, for heap partitions
-		 * look up the access method from the catalog
-		 */
-		if (RELSTORAGE_HEAP == relstorage)
-		{
-			if (BTREE_AM_OID == indRel->rd_rel->relam)
-			{
-				indType = INDTYPE_BTREE;
-			}
-		}
-
 		if (GIST_AM_OID == indRel->rd_rel->relam)
 		{
 			indType = INDTYPE_GIST;
+		}
+		else if (RELSTORAGE_HEAP == relstorage && BTREE_AM_OID == indRel->rd_rel->relam)
+		{
+			/* for AO and AOCO tables we assume a b-tree index is bitmap else we send it as B-Tree to ORCA */
+			indType = INDTYPE_BTREE;
 		}
 
 		/* 
@@ -1500,17 +1494,13 @@ logicalIndexInfoForIndexOid(Oid rootOid, Oid indexOid)
 	}
 	
 	plogicalIndexInfo->indType = INDTYPE_BITMAP;
-	if (RELSTORAGE_HEAP == relstorage)
-	{
-		if (BTREE_AM_OID == indRel->rd_rel->relam)
-		{
-			plogicalIndexInfo->indType = INDTYPE_BTREE;
-		}
-	}
-
 	if (GIST_AM_OID == indRel->rd_rel->relam)
 	{
 		plogicalIndexInfo->indType = INDTYPE_GIST;
+	}
+	else if (RELSTORAGE_HEAP == relstorage && BTREE_AM_OID == indRel->rd_rel->relam)
+	{
+		plogicalIndexInfo->indType = INDTYPE_BTREE;
 	}
 
 	index_close(indRel, AccessShareLock);
