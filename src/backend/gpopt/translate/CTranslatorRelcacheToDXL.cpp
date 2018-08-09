@@ -1785,11 +1785,11 @@ CTranslatorRelcacheToDXL::LookupFuncProps
 	GPOS_ASSERT(NULL != is_strict);
 	GPOS_ASSERT(NULL != returns_set);
 
-	*stability = GetFuncStability(gpdb::FuncStability(func_oid));
-	*access = GetEFuncDataAccess(gpdb::FuncDataAccess(func_oid));
+	CHAR cFuncStability = gpdb::FuncStability(func_oid);
+	*stability = GetFuncStability(cFuncStability);
 
-	CHAR cFuncDataAccess = gpdb::CFuncDataAccess(func_oid);
-	*access = EFuncDataAccess(cFuncDataAccess);
+	CHAR cFuncDataAccess = gpdb::FuncDataAccess(func_oid);
+	*access = GetEFuncDataAccess(cFuncDataAccess);
 
 	*returns_set = gpdb::GetFuncRetset(func_oid);
 	*is_strict = gpdb::FuncStrict(func_oid);
@@ -3202,7 +3202,7 @@ CTranslatorRelcacheToDXL::RetrievePartKeysAndTypes
 	*part_keys = GPOS_NEW(mp) ULongPtrArray(mp);
 	*part_types = GPOS_NEW(mp) CharPtrArray(mp);
 
-	PartitionNode *pn = gpdb::PpnParts(oid, 0 /*level*/, 0 /*parent*/, false /*inctemplate*/, true /*includesubparts*/);
+	PartitionNode *pn = gpdb::GetParts(oid, 0 /*level*/, 0 /*parent*/, false /*inctemplate*/, true /*includesubparts*/);
 	GPOS_ASSERT(NULL != pn);
 
 	if (gpdb::FHashPartitioned(pn->part->parkind))

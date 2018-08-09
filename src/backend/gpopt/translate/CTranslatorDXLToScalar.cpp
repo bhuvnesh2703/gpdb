@@ -442,7 +442,7 @@ CTranslatorDXLToScalar::TranslateScalarAggrefExprFromDXL
 
 	Aggref *aggref = MakeNode(Aggref);
 	aggref->aggfnoid = CMDIdGPDB::CastMdid(dxlop->GetDXLAggFuncMDid())->Oid();
-	aggref->aggdistinct = pdxlop->IsDistinct();
+	aggref->aggdistinct = dxlop->IsDistinct();
 	aggref->agglevelsup = 0;
 	aggref->location = -1;
 
@@ -572,7 +572,7 @@ CTranslatorDXLToScalar::TranslateScalarFuncExprFromDXL
 	func_expr->funcresulttype = CMDIdGPDB::CastMdid(dxlop->ReturnTypeMdId())->Oid();
 	func_expr->args = TranslateScalarChildren(func_expr->args, scalar_func_expr_node, colid_var);
 
-	return (Expr *) funcexpr;
+	return (Expr *) func_expr;
 }
 
 //---------------------------------------------------------------------------
@@ -1087,7 +1087,7 @@ CTranslatorDXLToScalar::TranslateScalarNULLIfExprFromDXL
 	const IMDScalarOp *md_scalar_op = m_md_accessor->RetrieveScOp(dxlop->MdIdOp());
 
 	scalar_null_if_expr->opfuncid = CMDIdGPDB::CastMdid(md_scalar_op->FuncMdId())->Oid();
-	scalar_null_if_expr->opresulttype = OidFunctionReturnType(md_scalar_op->FuncMdId());
+	scalar_null_if_expr->opresulttype = GetFunctionReturnTypeOid(md_scalar_op->FuncMdId());
 	scalar_null_if_expr->opretset = false;
 
 	// translate children

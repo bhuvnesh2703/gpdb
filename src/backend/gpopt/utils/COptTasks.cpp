@@ -99,7 +99,7 @@ using namespace gpdbcost;
 #define F_WINDOW_RANK_OID 7001
 
 // default id for the source system
-const CSystemId sysidDefault(IMDId::EmdidGPDB, GPOS_WSZ_STR_LENGTH("GPDB"));
+const CSystemId default_sysid(IMDId::EmdidGPDB, GPOS_WSZ_STR_LENGTH("GPDB"));
 
 // array of optimizer minor exception types that trigger expected fallback to the planner
 const ULONG expected_opt_fallback[] =
@@ -357,7 +357,7 @@ COptTasks::SzAllocate
 		// allocation of string buffer may happen outside gpos_exec() function,
 		// we must guard against system OOM here
 #ifdef FAULT_INJECTOR
-		gpdb::OptTasksFaultInjector(OptTaskAllocateStringBuffer);
+		gpdb::InjectFaultInOptTasks(OptTaskAllocateStringBuffer);
 #endif // FAULT_INJECTOR
 
 		if (NULL == pmp)

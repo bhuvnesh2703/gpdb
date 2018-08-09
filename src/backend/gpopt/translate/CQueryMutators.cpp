@@ -69,7 +69,7 @@ CQueryMutators::NeedsProjListNormalization
 
 		// Normalize when there is an expression that is neither used for grouping
 		// nor is an aggregate function
-		if (!IsA(target_entry->expr, PercentileExpr) && !IsA(pte->expr, Aggref) && !IsA(target_entry->expr, GroupingFunc) && !CTranslatorUtils::IsGroupingColumn( (Node*) target_entry->expr, query->groupClause, query->targetList))
+		if (!IsA(target_entry->expr, PercentileExpr) && !IsA(target_entry->expr, Aggref) && !IsA(target_entry->expr, GroupingFunc) && !CTranslatorUtils::IsGroupingColumn( (Node*) target_entry->expr, query->groupClause, query->targetList))
 		{
 			return true;
 		}
@@ -99,7 +99,7 @@ CQueryMutators::ShouldFallback
 		return false;
 	}
 
-	if (IsA(node, Const) || IsA(node, Aggref) || IsA(node, PercentileExpr) || IsA(pnode, GroupingFunc) || IsA(node, SubLink))
+	if (IsA(node, Const) || IsA(node, Aggref) || IsA(node, PercentileExpr) || IsA(node, GroupingFunc) || IsA(node, SubLink))
 	{
 		return false;
 	}
@@ -201,7 +201,7 @@ CQueryMutators::NormalizeGroupByProjList
 			target_entry->expr = (Expr*) RunGroupByProjListMutator( (Node*) target_entry->expr, &context);
 			GPOS_ASSERT
 				(
-				(!IsA(target_entry->expr, Aggref) && !IsA(target_entry->expr, PercentileExpr)) && !IsA(pte->expr, GroupingFunc) &&
+				(!IsA(target_entry->expr, Aggref) && !IsA(target_entry->expr, PercentileExpr)) && !IsA(target_entry->expr, GroupingFunc) &&
 				"New target list entry should not contain any Aggrefs or PercentileExpr"
 				);
 		}
@@ -529,12 +529,12 @@ CQueryMutators::RunGroupByProjListMutator
 		return (Node*) new_var;
 	}
 
-	if (IsA(node, PercentileExpr) || IsA(pnode, GroupingFunc))
+	if (IsA(node, PercentileExpr) || IsA(node, GroupingFunc))
 	{
 		Node *pnodeCopy = (Node *) gpdb::CopyObject(node);
 
-		const ULONG ulAttno = gpdb::UlListLength(context->m_groupby_target_list) + 1;
-		TargetEntry *pte = PteAggregateOrPercentileExpr(context->m_mp, context->m_md_accessor, pnodeCopy, attno);
+		const ULONG attno = gpdb::ListLength(context->m_groupby_target_list) + 1;
+		TargetEntry *target_entry = PteAggregateOrPercentileExpr(context->m_mp, context->m_md_accessor, pnodeCopy, attno);
 
 		// Add a new target entry to the query
 		context->m_groupby_target_list = gpdb::LAppend(context->m_groupby_target_list, target_entry);
@@ -672,7 +672,7 @@ CQueryMutators::RunGroupingColMutator
 		return (Node*) aggref;
 	}
 
-	if (IsA(node, PercentileExpr) || IsA(pnode, GroupingFunc))
+	if (IsA(node, PercentileExpr) || IsA(node, GroupingFunc))
 	{
 		return (Node *) gpdb::CopyObject(node);
 	}
@@ -824,13 +824,13 @@ CQueryMutators::PteAggregateOrPercentileExpr
 	ULONG attno
 	)
 {
-	GPOS_ASSERT(IsA(node, PercentileExpr) || IsA(pnode, Aggref) || IsA(node, GroupingFunc));
+	GPOS_ASSERT(IsA(node, PercentileExpr) || IsA(node, Aggref) || IsA(node, GroupingFunc));
 
 	// get the function/aggregate name
 	CHAR *name = NULL;
 	if (IsA(node, PercentileExpr))
 	{
-		PercentileExpr *percentile = (PercentileExpr*) pnode;
+		PercentileExpr *percentile = (PercentileExpr*) node;
 
 		if (PERC_MEDIAN == percentile->perckind)
 		{
@@ -846,7 +846,7 @@ CQueryMutators::PteAggregateOrPercentileExpr
             name = CTranslatorUtils::CreateMultiByteCharStringFromWCString(GPOS_WSZ_LIT("Disc"));
 		}
 	}
-	else if (IsA(pnode, GroupingFunc))
+	else if (IsA(node, GroupingFunc))
 	{
 		name = CTranslatorUtils::CreateMultiByteCharStringFromWCString(GPOS_WSZ_LIT("grouping"));
 	}
@@ -912,7 +912,7 @@ CQueryMutators::RunHavingQualMutator
 			return found_node;
 		}
 
-		if (IsA(node, PercentileExpr) || IsA(pnode, GroupingFunc))
+		if (IsA(node, PercentileExpr) || IsA(node, GroupingFunc))
 		{
 			// create a new entry in the derived table and return its corresponding var
 			Node *node_copy = (Node*) gpdb::CopyObject(node);
@@ -1080,9 +1080,9 @@ CQueryMutators::MakeVarInDerivedTable
 {
 	GPOS_ASSERT(NULL != node);
 	GPOS_ASSERT(NULL != context);
-	GPOS_ASSERT(IsA(node, PercentileExpr) || IsA(pnode, Aggref) || IsA(node, GroupingFunc));
+	GPOS_ASSERT(IsA(node, PercentileExpr) || IsA(node, Aggref) || IsA(node, GroupingFunc));
 
-	const ULONG attno = gpdb::ListLength(context->m_plTENewGroupByQuery) + 1;
+	const ULONG attno = gpdb::ListLength(context->m_groupby_target_list) + 1;
 	TargetEntry *target_entry = PteAggregateOrPercentileExpr(context->m_mp, context->m_md_accessor, (Node *) node, attno);
 	context->m_groupby_target_list = gpdb::LAppend(context->m_groupby_target_list, target_entry);
 
@@ -1328,7 +1328,7 @@ CQueryMutators::NormalizeQuery
 	gpdb::GPDBFree(pqueryEliminateDistinct);
 
 	// normalize window operator's project list
-	Query *pqueryWindowPlNormalized = CQueryMutators::PqueryNormalizeWindowPrL(pmp, pmda, pqueryFixedWindowFrameEdge);
+	Query *pqueryWindowPlNormalized = CQueryMutators::NormalizeWindowProjList(mp, md_accessor, pqueryFixedWindowFrameEdge);
 	gpdb::GPDBFree(pqueryFixedWindowFrameEdge);
 
 	// pull-up having quals into a select
@@ -1463,8 +1463,8 @@ CQueryMutators::ConvertToDerivedTable
 	rtref->rtindex = 1;
 
 	// intoClause, if not null, must be set on the top query, not on the derived table
-	IntoClause *origIntoClause = pqueryDrvd->intoClause;
-	pqueryDrvd->intoClause = NULL;
+	IntoClause *origIntoClause = derived_table_query->intoClause;
+	derived_table_query->intoClause = NULL;
 	// intoClause, if not null, must be set on the top query, not on the derived table
 	struct GpPolicy* into_policy = derived_table_query->intoPolicy;
 	derived_table_query->intoPolicy = NULL;
@@ -1475,7 +1475,7 @@ CQueryMutators::ConvertToDerivedTable
     new_query->hasAggs = false;
     new_query->rtable = gpdb::LAppend(new_query->rtable, rte);
     new_query->intoClause = origIntoClause;
-    new_query->intoPolicy = origIntoPolicy;
+    new_query->intoPolicy = into_policy;
 
 	FromExpr *fromexpr = MakeNode(FromExpr);
 	fromexpr->quals = NULL;
@@ -1622,7 +1622,7 @@ CQueryMutators::PqueryFixWindowFrameEdgeBoundary
 	const Query *pquery
 	)
 {
-	Query *pqueryNew = (Query *) gpdb::PvCopyObject(const_cast<Query*>(pquery));
+	Query *pqueryNew = (Query *) gpdb::CopyObject(const_cast<Query*>(pquery));
 
 	List *plWindowClause = pqueryNew->windowClause;
 	ListCell *plcWindowCl = NULL;

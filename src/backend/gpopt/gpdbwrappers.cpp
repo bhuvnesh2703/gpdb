@@ -2567,7 +2567,7 @@ gpdb::GetIntFromValue
 }
 
 Uri *
-gpdb::ParseExternalTableUri
+gpdb::ParseExternTableUri
 	(
 	const char *uri
 	)

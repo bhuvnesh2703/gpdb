@@ -763,9 +763,9 @@ CTranslatorQueryToDXL::TranslateCTASToDXL()
 	m_is_ctas_query = true;
 	CDXLNode *query_dxlnode = TranslateSelectQueryToDXL();
 
-	IntoClause *pintocl = m_query->intoClause;
+	IntoClause *into_clause = m_query->intoClause;
 
-	CMDName *md_relname = CDXLUtils::CreateMDNameFromCharArray(m_mp, pintocl->rel->relname);
+	CMDName *md_relname = CDXLUtils::CreateMDNameFromCharArray(m_mp, into_clause->rel->relname);
 	
 	CDXLColDescrArray *dxl_col_descr_array = GPOS_NEW(m_mp) CDXLColDescrArray(m_mp);
 	
@@ -774,7 +774,7 @@ CTranslatorQueryToDXL::TranslateCTASToDXL()
 	ULongPtrArray *source_array = GPOS_NEW(m_mp) ULongPtrArray(m_mp);
 	IntPtrArray* var_typmods = GPOS_NEW(m_mp) IntPtrArray(m_mp);
 	
-	List *col_names = pintocl->colNames;
+	List *col_names = into_clause->colNames;
 	for (ULONG ul = 0; ul < num_columns; ul++)
 	{
 		TargetEntry *target_entry = (TargetEntry *) gpdb::ListNth(m_query->targetList, ul);
@@ -1195,12 +1195,12 @@ CTranslatorQueryToDXL::TranslateUpdateQueryToDXL()
 IntToUlongMap *
 CTranslatorQueryToDXL::UpdatedColumnMapping()
 {
-	GPOS_ASSERT(gpdb::UlListLength(m_pquery->targetList) == m_pdrgpdxlnQueryOutput->UlLength());
+	GPOS_ASSERT(gpdb::ListLength(m_query->targetList) == m_dxl_query_output_cols->Size());
 	IntToUlongMap *update_column_map = GPOS_NEW(m_mp) IntToUlongMap(m_mp);
 
 	ListCell *lc = NULL;
 	ULONG ul = 0;
-	ForEach (plc, m_query->targetList)
+	ForEach (lc, m_query->targetList)
 	{
 		TargetEntry *target_entry = (TargetEntry *) lfirst(lc);
 		GPOS_ASSERT(IsA(target_entry, TargetEntry));
@@ -1499,7 +1499,7 @@ CTranslatorQueryToDXL::TranslateWindowSpecToDXL
 
 		if (NULL != pwindowspec->frame)
 		{
-			window_frame = m_scalar_translator->Pdxlwf((Expr *) pwindowspec->frame, m_var_to_colid_map, project_list_dxlnode_node, &m_has_distributed_tables);
+			window_frame = m_scalar_translator->GetWindowFrame((Expr *) pwindowspec->frame, m_var_to_colid_map, project_list_dxlnode_node, &m_has_distributed_tables);
 		}
 
 		CDXLWindowSpec *window_spec_dxlnode = GPOS_NEW(m_mp) CDXLWindowSpec(m_mp, part_columns, mdname, sort_col_list_dxl, window_frame);
@@ -3414,6 +3414,7 @@ CTranslatorQueryToDXL::TranslateDerivedTablesToDXL
 	ULONG current_query_level
 	)
 {
+	CMappingVarColId *var_to_colid_map = m_var_to_colid_map->CopyMapColId(m_mp);
 	Query *query_derived_tbl = rte->subquery;
 	GPOS_ASSERT(NULL != query_derived_tbl);
 
@@ -3423,7 +3424,7 @@ CTranslatorQueryToDXL::TranslateDerivedTablesToDXL
 		m_md_accessor,
 		m_colid_counter,
 		m_cte_id_counter,
-		var_colid_mapping,
+		var_to_colid_map,
 		query_derived_tbl,
 		m_query_level + 1,
 		IsDMLQuery(),

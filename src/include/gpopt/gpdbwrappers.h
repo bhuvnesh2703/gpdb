@@ -440,7 +440,7 @@ namespace gpdb {
 	double ConvertNetworkToScalar(Datum datum, Oid typid);
 
 	// is the given operator hash-joinable
-	bool FOpHashJoinable(Oid opno, Oid inputtype);
+	bool IsOpHashJoinable(Oid opno);
 
 	// is the given operator strict
 	bool IsOpStrict(Oid opno);
@@ -554,7 +554,7 @@ namespace gpdb {
 	int GetIntFromValue(Node *node);
 
 	// parse external table URI
-	Uri *ParseExternalTableUri(const char *uri);
+	Uri *ParseExternTableUri(const char *uri);
 	
 	// returns ComponentDatabases
 	CdbComponentDatabases *GetComponentDatabases(void);

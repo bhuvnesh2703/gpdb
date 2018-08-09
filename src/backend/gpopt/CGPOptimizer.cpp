@@ -113,7 +113,7 @@ CGPOptimizer::SerializeDXLPlan
 	Query *query
 	)
 {
-	return COptTasks::SzOptimize(query);
+	return COptTasks::Optimize(query);
 }
 
 //---------------------------------------------------------------------------

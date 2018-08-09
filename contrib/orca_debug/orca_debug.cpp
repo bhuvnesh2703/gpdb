@@ -119,7 +119,7 @@ static Query *parseSQL(char *szSqlText)
 
 	List *plQueryTree = pg_parse_and_rewrite(szSqlText, NULL, 0);
 
-	if (1 != gpdb::UlListLength(plQueryTree))
+	if (1 != gpdb::ListLength(plQueryTree))
 	{
 		elog(ERROR, "problem parsing query %s", szSqlText);
 	}
@@ -149,7 +149,7 @@ static PlannedStmt *planQuery(char *szSqlText)
 
 	List *plQueryTree = pg_parse_and_rewrite(szSqlText, NULL, 0);
 
-	if (1 != gpdb::UlListLength(plQueryTree))
+	if (1 != gpdb::ListLength(plQueryTree))
 	{
 		elog(ERROR, "problem parsing query %s", szSqlText);
 	}

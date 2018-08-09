@@ -454,7 +454,7 @@ CTranslatorScalarToDXL::CreateScalarNullIfFromExpr
 
 	GPOS_ASSERT(2 == gpdb::ListLength(null_if_expr->args));
 
-	CDXLScalarNullIf *dxlop = GPOS_NEW(m_mp) CDXLScalarNullIf(m_mp, GPOS_NEW(m_mp) CMDIdGPDB(null_if_expr->opno), GPOS_NEW(m_mp) CMDIdGPDB(gpdb::ExprType((Node *)pnullifexpr)));
+	CDXLScalarNullIf *dxlop = GPOS_NEW(m_mp) CDXLScalarNullIf(m_mp, GPOS_NEW(m_mp) CMDIdGPDB(null_if_expr->opno), GPOS_NEW(m_mp) CMDIdGPDB(gpdb::ExprType((Node *)null_if_expr)));
 
 	CDXLNode *dxlnode = GPOS_NEW(m_mp) CDXLNode(m_mp, dxlop);
 
@@ -1432,23 +1432,23 @@ CTranslatorScalarToDXL::Edxlfb
 CDXLWindowFrame *
 CTranslatorScalarToDXL::GetWindowFrame
 	(
-	const Expr *pexpr,
-	const CMappingVarColId* pmapvarcolid,
-	CDXLNode *pdxlnNewChildScPrL,
-	BOOL *pfHasDistributedTables // output
+	const Expr *expr,
+	const CMappingVarColId* var_colid_mapping,
+	CDXLNode *new_scalar_proj_list,
+	BOOL *has_distributed_tables // output
 	)
 {
-	GPOS_ASSERT(IsA(pexpr, WindowFrame));
-	const WindowFrame *pwindowframe = (WindowFrame *) pexpr;
+	GPOS_ASSERT(IsA(expr, WindowFrame));
+	const WindowFrame *pwindowframe = (WindowFrame *) expr;
 
-	EdxlFrameSpec edxlfs = EdxlfsRow;
+	EdxlFrameSpec frame_spec = EdxlfsRow;
 	if (!pwindowframe->is_rows)
 	{
-		edxlfs = EdxlfsRange;
+		frame_spec = EdxlfsRange;
 	}
 
-	EdxlFrameBoundary edxlfbLead = Edxlfb(pwindowframe->lead->kind, pwindowframe->lead->val);
-	EdxlFrameBoundary edxlfbTrail = Edxlfb(pwindowframe->trail->kind, pwindowframe->trail->val);
+	EdxlFrameBoundary leading_boundary = Edxlfb(pwindowframe->lead->kind, pwindowframe->lead->val);
+	EdxlFrameBoundary trailing_boundary = Edxlfb(pwindowframe->trail->kind, pwindowframe->trail->val);
 
 	static ULONG rgrgulExclusionMapping[][2] =
 			{
@@ -1460,17 +1460,17 @@ CTranslatorScalarToDXL::GetWindowFrame
 			};
 
 	const ULONG ulArityExclusion = GPOS_ARRAY_SIZE(rgrgulExclusionMapping);
-	EdxlFrameExclusionStrategy edxlfes = EdxlfesSentinel;
+	EdxlFrameExclusionStrategy strategy = EdxlfesSentinel;
 	for (ULONG ul = 0; ul < ulArityExclusion; ul++)
 	{
 		ULONG *pulElem = rgrgulExclusionMapping[ul];
 		if ((ULONG) pwindowframe->exclude == pulElem[0])
 		{
-			edxlfes = (EdxlFrameExclusionStrategy) pulElem[1];
+			strategy = (EdxlFrameExclusionStrategy) pulElem[1];
 			break;
 		}
 	}
-	GPOS_ASSERT(EdxlfesSentinel != edxlfes && "Invalid window frame exclusion");
+	GPOS_ASSERT(EdxlfesSentinel != strategy && "Invalid window frame exclusion");
 
 	CDXLNode *lead_edge = GPOS_NEW(m_mp) CDXLNode(m_mp, GPOS_NEW(m_mp) CDXLScalarWindowFrameEdge(m_mp, true /* fLeading */, leading_boundary));
 	CDXLNode *trail_edge = GPOS_NEW(m_mp) CDXLNode(m_mp, GPOS_NEW(m_mp) CDXLScalarWindowFrameEdge(m_mp, false /* fLeading */, trailing_boundary));
@@ -1561,7 +1561,7 @@ CTranslatorScalarToDXL::PdxlnScWindowref
 {
 	GPOS_ASSERT(IsA(expr, WindowRef));
 
-	const WindowRef *pwindowref = (WindowRef *) pexpr;
+	const WindowRef *pwindowref = (WindowRef *) expr;
 
 	static ULONG mapping[][2] =
 		{
@@ -1570,15 +1570,15 @@ CTranslatorScalarToDXL::PdxlnScWindowref
 		{WINSTAGE_ROWKEY, EdxlwinstageRowKey},
 		};
 
-	const ULONG arity = GPOS_ARRAY_SIZE(rgrgulMapping);
-	EdxlWinStage edxlwinstage = EdxlwinstageSentinel;
+	const ULONG arity = GPOS_ARRAY_SIZE(mapping);
+	EdxlWinStage dxl_win_stage = EdxlwinstageSentinel;
 
 	for (ULONG ul = 0; ul < arity; ul++)
 	{
-		ULONG *pulElem = rgrgulMapping[ul];
+		ULONG *pulElem = mapping[ul];
 		if ((ULONG) pwindowref->winstage == pulElem[0])
 		{
-			dxl_win_stage = (EdxlWinStage) elem[1];
+			dxl_win_stage = (EdxlWinStage) pulElem[1];
 			break;
 		}
 	}
@@ -1586,7 +1586,7 @@ CTranslatorScalarToDXL::PdxlnScWindowref
 	ULONG win_spec_pos = (ULONG) pwindowref->winlevel;
 	if (m_is_query_mode)
 	{
-		ulWinSpecPos = (ULONG) pwindowref->winspec;
+		win_spec_pos = (ULONG) pwindowref->winspec;
 	}
 
 	GPOS_ASSERT(EdxlwinstageSentinel != dxl_win_stage && "Invalid window stage");
@@ -1609,20 +1609,20 @@ CTranslatorScalarToDXL::PdxlnScWindowref
 
 	CDXLScalarWindowRef *winref_dxlop = GPOS_NEW(m_mp) CDXLScalarWindowRef
 													(
-													m_pmp,
-													GPOS_NEW(m_pmp) CMDIdGPDB(pwindowref->winfnoid),
-													GPOS_NEW(m_pmp) CMDIdGPDB(pwindowref->restype),
+													m_mp,
+													GPOS_NEW(m_mp) CMDIdGPDB(pwindowref->winfnoid),
+													GPOS_NEW(m_mp) CMDIdGPDB(pwindowref->restype),
 													pwindowref->windistinct,
 													false,
 													false,
-													edxlwinstage,
-													ulWinSpecPos
+													dxl_win_stage,
+													win_spec_pos
 													);
 
 	// create the DXL node holding the scalar aggref
 	CDXLNode *dxlnode = GPOS_NEW(m_mp) CDXLNode(m_mp, winref_dxlop);
 
-	TranslateScalarChildren(pdxln, pwindowref->args, pmapvarcolid);
+	TranslateScalarChildren(dxlnode, pwindowref->args, var_colid_mapping);
 
 	return dxlnode;
 }

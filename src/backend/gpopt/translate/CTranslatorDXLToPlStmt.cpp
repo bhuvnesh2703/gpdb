@@ -233,7 +233,7 @@ CTranslatorDXLToPlStmt::GetPlannedStmtFromDXL
 	}
 	
 	planned_stmt->resultRelations = m_result_rel_list;
-	pplstmt->intoClause = m_pctxdxltoplstmt->Pintocl();
+	planned_stmt->intoClause = m_dxl_to_plstmt_context->GetIntoClause();
 	planned_stmt->intoPolicy = m_dxl_to_plstmt_context->GetDistributionPolicy();
 	
 	SetInitPlanVariables(planned_stmt);
@@ -430,7 +430,7 @@ CTranslatorDXLToPlStmt::MapLocationsFile
 {
 	// extract file path and name from URI strings and assign them a primary segdb
 
-	ExtTableEntry *extentry = gpdb::Pexttable(oidRel);
+	ExtTableEntry *extentry = gpdb::GetExternalTableEntry(oidRel);
 
 	ListCell *plcLocation = NULL;
 	ForEach (plcLocation, extentry->urilocations)
@@ -438,7 +438,7 @@ CTranslatorDXLToPlStmt::MapLocationsFile
 		Value* pvLocation = (Value *)lfirst(plcLocation);
 		CHAR *szUri = pvLocation->val.str;
 
-		Uri *pUri = gpdb::PuriParseExternalTable(szUri);
+		Uri *pUri = gpdb::ParseExternTableUri(szUri);
 
 		BOOL fCandidateFound = false;
 		BOOL fMatchFound = false;
@@ -451,8 +451,8 @@ CTranslatorDXLToPlStmt::MapLocationsFile
 			if (SEGMENT_IS_ACTIVE_PRIMARY(pcdbCompDBInfo))
 			{
 				if (URI_FILE == pUri->protocol &&
-					0 != gpdb::IStrCmpIgnoreCase(pUri->hostname, pcdbCompDBInfo->hostname) &&
-					0 != gpdb::IStrCmpIgnoreCase(pUri->hostname, pcdbCompDBInfo->address))
+					0 != gpdb::StrCmpIgnoreCase(pUri->hostname, pcdbCompDBInfo->hostname) &&
+					0 != gpdb::StrCmpIgnoreCase(pUri->hostname, pcdbCompDBInfo->address))
 				{
 					continue;
 				}
@@ -499,9 +499,9 @@ CTranslatorDXLToPlStmt::MapLocationsFdist
 	ULONG ulParticipatingSegments = ulTotalPrimaries;
 	ULONG ulMaxParticipants = ulParticipatingSegments;
 
-	ExtTableEntry *extentry = gpdb::Pexttable(oidRel);
+	ExtTableEntry *extentry = gpdb::GetExternalTableEntry(oidRel);
 
-	const ULONG ulLocations = gpdb::UlListLength(extentry->urilocations);
+	const ULONG ulLocations = gpdb::ListLength(extentry->urilocations);
 	if (URI_GPFDIST == pUri->protocol || URI_GPFDISTS == pUri->protocol)
 	{
 		ulMaxParticipants = ulLocations * gp_external_max_segs;
@@ -541,7 +541,7 @@ CTranslatorDXLToPlStmt::MapLocationsFdist
 		{
 			Value* pvLocation = (Value *)lfirst(plcLocation);
 			CHAR *szUri = pvLocation->val.str;
-			plModifiedLocations = gpdb::PlAppendElement(plModifiedLocations, gpdb::PvalMakeString(szUri));
+			plModifiedLocations = gpdb::LAppend(plModifiedLocations, gpdb::MakeStringValue(szUri));
 			ulModifiedLocations ++;
 
 			if (ulModifiedLocations == ulParticipatingSegments)
@@ -561,7 +561,7 @@ CTranslatorDXLToPlStmt::MapLocationsFdist
 	BOOL *rgfSkipMap = NULL;
 	if (fSkipRandomly)
 	{
-		rgfSkipMap = gpdb::RgfRandomSegMap(ulTotalPrimaries, ulSkip);
+		rgfSkipMap = gpdb::ConstructRandomSegMap(ulTotalPrimaries, ulSkip);
 	}
 
 	// assign each URI from the new location list a primary segdb
@@ -628,11 +628,11 @@ CTranslatorDXLToPlStmt::MapLocationsExecute
 	const ULONG ulTotalPrimaries
 	)
 {
-	ExtTableEntry *extentry = gpdb::Pexttable(oidRel);
+	ExtTableEntry *extentry = gpdb::GetExternalTableEntry(oidRel);
 	CHAR *szCommand = extentry->command;
 	const CHAR *szPrefix = "execute:";
 
-	StringInfo si = gpdb::SiMakeStringInfo();
+	StringInfo si = gpdb::MakeStringInfo();
 	gpdb::AppendStringInfo(si, szPrefix, szCommand);
 	CHAR *szPrefixedCommand = PStrDup(si->data);
 
@@ -641,37 +641,37 @@ CTranslatorDXLToPlStmt::MapLocationsExecute
 	si = NULL;
 
 	// get the ON clause (execute location) information
-	Value *pvOnClause = (Value *) gpdb::PvListNth(extentry->execlocations, 0);
+	Value *pvOnClause = (Value *) gpdb::ListNth(extentry->execlocations, 0);
 	CHAR *szOnClause = pvOnClause->val.str;
 
-	if (0 == gpos::clib::IStrCmp(szOnClause, "ALL_SEGMENTS"))
+	if (0 == gpos::clib::Strcmp(szOnClause, "ALL_SEGMENTS"))
 	{
 		MapLocationsExecuteAllSegments(szPrefixedCommand, rgszSegFileMap, pcdbCompDB);
 	}
-	else if (0 == gpos::clib::IStrCmp(szOnClause, "PER_HOST"))
+	else if (0 == gpos::clib::Strcmp(szOnClause, "PER_HOST"))
 	{
 		MapLocationsExecutePerHost(szPrefixedCommand, rgszSegFileMap, pcdbCompDB);
 	}
-	else if (0 == gpos::clib::IStrNCmp(szOnClause, "HOST:", gpos::clib::UlStrLen("HOST:")))
+	else if (0 == gpos::clib::Strncmp(szOnClause, "HOST:", gpos::clib::Strlen("HOST:")))
 	{
-		CHAR *szHostName = szOnClause + gpos::clib::UlStrLen("HOST:");
+		CHAR *szHostName = szOnClause + gpos::clib::Strlen("HOST:");
 		MapLocationsExecuteOneHost(szHostName, szPrefixedCommand, rgszSegFileMap, pcdbCompDB);
 	}
-	else if (0 == gpos::clib::IStrNCmp(szOnClause, "SEGMENT_ID:", gpos::clib::UlStrLen("SEGMENT_ID:")))
+	else if (0 == gpos::clib::Strncmp(szOnClause, "SEGMENT_ID:", gpos::clib::Strlen("SEGMENT_ID:")))
 	{
 		CHAR *pcEnd = NULL;
-		INT iTargetSegInd = (INT) gpos::clib::LStrToL(szOnClause + gpos::clib::UlStrLen("SEGMENT_ID:"), &pcEnd, 10);
+		INT iTargetSegInd = (INT) gpos::clib::Strtol(szOnClause + gpos::clib::Strlen("SEGMENT_ID:"), &pcEnd, 10);
 		MapLocationsExecuteOneSegment(iTargetSegInd, szPrefixedCommand, rgszSegFileMap, pcdbCompDB);
 	}
-	else if (0 == gpos::clib::IStrNCmp(szOnClause, "TOTAL_SEGS:", gpos::clib::UlStrLen("TOTAL_SEGS:")))
+	else if (0 == gpos::clib::Strncmp(szOnClause, "TOTAL_SEGS:", gpos::clib::Strlen("TOTAL_SEGS:")))
 	{
 		// total n segments selected randomly
 		CHAR *pcEnd = NULL;
-		ULONG ulSegsToUse = gpos::clib::LStrToL(szOnClause + gpos::clib::UlStrLen("TOTAL_SEGS:"), &pcEnd, 10);
+		ULONG ulSegsToUse = gpos::clib::Strtol(szOnClause + gpos::clib::Strlen("TOTAL_SEGS:"), &pcEnd, 10);
 
 		MapLocationsExecuteRandomSegments(ulSegsToUse, ulTotalPrimaries, szPrefixedCommand, rgszSegFileMap, pcdbCompDB);
 	}
-	else if (0 == gpos::clib::IStrCmp(szOnClause, "MASTER_ONLY"))
+	else if (0 == gpos::clib::Strcmp(szOnClause, "MASTER_ONLY"))
 	{
 		rgszSegFileMap[0] = PStrDup(szPrefixedCommand);
 	}
@@ -739,7 +739,7 @@ CTranslatorDXLToPlStmt::MapLocationsExecutePerHost
 			ForEach (plc, plVisitedHosts)
 			{
 				const CHAR *szHostName = (CHAR *) strVal(lfirst(plc));
-				if (0 == gpdb::IStrCmpIgnoreCase(szHostName, pcdbCompDBInfo->hostname))
+				if (0 == gpdb::StrCmpIgnoreCase(szHostName, pcdbCompDBInfo->hostname))
 				{
 					fHostTaken = true;
 					break;
@@ -749,10 +749,10 @@ CTranslatorDXLToPlStmt::MapLocationsExecutePerHost
 			if (!fHostTaken)
 			{
 				rgszSegFileMap[iSegInd] = PStrDup(szPrefixedCommand);
-				plVisitedHosts = gpdb::PlAppendElement
+				plVisitedHosts = gpdb::LAppend
 										(
 										plVisitedHosts,
-										gpdb::PvalMakeString(PStrDup(pcdbCompDBInfo->hostname))
+										gpdb::MakeStringValue(PStrDup(pcdbCompDBInfo->hostname))
 										);
 			}
 		}
@@ -783,7 +783,7 @@ CTranslatorDXLToPlStmt::MapLocationsExecuteOneHost
 		INT iSegInd = pcdbCompDBInfo->segindex;
 
 		if (SEGMENT_IS_ACTIVE_PRIMARY(pcdbCompDBInfo) &&
-			0 == gpdb::IStrCmpIgnoreCase(szHostName, pcdbCompDBInfo->hostname))
+			0 == gpdb::StrCmpIgnoreCase(szHostName, pcdbCompDBInfo->hostname))
 		{
 			rgszSegFileMap[iSegInd] = PStrDup(szPrefixedCommand);
 			fMatchFound = true;
@@ -858,7 +858,7 @@ CTranslatorDXLToPlStmt::MapLocationsExecuteRandomSegments
 	}
 
 	ULONG ulSkip = ulTotalPrimaries - ulSegments;
-	BOOL *rgfSkipMap = gpdb::RgfRandomSegMap(ulTotalPrimaries, ulSkip);
+	BOOL *rgfSkipMap = gpdb::ConstructRandomSegMap(ulTotalPrimaries, ulSkip);
 
 	for (int i = 0; i < pcdbCompDB->total_segment_dbs; i++)
 	{
@@ -915,7 +915,7 @@ CTranslatorDXLToPlStmt::PlExternalScanUriList
 	OID oidRel
 	)
 {
-	ExtTableEntry *extentry = gpdb::Pexttable(oidRel);
+	ExtTableEntry *extentry = gpdb::GetExternalTableEntry(oidRel);
 
 	if (extentry->iswritable)
 	{
@@ -927,7 +927,7 @@ CTranslatorDXLToPlStmt::PlExternalScanUriList
 	}
 
 	//get the total valid primary segdb count
-	CdbComponentDatabases *pcdbCompDB = gpdb::PcdbComponentDatabases();
+	CdbComponentDatabases *pcdbCompDB = gpdb::GetComponentDatabases();
 	ULONG ulTotalPrimaries = 0;
 	for (int i = 0; i < pcdbCompDB->total_segment_dbs; i++)
 	{
@@ -940,7 +940,7 @@ CTranslatorDXLToPlStmt::PlExternalScanUriList
 
 	char **rgszSegFileMap = NULL;
     rgszSegFileMap = (char **) gpdb::GPDBAlloc(ulTotalPrimaries * sizeof(char *));
-    gpos::clib::PvMemSet(rgszSegFileMap, 0, ulTotalPrimaries * sizeof(char *));
+    gpos::clib::Memset(rgszSegFileMap, 0, ulTotalPrimaries * sizeof(char *));
 
 	// is this an EXECUTE table or a LOCATION (URI) table
 	BOOL fUsingExecute = false;
@@ -963,14 +963,14 @@ CTranslatorDXLToPlStmt::PlExternalScanUriList
 		fUsingLocation = true;
 	}
 
-	GPOS_ASSERT(0 < gpdb::UlListLength(extentry->urilocations));
+	GPOS_ASSERT(0 < gpdb::ListLength(extentry->urilocations));
 
 	CHAR *szFirstUri = NULL;
 	Uri *pUri = NULL;
 	if (!fUsingExecute)
 	{
-		szFirstUri = ((Value *) gpdb::PvListNth(extentry->urilocations, 0))->val.str;
-		pUri = gpdb::PuriParseExternalTable(szFirstUri);
+		szFirstUri = ((Value *) gpdb::ListNth(extentry->urilocations, 0))->val.str;
+		pUri = gpdb::ParseExternTableUri(szFirstUri);
 	}
 
 	if (fUsingLocation && (URI_FILE == pUri->protocol || URI_HTTP == pUri->protocol))
@@ -1001,7 +1001,7 @@ CTranslatorDXLToPlStmt::PlExternalScanUriList
 		Value *pval = NULL;
 	    if (NULL != rgszSegFileMap[ul])
 	    {
-	    	pval = gpdb::PvalMakeString(rgszSegFileMap[ul]);
+	    	pval = gpdb::MakeStringValue(rgszSegFileMap[ul]);
 	    }
 	    else
 		{
@@ -1009,7 +1009,7 @@ CTranslatorDXLToPlStmt::PlExternalScanUriList
 			pval = MakeNode(Value);
 			pval->type = T_Null;
 		}
-		plFileNames = gpdb::PlAppendElement(plFileNames, pval);
+		plFileNames = gpdb::LAppend(plFileNames, pval);
 	}
 
 	return plFileNames;
@@ -1067,7 +1067,7 @@ CTranslatorDXLToPlStmt::TranslateDXLTblScan
 		ext_scan->rejLimit = md_rel_ext->RejectLimit();
 		ext_scan->rejLimitInRows = md_rel_ext->IsRejectLimitInRows();
 
-		IMDId *pmdidFmtErrTbl = md_rel_ext->PmdidFmtErrRel();
+		IMDId *pmdidFmtErrTbl = md_rel_ext->GetFormatErrTableMdid();
 		if (NULL == pmdidFmtErrTbl)
 		{
 			ext_scan->fmterrtbl = InvalidOid;
@@ -1316,8 +1316,8 @@ CTranslatorDXLToPlStmt::TranslateDXLIndexScan
 
 	index_scan->indexqual = index_cond;
 	index_scan->indexqualorig = index_orig_cond;
-	pis->indexstrategy = plIndexStratgey;
-	pis->indexsubtype = plIndexSubtype;
+	index_scan->indexstrategy = index_strategy_list;
+	index_scan->indexsubtype = index_subtype_list;
 	SetParamIds(plan);
 
 	return (Plan *) index_scan;
@@ -1491,7 +1491,7 @@ CTranslatorDXLToPlStmt::TranslateIndexConditions
 		CIndexQualInfo *index_qual_info = (*index_qual_info_array)[ul];
 		*index_cond = gpdb::LAppend(*index_cond, index_qual_info->m_expr);
 		*index_orig_cond = gpdb::LAppend(*index_orig_cond, index_qual_info->m_original_expr);
-		*index_strategy_list = gpdb::LAppendInt(*index_strategy_list, index_qual_info->m_index_subtype_oid);
+		*index_strategy_list = gpdb::LAppendInt(*index_strategy_list, index_qual_info->m_strategy_num);
 		*index_subtype_list = gpdb::LAppendOid(*index_subtype_list, index_qual_info->m_index_subtype_oid);
 	}
 
@@ -2902,26 +2902,26 @@ CTranslatorDXLToPlStmt::TranslateDXLWindow
 	// translate window keys
 	window->windowKeys = NIL;
 	const ULONG size = window_dxlop->WindowKeysCount();
-	for (ULONG ul = 0; ul < ulSize; ul++)
+	for (ULONG ul = 0; ul < size; ul++)
 	{
 		WindowKey *windowkey = MakeNode(WindowKey);
 
 		// translate the sorting columns used in the window key
-		const CDXLWindowKey *window_key = window_dxlop->GetDXLWindowKeyAt(ul);
-		const CDXLNode *sort_col_list_dxlnode = window_key->GetSortColListDXL();
+		const CDXLWindowKey *window_key_dxl_op = window_dxlop->GetDXLWindowKeyAt(ul);
+		const CDXLNode *sort_col_list_dxlnode = window_key_dxl_op->GetSortColListDXL();
 
 		const ULONG num_of_cols = sort_col_list_dxlnode->Arity();
 		windowkey->numSortCols = num_of_cols;
 		windowkey->sortColIdx = (AttrNumber *) gpdb::GPDBAlloc(num_of_cols * sizeof(AttrNumber));
 		windowkey->sortOperators = (Oid *) gpdb::GPDBAlloc(num_of_cols * sizeof(Oid));
 		windowkey->nullsFirst = (bool *) gpdb::GPDBAlloc(num_of_cols * sizeof(bool));
-		TranslateSortCols(sort_col_list_dxlnode, &child_context, window_key->sortColIdx, window_key->sortOperators, window_key->nullsFirst);
+		TranslateSortCols(sort_col_list_dxlnode, &child_context, windowkey->sortColIdx, windowkey->sortOperators, windowkey->nullsFirst);
 
 		// translate the window frame specified in the window key
 		windowkey->frame = NULL;
-		if (NULL != window_key->GetWindowFrame())
+		if (NULL != window_key_dxl_op->GetWindowFrame())
 		{
-			windowkey->frame = Pwindowframe(window_key->Pdxlwf(), &dxltrctxChild, pdxltrctxOut, pplan);
+			windowkey->frame = Pwindowframe(window_key_dxl_op->GetWindowFrame(), &child_context, output_context, plan);
 		}
 		window->windowKeys = gpdb::LAppend(window->windowKeys, windowkey);
 	}
@@ -2947,23 +2947,23 @@ CTranslatorDXLToPlStmt::Pwindowframe
 	(
 	const CDXLWindowFrame *pdxlwf,
 	const CDXLTranslateContext *pdxltrctxChild,
-	CDXLTranslateContext *pdxltrctxOut,
+	CDXLTranslateContext *output_context,
 	Plan *pplan
 	)
 {
-	WindowFrame *pwindowframe = MakeNode(WindowFrame);
+	WindowFrame *window_frame = MakeNode(WindowFrame);
 
-	if (EdxlfsRow == pdxlwf->Edxlfs())
+	if (EdxlfsRow == pdxlwf->ParseDXLFrameSpec())
 	{
-		pwindowframe->is_rows = true;
+		window_frame->is_rows = true;
 	}
 	else
 	{
-		pwindowframe->is_rows = false;
+		window_frame->is_rows = false;
 	}
-	pwindowframe->is_between = true;
+	window_frame->is_between = true;
 
-	pwindowframe->exclude = CTranslatorUtils::Windowexclusion(window_frame->ParseFrameExclusionStrategy());
+	window_frame->exclude = CTranslatorUtils::Windowexclusion(pdxlwf->ParseFrameExclusionStrategy());
 
 	// translate the CDXLNodes representing the leading and trailing edge
 	CDXLTranslationContextArray *child_contexts = GPOS_NEW(m_mp) CDXLTranslationContextArray(m_mp);
@@ -2978,29 +2978,29 @@ CTranslatorDXLToPlStmt::Pwindowframe
 			 m_dxl_to_plstmt_context
 			);
 
-	CDXLNode *pdxlnLead = pdxlwf->PdxlnLeading();
-	pwindowframe->lead = MakeNode(WindowFrameEdge);
-	pwindowframe->lead->kind = CTranslatorUtils::Windowboundkind(CDXLScalarWindowFrameEdge::PdxlopConvert(pdxlnLead->Pdxlop())->Edxlfb());
-	pwindowframe->lead->val = NULL;
-	if (0 != pdxlnLead->UlArity())
+	CDXLNode *win_frame_leading_dxlnode = pdxlwf->PdxlnLeading();
+	window_frame->lead = MakeNode(WindowFrameEdge);
+	window_frame->lead->kind = CTranslatorUtils::Windowboundkind(CDXLScalarWindowFrameEdge::Cast(win_frame_leading_dxlnode->GetOperator())->ParseDXLFrameBoundary());
+	window_frame->lead->val = NULL;
+	if (0 != win_frame_leading_dxlnode->Arity())
 	{
-		pwindowframe->lead->val = (Node*) m_pdxlsctranslator->PexprFromDXLNodeScalar((*pdxlnLead)[0], &mapcidvarplstmt);
+		window_frame->lead->val = (Node*) m_translator_dxl_to_scalar->TranslateScalarExprFromDXL((*win_frame_leading_dxlnode)[0], &colid_var_mapping);
 	}
 
 
 	CDXLNode *win_frame_trailing_dxlnode = pdxlwf->PdxlnTrailing();
-	pwindowframe->trail = MakeNode(WindowFrameEdge);
-	pwindowframe->trail->kind = CTranslatorUtils::Windowboundkind(CDXLScalarWindowFrameEdge::PdxlopConvert(win_frame_trailing_dxlnode->Pdxlop())->Edxlfb());
-	pwindowframe->trail->val = NULL;
-	if (0 != pdxlnTrail->UlArity())
+	window_frame->trail = MakeNode(WindowFrameEdge);
+	window_frame->trail->kind = CTranslatorUtils::Windowboundkind(CDXLScalarWindowFrameEdge::Cast(win_frame_trailing_dxlnode->GetOperator())->ParseDXLFrameBoundary());
+	window_frame->trail->val = NULL;
+	if (0 != win_frame_trailing_dxlnode->Arity())
 	{
-		pwindowframe->trail->val = (Node*) m_translator_dxl_to_scalar->TranslateScalarExprFromDXL((*win_frame_trailing_dxlnode)[0], &mapcidvarplstmt);
+		window_frame->trail->val = (Node*) m_translator_dxl_to_scalar->TranslateScalarExprFromDXL((*win_frame_trailing_dxlnode)[0], &colid_var_mapping);
 	}
 
 	// cleanup
 	child_contexts->Release();
 
-	return pwindowframe;
+	return window_frame;
 }
 
 //---------------------------------------------------------------------------
@@ -3469,10 +3469,10 @@ CTranslatorDXLToPlStmt::TranslateDXLAppend
 	Plan *plan = &(append->plan);
 	plan->plan_node_id = m_dxl_to_plstmt_context->GetNextPlanId();
 
-	CDXLPhysicalAppend *pdxlopAppend = CDXLPhysicalAppend::PdxlopConvert(pdxlnAppend->Pdxlop());
+	CDXLPhysicalAppend *pdxlopAppend = CDXLPhysicalAppend::Cast(append_dxlnode->GetOperator());
 
-	pappend->isTarget = pdxlopAppend->FIsTarget();
-	pappend->isZapped = pdxlopAppend->FIsZapped();
+	append->isTarget = pdxlopAppend->IsUsedInUpdDel();
+	append->isZapped = pdxlopAppend->IsZapped();
 
 	// translate operator costs
 	TranslatePlanCosts
@@ -4202,8 +4202,8 @@ CTranslatorDXLToPlStmt::TranslateDXLDynIdxScan
 
 	dyn_idx_scan->indexqual = index_cond;
 	dyn_idx_scan->indexqualorig = index_orig_cond;
-	pdis->indexstrategy = plIndexStratgey;
-	pdis->indexsubtype = plIndexSubtype;
+	dyn_idx_scan->indexstrategy = index_strategy_list;
+	dyn_idx_scan->indexsubtype = index_subtype_list;
 	SetParamIds(plan);
 
 	return (Plan *) dyn_idx_scan;
@@ -5995,8 +5995,8 @@ CTranslatorDXLToPlStmt::TranslateDXLBitmapIndexProbe
 
 	GPOS_ASSERT(InvalidOid != index_oid);
 	bitmap_idx_scan->indexid = index_oid;
-	OID oidRel = CMDIdGPDB::CastMdid(table_descr->MDId())->Oid();
-	pbis->logicalIndexInfo = gpdb::Plgidxinfo(oidRel, oidIndex);
+	OID rel_oid = CMDIdGPDB::CastMdid(table_descr->MDId())->Oid();
+	bitmap_idx_scan->logicalIndexInfo = gpdb::GetLogicalIndexInfo(rel_oid, index_oid);
 	Plan *plan = &(bitmap_idx_scan->scan.plan);
 	plan->plan_node_id = m_dxl_to_plstmt_context->GetNextPlanId();
 	plan->nMotionNodes = 0;
@@ -6026,8 +6026,8 @@ CTranslatorDXLToPlStmt::TranslateDXLBitmapIndexProbe
 
 	bitmap_idx_scan->indexqual = index_cond;
 	bitmap_idx_scan->indexqualorig = index_orig_cond;
-	pbis->indexstrategy = plIndexStratgey;
-	pbis->indexsubtype = plIndexSubtype;
+	bitmap_idx_scan->indexstrategy = index_strategy_list;
+	bitmap_idx_scan->indexsubtype = index_subtype_list;
 	SetParamIds(plan);
 
 	return plan;
