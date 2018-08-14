@@ -262,7 +262,7 @@ namespace gpdxl
 
 			// get keysets for relation
 			static
-			ULongPtrArray2D *RetrieveRelKeysets(IMemoryPool *mp, OID oid, BOOL should_add_default_keys, BOOL is_partitioned, ULONG *attno_mapping);
+			ULongPtr2dArray *RetrieveRelKeysets(IMemoryPool *mp, OID oid, BOOL should_add_default_keys, BOOL is_partitioned, ULONG *attno_mapping);
 
 			// storage type for a relation
 			static

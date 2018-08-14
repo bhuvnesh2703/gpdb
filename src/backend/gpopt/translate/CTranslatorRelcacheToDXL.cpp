@@ -577,7 +577,7 @@ CTranslatorRelcacheToDXL::RetrieveRel
 	CharPtrArray *part_types = NULL;
 	ULONG num_leaf_partitions = 0;
 	BOOL convert_hash_to_random = false;
-	ULongPtrArray2D *keyset_array = NULL;
+	ULongPtr2dArray *keyset_array = NULL;
 	IMdIdArray *check_constraint_mdids = NULL;
 	BOOL is_temporary = false;
 	BOOL has_oids = false;
@@ -3296,7 +3296,7 @@ CTranslatorRelcacheToDXL::ConstructAttnoMapping
 //		Get key sets for relation
 //
 //---------------------------------------------------------------------------
-ULongPtrArray2D *
+ULongPtr2dArray *
 CTranslatorRelcacheToDXL::RetrieveRelKeysets
 	(
 	IMemoryPool *mp,
@@ -3306,7 +3306,7 @@ CTranslatorRelcacheToDXL::RetrieveRelKeysets
 	ULONG *attno_mapping
 	)
 {
-	ULongPtrArray2D *key_sets = GPOS_NEW(mp) ULongPtrArray2D(mp);
+	ULongPtr2dArray *key_sets = GPOS_NEW(mp) ULongPtr2dArray(mp);
 
 	List *rel_keys = gpdb::GetRelationKeys(oid);
 

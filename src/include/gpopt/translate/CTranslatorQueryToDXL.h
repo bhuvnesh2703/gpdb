@@ -183,7 +183,7 @@ namespace gpdxl
 				EdxlSetOpType setop_type,
 				List *output_target_list,
 				ULongPtrArray *output_colids,
-				ULongPtrArray2D *input_colids,
+				ULongPtr2dArray *input_colids,
 				CDXLNodeArray *children_dxlnodes,
 				BOOL is_cast_across_input,
 				BOOL keep_res_junked

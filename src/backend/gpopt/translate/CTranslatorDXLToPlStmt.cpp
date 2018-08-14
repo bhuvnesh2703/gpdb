@@ -3878,7 +3878,7 @@ CTranslatorDXLToPlStmt::TranslateDXLDirectDispatchInfo
 		return NIL;
 	}
 	
-	DXLDatumArrays *dispatch_identifier_datum_arrays = dxl_direct_dispatch_info->GetDispatchIdentifierDatumArray();
+	CDXLDatum2dArray *dispatch_identifier_datum_arrays = dxl_direct_dispatch_info->GetDispatchIdentifierDatumArray();
 	
 	if (dispatch_identifier_datum_arrays == NULL || 0 == dispatch_identifier_datum_arrays->Size())
 	{

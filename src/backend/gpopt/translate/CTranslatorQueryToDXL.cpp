@@ -2310,7 +2310,7 @@ CTranslatorQueryToDXL::CreateDXLUnionAllForGroupingSets
 
 			colids_outer_array->AddRef();
 
-			ULongPtrArray2D *input_colids = GPOS_NEW(m_mp) ULongPtrArray2D(m_mp);
+			ULongPtr2dArray *input_colids = GPOS_NEW(m_mp) ULongPtr2dArray(m_mp);
 			input_colids->Append(colids_outer_array);
 			input_colids->Append(colid_array_inner);
 
@@ -2422,7 +2422,7 @@ CTranslatorQueryToDXL::DXLDummyConstTableGet() const
 	dxl_col_descr_array->Append(dxl_col_descr);
 
 	// create the array of datum arrays
-	DXLDatumArrays *dispatch_identifier_datum_arrays = GPOS_NEW(m_mp) DXLDatumArrays(m_mp);
+	CDXLDatum2dArray *dispatch_identifier_datum_arrays = GPOS_NEW(m_mp) CDXLDatum2dArray(m_mp);
 	
 	// create a datum array
 	CDXLDatumArray *dxl_datum_array = GPOS_NEW(m_mp) CDXLDatumArray(m_mp);
@@ -2481,7 +2481,7 @@ CTranslatorQueryToDXL::TranslateSetOpToDXL
 	}
 	CTranslatorUtils::MarkOuterRefs(colid, outer_ref_array, size, left_child_dxlnode);
 
-	ULongPtrArray2D *input_colids = GPOS_NEW(m_mp) ULongPtrArray2D(m_mp);
+	ULongPtr2dArray *input_colids = GPOS_NEW(m_mp) ULongPtr2dArray(m_mp);
 	input_colids->Append(leftchild_array);
 	input_colids->Append(rightchild_array);
 	
@@ -2558,7 +2558,7 @@ CTranslatorQueryToDXL::CreateDXLSetOpFromColumns
 	EdxlSetOpType setop_type,
 	List *output_target_list,
 	ULongPtrArray *output_colids,
-	ULongPtrArray2D *input_colids,
+	ULongPtr2dArray *input_colids,
 	CDXLNodeArray *children_dxlnodes,
 	BOOL is_cast_across_input,
 	BOOL keep_res_junked
@@ -3077,10 +3077,10 @@ CTranslatorQueryToDXL::TranslateValueScanRTEToDXL
 	CDXLNodeArray *dxlnodes = GPOS_NEW(m_mp) CDXLNodeArray(m_mp);
 
 	// array of datum arrays for Values
-	DXLDatumArrays *dxl_values_datum_array = GPOS_NEW(m_mp) DXLDatumArrays(m_mp);
+	CDXLDatum2dArray *dxl_values_datum_array = GPOS_NEW(m_mp) CDXLDatum2dArray(m_mp);
 
 	// array of input colid arrays
-	ULongPtrArray2D *input_colids = GPOS_NEW(m_mp) ULongPtrArray2D(m_mp);
+	ULongPtr2dArray *input_colids = GPOS_NEW(m_mp) ULongPtr2dArray(m_mp);
 
 	// array of column descriptor for the UNION ALL operator
 	CDXLColDescrArray *dxl_col_descr_array = GPOS_NEW(m_mp) CDXLColDescrArray(m_mp);
@@ -3280,7 +3280,7 @@ CTranslatorQueryToDXL::TranslateColumnValuesToDXL
 	else 
 	{
 		// create the array of datum arrays
-		DXLDatumArrays *dxl_datum_arrays_const_tbl_get = GPOS_NEW(m_mp) DXLDatumArrays(m_mp);
+		CDXLDatum2dArray *dxl_datum_arrays_const_tbl_get = GPOS_NEW(m_mp) CDXLDatum2dArray(m_mp);
 		
 		dxl_datum_array_const_tbl_get->AddRef();
 		dxl_datum_arrays_const_tbl_get->Append(dxl_datum_array_const_tbl_get);
