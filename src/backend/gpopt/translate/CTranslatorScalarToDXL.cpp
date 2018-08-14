@@ -1780,7 +1780,7 @@ CTranslatorScalarToDXL::CreateQuantifiedSubqueryFromSublink
 	CDXLScalarIdent *scalar_ident = dynamic_cast<CDXLScalarIdent *>(dxl_sc_ident->GetOperator());
 
 	// get the dxl column reference
-	const CDXLColRef *dxl_colref = scalar_ident->MakeDXLColRef();
+	const CDXLColRef *dxl_colref = scalar_ident->GetDXLColRef();
 	const ULONG colid = dxl_colref->Id();
 
 	// get the test expression
@@ -1882,7 +1882,7 @@ CTranslatorScalarToDXL::CreateScalarSubqueryFromSublink
 	CDXLScalarIdent *scalar_ident = CDXLScalarIdent::Cast(dxl_sc_ident->GetOperator());
 
 	// get the dxl column reference
-	const CDXLColRef *dxl_colref = scalar_ident->MakeDXLColRef();
+	const CDXLColRef *dxl_colref = scalar_ident->GetDXLColRef();
 	const ULONG colid = dxl_colref->Id();
 
 	CDXLNode *dxlnode = GPOS_NEW(m_mp) CDXLNode(m_mp, GPOS_NEW(m_mp) CDXLScalarSubquery(m_mp, colid));

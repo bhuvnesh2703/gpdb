@@ -104,7 +104,7 @@ CMappingColIdVarPlStmt::ParamFromDXLNodeScId
 
 	Param *param = NULL;
 
-	const ULONG colid = dxlop->MakeDXLColRef()->Id();
+	const ULONG colid = dxlop->GetDXLColRef()->Id();
 	const CMappingElementColIdParamId *elem = m_output_context->GetParamIdMappingElement(colid);
 
 	if (NULL != elem)
@@ -139,7 +139,7 @@ CMappingColIdVarPlStmt::VarFromDXLNodeScId
 	Index varno_old = 0;
 	AttrNumber attno_old = 0;
 
-	const ULONG colid = dxlop->MakeDXLColRef()->Id();
+	const ULONG colid = dxlop->GetDXLColRef()->Id();
 	if (NULL != m_base_table_context)
 	{
 		// scalar id is used in a base table operator node

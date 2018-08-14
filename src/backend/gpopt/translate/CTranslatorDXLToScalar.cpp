@@ -1895,7 +1895,7 @@ CTranslatorDXLToScalar::TranslateScalarIdExprFromDXL
 	// scalar identifier
 	CDXLScalarIdent *dxlop = CDXLScalarIdent::Cast(scalar_id_node->GetOperator());
 	Expr *result_expr = NULL;
-	if (NULL == colid_var_plstmt_map || NULL == colid_var_plstmt_map->GetOutputContext()->GetParamIdMappingElement(dxlop->MakeDXLColRef()->Id()))
+	if (NULL == colid_var_plstmt_map || NULL == colid_var_plstmt_map->GetOutputContext()->GetParamIdMappingElement(dxlop->GetDXLColRef()->Id()))
 	{
 		// not an outer ref -> Translate var node
 		result_expr = (Expr *) colid_var->VarFromDXLNodeScId(dxlop);
@@ -1908,7 +1908,7 @@ CTranslatorDXLToScalar::TranslateScalarIdExprFromDXL
 
 	if (NULL  == result_expr)
 	{
-		GPOS_RAISE(gpdxl::ExmaDXL, gpdxl::ExmiDXL2PlStmtAttributeNotFound, dxlop->MakeDXLColRef()->Id());
+		GPOS_RAISE(gpdxl::ExmaDXL, gpdxl::ExmiDXL2PlStmtAttributeNotFound, dxlop->GetDXLColRef()->Id());
 	}
 	return result_expr;
 }

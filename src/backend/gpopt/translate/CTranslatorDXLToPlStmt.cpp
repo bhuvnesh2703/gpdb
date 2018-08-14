@@ -2089,7 +2089,7 @@ CTranslatorDXLToPlStmt::TranslateDXLRedistributeMotionToResultHashFilters
 			INT resno = gpos::int_max;
 			if (EdxlopScalarIdent == expr_dxlnode->GetOperator()->GetDXLOperator())
 			{
-				ULONG colid = CDXLScalarIdent::Cast(expr_dxlnode->GetOperator())->MakeDXLColRef()->Id();
+				ULONG colid = CDXLScalarIdent::Cast(expr_dxlnode->GetOperator())->GetDXLColRef()->Id();
 				resno = output_context->GetTargetEntry(colid)->resno;
 			}
 			else
@@ -4396,7 +4396,7 @@ CTranslatorDXLToPlStmt::TranslateDXLProjList
 
 				GPOS_ASSERT(NULL != child_contexts);
 				GPOS_ASSERT(0 != child_contexts->Size());
-				ULONG colid = CDXLScalarIdent::Cast(expr_dxlnode->GetOperator())->MakeDXLColRef()->Id();
+				ULONG colid = CDXLScalarIdent::Cast(expr_dxlnode->GetOperator())->GetDXLColRef()->Id();
 
 				const CDXLTranslateContext *translate_ctxt_left = (*child_contexts)[0];
 				GPOS_ASSERT(NULL != translate_ctxt_left);

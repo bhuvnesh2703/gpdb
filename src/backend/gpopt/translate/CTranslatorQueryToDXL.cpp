@@ -735,7 +735,7 @@ CTranslatorQueryToDXL::TranslateInsertQueryToDXL()
 			{
 				CDXLNode *dxl_column = (*m_dxl_query_output_cols)[target_list_pos];
 				CDXLScalarIdent *dxl_ident = CDXLScalarIdent::Cast(dxl_column->GetOperator());
-				source_array->Append(GPOS_NEW(m_mp) ULONG(dxl_ident->MakeDXLColRef()->Id()));
+				source_array->Append(GPOS_NEW(m_mp) ULONG(dxl_ident->GetDXLColRef()->Id()));
 				target_list_pos++;
 				continue;
 			}
@@ -811,7 +811,7 @@ CTranslatorQueryToDXL::TranslateCTASToDXL()
 
 		CDXLNode *dxl_column = (*m_dxl_query_output_cols)[ul];
 		CDXLScalarIdent *dxl_ident = CDXLScalarIdent::Cast(dxl_column->GetOperator());
-		source_array->Append(GPOS_NEW(m_mp) ULONG(dxl_ident->MakeDXLColRef()->Id()));
+		source_array->Append(GPOS_NEW(m_mp) ULONG(dxl_ident->GetDXLColRef()->Id()));
 		
 		CMDName *md_colname = NULL;
 		if (NULL != col_names && ul < gpdb::ListLength(col_names))
@@ -821,7 +821,7 @@ CTranslatorQueryToDXL::TranslateCTASToDXL()
 		}
 		else
 		{
-			md_colname = GPOS_NEW(m_mp) CMDName(m_mp, dxl_ident->MakeDXLColRef()->MdName()->GetMDName());
+			md_colname = GPOS_NEW(m_mp) CMDName(m_mp, dxl_ident->GetDXLColRef()->MdName()->GetMDName());
 		}
 		
 		GPOS_ASSERT(NULL != md_colname);
@@ -1246,7 +1246,7 @@ CTranslatorQueryToDXL::UpdatedColumnMapping()
 			CDXLNode *dxl_column = (*m_dxl_query_output_cols)[ul];
 			CDXLScalarIdent *dxl_ident = CDXLScalarIdent::Cast(
 					dxl_column->GetOperator());
-			ULONG colid = dxl_ident->MakeDXLColRef()->Id();
+			ULONG colid = dxl_ident->GetDXLColRef()->Id();
 
 			StoreAttnoColIdMapping(update_column_map, resno, colid);
 			output_columns++;
@@ -2764,7 +2764,7 @@ CTranslatorQueryToDXL::TranslateSetOpChild
 			{
 				CDXLNode *current_dxlnode = (*dxlnodes)[ul];
 				CDXLScalarIdent *dxl_scalar_ident = CDXLScalarIdent::Cast(current_dxlnode->GetOperator());
-				ULONG *colid = GPOS_NEW(m_mp) ULONG(dxl_scalar_ident->MakeDXLColRef()->Id());
+				ULONG *colid = GPOS_NEW(m_mp) ULONG(dxl_scalar_ident->GetDXLColRef()->Id());
 				colids->Append(colid);
 
 				IMDId *mdid_col = dxl_scalar_ident->MDIdType();
@@ -4041,7 +4041,7 @@ CTranslatorQueryToDXL::TranslateExprToDXLProject
 		// project elem is a a reference to a column - use the colref id
 		GPOS_ASSERT(EdxlopScalarIdent == child_dxlnode->GetOperator()->GetDXLOperator());
 		CDXLScalarIdent *dxl_ident = (CDXLScalarIdent *) child_dxlnode->GetOperator();
-		project_elem_id = dxl_ident->MakeDXLColRef()->Id();
+		project_elem_id = dxl_ident->GetDXLColRef()->Id();
 	}
 	else
 	{
@@ -4198,7 +4198,7 @@ CTranslatorQueryToDXL::ConstructCTEProducerList
 		{
 			CDXLNode *output_col_dxlnode = (*cte_query_output_colds_dxlnode_array)[ul];
 			CDXLScalarIdent *dxl_scalar_ident = CDXLScalarIdent::Cast(output_col_dxlnode->GetOperator());
-			colid_array->Append(GPOS_NEW(m_mp) ULONG(dxl_scalar_ident->MakeDXLColRef()->Id()));
+			colid_array->Append(GPOS_NEW(m_mp) ULONG(dxl_scalar_ident->GetDXLColRef()->Id()));
 		}
 		
 		CDXLLogicalCTEProducer *lg_cte_prod_dxlop = GPOS_NEW(m_mp) CDXLLogicalCTEProducer(m_mp, m_cte_id_counter->next_id(), colid_array);

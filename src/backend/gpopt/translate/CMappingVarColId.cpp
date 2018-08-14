@@ -356,7 +356,7 @@ CMappingVarColId::LoadDerivedTblColumns
 			CDXLNode *dxlnode = (*derived_columns_dxl)[drvd_tbl_col_counter];
 			GPOS_ASSERT(NULL != dxlnode);
 			CDXLScalarIdent *dxl_sc_ident = CDXLScalarIdent::Cast(dxlnode->GetOperator());
-			const CDXLColRef *dxl_colref = dxl_sc_ident->MakeDXLColRef();
+			const CDXLColRef *dxl_colref = dxl_sc_ident->GetDXLColRef();
 			this->Insert
 					(
 					query_level,
