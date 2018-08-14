@@ -825,7 +825,7 @@ CTranslatorQueryToDXL::TranslateCTASToDXL()
 		}
 		
 		GPOS_ASSERT(NULL != md_colname);
-		IMDId *mdid = dxl_ident->MDIdType();
+		IMDId *mdid = dxl_ident->MdidType();
 		mdid->AddRef();
 		CDXLColDescr *dxl_col_descr = GPOS_NEW(m_mp) CDXLColDescr
 											(
@@ -1119,7 +1119,7 @@ CTranslatorQueryToDXL::TranslateDeleteQueryToDXL()
 			continue;
 		}
 
-		ULONG colid = CTranslatorUtils::GetColId(m_query_level, m_query->resultRelation, mdcol->AttrNum(), mdcol->MDIdType(), m_var_to_colid_map);
+		ULONG colid = CTranslatorUtils::GetColId(m_query_level, m_query->resultRelation, mdcol->AttrNum(), mdcol->MdidType(), m_var_to_colid_map);
 		delete_colid_array->Append(GPOS_NEW(m_mp) ULONG(colid));
 	}
 
@@ -1190,7 +1190,7 @@ CTranslatorQueryToDXL::TranslateUpdateQueryToDXL()
 		INT attno = mdcol->AttrNum();
 		ULONG *updated_colid = update_column_map->Find(&attno);
 
-		ULONG colid = CTranslatorUtils::GetColId(m_query_level, m_query->resultRelation, attno, mdcol->MDIdType(), m_var_to_colid_map);
+		ULONG colid = CTranslatorUtils::GetColId(m_query_level, m_query->resultRelation, attno, mdcol->MdidType(), m_var_to_colid_map);
 
 		// if the column is in the query outputs then use it
 		// otherwise get the column id created by the child query
@@ -2767,7 +2767,7 @@ CTranslatorQueryToDXL::TranslateSetOpChild
 				ULONG *colid = GPOS_NEW(m_mp) ULONG(dxl_scalar_ident->GetDXLColRef()->Id());
 				colids->Append(colid);
 
-				IMDId *mdid_col = dxl_scalar_ident->MDIdType();
+				IMDId *mdid_col = dxl_scalar_ident->MdidType();
 				GPOS_ASSERT(NULL != mdid_col);
 				mdid_col->AddRef();
 				input_col_mdids->Append(mdid_col);
@@ -2793,7 +2793,7 @@ CTranslatorQueryToDXL::TranslateSetOpChild
 			ULONG *colid = GPOS_NEW(m_mp) ULONG(dxl_col_descr->Id());
 			colids->Append(colid);
 
-			IMDId *mdid_col = dxl_col_descr->MDIdType();
+			IMDId *mdid_col = dxl_col_descr->MdidType();
 			GPOS_ASSERT(NULL != mdid_col);
 			mdid_col->AddRef();
 			input_col_mdids->Append(mdid_col);

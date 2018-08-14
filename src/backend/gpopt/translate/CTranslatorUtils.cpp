@@ -174,7 +174,7 @@ CTranslatorUtils::GetTableDescr
 		}
 		
 		CMDName *col = GPOS_NEW(mp) CMDName(mp, md_col->Mdname().GetMDName());
-		CMDIdGPDB *col_type = CMDIdGPDB::CastMdid(md_col->MDIdType());
+		CMDIdGPDB *col_type = CMDIdGPDB::CastMdid(md_col->MdidType());
 		col_type->AddRef();
 
 		// create a column descriptor for the column
@@ -615,7 +615,7 @@ CTranslatorUtils::GetColumnDescriptorsFromComposite
 		IMDColumn *md_col = (*col_ptr_arr)[ul];
 
 		CMDName *col_mdname = GPOS_NEW(mp) CMDName(mp, md_col->Mdname().GetMDName());
-		IMDId *col_type = md_col->MDIdType();
+		IMDId *col_type = md_col->MdidType();
 
 		col_type->AddRef();
 		CDXLColDescr *dxl_col_descr = GPOS_NEW(mp) CDXLColDescr
@@ -1658,7 +1658,7 @@ CTranslatorUtils::CreateDummyProjectElem
 	CDXLColDescr *dxl_col_descr
 	)
 {
-	CMDIdGPDB *original_mdid = CMDIdGPDB::CastMdid(dxl_col_descr->MDIdType());
+	CMDIdGPDB *original_mdid = CMDIdGPDB::CastMdid(dxl_col_descr->MdidType());
 	CMDIdGPDB *copy_mdid = GPOS_NEW(mp) CMDIdGPDB(original_mdid->Oid(), original_mdid->VersionMajor(), original_mdid->VersionMinor());
 
 	// create a column reference for the scalar identifier to be casted
@@ -2313,7 +2313,7 @@ CTranslatorUtils::CreateDXLProjElemConstNULL
 	}
 
 	ULONG colid = pidgtorCol->next_id();
-	CDXLNode *dxl_project_element = CreateDXLProjElemConstNULL(mp, md_accessor, md_col->MDIdType(), colid, col_name);
+	CDXLNode *dxl_project_element = CreateDXLProjElemConstNULL(mp, md_accessor, md_col->MdidType(), colid, col_name);
 
 	return dxl_project_element;
 }

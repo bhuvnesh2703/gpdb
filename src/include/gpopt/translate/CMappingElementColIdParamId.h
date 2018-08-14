@@ -70,7 +70,7 @@ namespace gpdxl
 			}
 
 			// return the type
-			IMDId *MDIdType() const
+			IMDId *MdidType() const
 			{
 				return m_mdid;
 			}

@@ -1513,7 +1513,7 @@ CTranslatorDXLToPlStmt::TranslateDXLNLJoin
 		for (ULONG ul = 0; ul < ulLen; ul++)
 		{
 			CDXLColRef *pdxlcr = (*pdrgdxlcrOuterRefs)[ul];
-			IMDId *pmdid = pdxlcr->MDIdType();
+			IMDId *pmdid = pdxlcr->MdidType();
 			ULONG ulColid = pdxlcr->Id();
 			INT iTypeModifier = pdxlcr->TypeModifier();
 
@@ -3023,7 +3023,7 @@ CTranslatorDXLToPlStmt::TranslateDXLAppend
 							(
 							idxVarno,
 							attno,
-							CMDIdGPDB::CastMdid(sc_ident_dxlop->MDIdType())->Oid(),
+							CMDIdGPDB::CastMdid(sc_ident_dxlop->MdidType())->Oid(),
 							sc_ident_dxlop->TypeModifier(),
 							0	// varlevelsup
 							);
@@ -3419,7 +3419,7 @@ CTranslatorDXLToPlStmt::TranslateDXLCTEConsumerToSharedScan
 
 		CDXLNode *sc_ident_dxlnode = (*proj_elem_dxlnode)[0];
 		CDXLScalarIdent *sc_ident_dxlop = CDXLScalarIdent::Cast(sc_ident_dxlnode->GetOperator());
-		OID oid_type = CMDIdGPDB::CastMdid(sc_ident_dxlop->MDIdType())->Oid();
+		OID oid_type = CMDIdGPDB::CastMdid(sc_ident_dxlop->MdidType())->Oid();
 
 		Var *var = gpdb::MakeVar(OUTER_VAR, (AttrNumber) (ul + 1), oid_type, sc_ident_dxlop->TypeModifier(),  0	/* varlevelsup */);
 
@@ -4745,7 +4745,7 @@ CTranslatorDXLToPlStmt::TranslateHashExprList
 
 		// the type of the hash expression in GPDB is computed as the left operand 
 		// of the equality operator of the actual hash expression type
-		const IMDType *md_type = m_md_accessor->RetrieveType(hash_expr_dxlop->MDIdType());
+		const IMDType *md_type = m_md_accessor->RetrieveType(hash_expr_dxlop->MdidType());
 		const IMDScalarOp *md_scalar_op = m_md_accessor->RetrieveScOp(md_type->GetMdidForCmpType(IMDType::EcmptEq));
 		
 		const IMDId *mdid_hash_type = md_scalar_op->GetLeftMdid();
@@ -5128,7 +5128,7 @@ CTranslatorDXLToPlStmt::TranslateDXLPhyCtasToIntoClause
 
 		// GDPB_91_MERGE_FIXME: collation
 		col_def->collClause = NULL;
-		col_def->collOid = gpdb::TypeCollation(CMDIdGPDB::CastMdid(dxl_col_descr->MDIdType())->Oid());
+		col_def->collOid = gpdb::TypeCollation(CMDIdGPDB::CastMdid(dxl_col_descr->MdidType())->Oid());
 		into_clause->colNames = gpdb::LAppend(into_clause->colNames, col_def);
 
 	}

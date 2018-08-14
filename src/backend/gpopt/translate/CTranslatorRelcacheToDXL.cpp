@@ -2084,7 +2084,7 @@ CTranslatorRelcacheToDXL::RetrieveCheckConstraints
 	{
 		const IMDColumn *md_col = md_rel->GetMdCol(ul);
 		CMDName *md_colname = GPOS_NEW(mp) CMDName(mp, md_col->Mdname().GetMDName());
-		CMDIdGPDB *mdid_col_type = CMDIdGPDB::CastMdid(md_col->MDIdType());
+		CMDIdGPDB *mdid_col_type = CMDIdGPDB::CastMdid(md_col->MdidType());
 		mdid_col_type->AddRef();
 
 		// create a column descriptor for the column
@@ -2365,7 +2365,7 @@ CTranslatorRelcacheToDXL::RetrieveColStats
 
 	// extract column name and type
 	CMDName *md_colname = GPOS_NEW(mp) CMDName(mp, md_col->Mdname().GetMDName());
-	OID att_type = CMDIdGPDB::CastMdid(md_col->MDIdType())->Oid();
+	OID att_type = CMDIdGPDB::CastMdid(md_col->MdidType())->Oid();
 	gpdb::CloseRelation(rel);
 
 	CDXLBucketArray *dxl_stats_bucket_array = GPOS_NEW(mp) CDXLBucketArray(mp);
@@ -3450,7 +3450,7 @@ CTranslatorRelcacheToDXL::RetrievePartConstraintForIndex
 	{
 		const IMDColumn *md_col = md_rel->GetMdCol(ul);
 		CMDName *md_colname = GPOS_NEW(mp) CMDName(mp, md_col->Mdname().GetMDName());
-		CMDIdGPDB *mdid_col_type = CMDIdGPDB::CastMdid(md_col->MDIdType());
+		CMDIdGPDB *mdid_col_type = CMDIdGPDB::CastMdid(md_col->MdidType());
 		mdid_col_type->AddRef();
 
 		// create a column descriptor for the column
@@ -3539,7 +3539,7 @@ CTranslatorRelcacheToDXL::RetrievePartConstraintForRel
 		{
 			const IMDColumn *md_col = (*mdcol_array)[ul];
 			CMDName *md_colname = GPOS_NEW(mp) CMDName(mp, md_col->Mdname().GetMDName());
-			CMDIdGPDB *mdid_col_type = CMDIdGPDB::CastMdid(md_col->MDIdType());
+			CMDIdGPDB *mdid_col_type = CMDIdGPDB::CastMdid(md_col->MdidType());
 			mdid_col_type->AddRef();
 
 			// create a column descriptor for the column
