@@ -742,7 +742,7 @@ CTranslatorDXLToPlStmt::TranslateDXLIndexFilter
 	for (ULONG ul = 0; ul < arity; ul++)
 	{
 		CDXLNode *index_filter_dxlnode = (*filter_dxlnode)[ul];
-		Expr *index_filter_expr = m_translator_dxl_to_scalar->TranslateScalarExprFromDXL(index_filter_dxlnode, &colid_var_mapping);
+		Expr *index_filter_expr = m_translator_dxl_to_scalar->TranslateDXLToScalar(index_filter_dxlnode, &colid_var_mapping);
 		quals_list = gpdb::LAppend(quals_list, index_filter_expr);
 	}
 
@@ -786,8 +786,8 @@ CTranslatorDXLToPlStmt::TranslateIndexConditions
 	{
 		CDXLNode *index_cond_dxlnode = (*index_cond_list_dxlnode)[ul];
 
-		Expr *original_index_cond_expr = m_translator_dxl_to_scalar->TranslateScalarExprFromDXL(index_cond_dxlnode, &colid_var_mapping);
-		Expr *index_cond_expr = m_translator_dxl_to_scalar->TranslateScalarExprFromDXL(index_cond_dxlnode, &colid_var_mapping);
+		Expr *original_index_cond_expr = m_translator_dxl_to_scalar->TranslateDXLToScalar(index_cond_dxlnode, &colid_var_mapping);
+		Expr *index_cond_expr = m_translator_dxl_to_scalar->TranslateDXLToScalar(index_cond_dxlnode, &colid_var_mapping);
 		GPOS_ASSERT((IsA(index_cond_expr, OpExpr) || IsA(index_cond_expr, ScalarArrayOpExpr))
 				&& "expected OpExpr or ScalarArrayOpExpr in index qual");
 
@@ -921,7 +921,7 @@ CTranslatorDXLToPlStmt::TranslateDXLAssertConstraints
 	for (ULONG ul = 0; ul < arity; ul++)
 	{
 		CDXLNode *assert_contraint_dxlnode = (*assert_contraint_list_dxlnode)[ul];
-		Expr *assert_contraint_expr = m_translator_dxl_to_scalar->TranslateScalarExprFromDXL((*assert_contraint_dxlnode)[0], &colid_var_mapping);
+		Expr *assert_contraint_expr = m_translator_dxl_to_scalar->TranslateDXLToScalar((*assert_contraint_dxlnode)[0], &colid_var_mapping);
 		quals_list = gpdb::LAppend(quals_list, assert_contraint_expr);
 	}
 
@@ -989,14 +989,14 @@ CTranslatorDXLToPlStmt::TranslateDXLLimit
 	if(NULL != limit_count_dxlnode && limit_count_dxlnode->Arity() >0)
 	{
 		CMappingColIdVarPlStmt colid_var_mapping(m_mp, NULL, child_contexts, output_context, m_dxl_to_plstmt_context);
-		Node *limit_count = (Node *) m_translator_dxl_to_scalar->TranslateScalarExprFromDXL((*limit_count_dxlnode)[0], &colid_var_mapping);
+		Node *limit_count = (Node *) m_translator_dxl_to_scalar->TranslateDXLToScalar((*limit_count_dxlnode)[0], &colid_var_mapping);
 		limit->limitCount = limit_count;
 	}
 
 	if(NULL != limit_offset_dxlnode && limit_offset_dxlnode->Arity() >0)
 	{
 		CMappingColIdVarPlStmt colid_var_mapping = CMappingColIdVarPlStmt(m_mp, NULL, child_contexts, output_context, m_dxl_to_plstmt_context);
-		Node *limit_offset = (Node *) m_translator_dxl_to_scalar->TranslateScalarExprFromDXL((*limit_offset_dxlnode)[0], &colid_var_mapping);
+		Node *limit_offset = (Node *) m_translator_dxl_to_scalar->TranslateDXLToScalar((*limit_offset_dxlnode)[0], &colid_var_mapping);
 		limit->limitOffset = limit_offset;
 	}
 
@@ -1163,7 +1163,7 @@ CTranslatorDXLToPlStmt::TranslateDXLHashJoin
 
 			// translate the DXL scalar or scalar distinct comparison into an equality comparison
 			// to store in the hash clauses
-			Expr *hash_clause_expr = (Expr *) m_translator_dxl_to_scalar->TranslateScalarCmpExprFromDXL
+			Expr *hash_clause_expr = (Expr *) m_translator_dxl_to_scalar->TranslateDXLScalarCmpToScalar
 									(
 									hash_cond_dxlnode,
 									&colid_var_mapping
@@ -1346,7 +1346,7 @@ CTranslatorDXLToPlStmt::TranslateDXLTvfToRangeTblEntry
 									m_dxl_to_plstmt_context
 									);
 
-		Expr *pexprFuncArg = m_translator_dxl_to_scalar->TranslateScalarExprFromDXL(func_arg_dxlnode, &colid_var_mapping);
+		Expr *pexprFuncArg = m_translator_dxl_to_scalar->TranslateDXLToScalar(func_arg_dxlnode, &colid_var_mapping);
 		func_expr->args = gpdb::LAppend(func_expr->args, pexprFuncArg);
 	}
 
@@ -1422,7 +1422,7 @@ CTranslatorDXLToPlStmt::TranslateDXLValueScanToRangeTblEntry
 		List *value = NIL;
 		for (ULONG ulCol = 0; ulCol < num_of_cols ; ulCol++)
 		{
-			Expr *const_expr = m_translator_dxl_to_scalar->TranslateScalarExprFromDXL((*value_list_dxlnode)[ulCol], &colid_var_mapping);
+			Expr *const_expr = m_translator_dxl_to_scalar->TranslateDXLToScalar((*value_list_dxlnode)[ulCol], &colid_var_mapping);
 			value = gpdb::LAppend(value, const_expr);
 
 		}
@@ -2107,7 +2107,7 @@ CTranslatorDXLToPlStmt::TranslateDXLRedistributeMotionToResultHashFilters
 															m_dxl_to_plstmt_context
 															);
 				
-				Expr *expr = m_translator_dxl_to_scalar->TranslateScalarExprFromDXL(expr_dxlnode, &colid_var_mapping);
+				Expr *expr = m_translator_dxl_to_scalar->TranslateDXLToScalar(expr_dxlnode, &colid_var_mapping);
 				GPOS_ASSERT(NULL != expr);
 
 				// create a target entry for the hash filter
@@ -2463,7 +2463,7 @@ CTranslatorDXLToPlStmt::TranslateDXLWindow
 				window->frameOptions |= FRAMEOPTION_END_VALUE_FOLLOWING;
 			if (0 != win_frame_leading_dxlnode->Arity())
 			{
-				window->endOffset = (Node *) m_translator_dxl_to_scalar->TranslateScalarExprFromDXL((*win_frame_leading_dxlnode)[0], &colid_var_mapping);
+				window->endOffset = (Node *) m_translator_dxl_to_scalar->TranslateDXLToScalar((*win_frame_leading_dxlnode)[0], &colid_var_mapping);
 			}
 
 			// And the same for the trail boundary
@@ -2485,7 +2485,7 @@ CTranslatorDXLToPlStmt::TranslateDXLWindow
 				window->frameOptions |= FRAMEOPTION_START_VALUE_FOLLOWING;
 			if (0 != win_frame_trailing_dxlnode->Arity())
 			{
-				window->startOffset = (Node *) m_translator_dxl_to_scalar->TranslateScalarExprFromDXL((*win_frame_trailing_dxlnode)[0], &colid_var_mapping);
+				window->startOffset = (Node *) m_translator_dxl_to_scalar->TranslateDXLToScalar((*win_frame_trailing_dxlnode)[0], &colid_var_mapping);
 			}
 
 			// cleanup
@@ -2868,13 +2868,13 @@ CTranslatorDXLToPlStmt::TranslateDXLPartSelector
 	CMappingColIdVarPlStmt colid_var_mapping = CMappingColIdVarPlStmt(m_mp, NULL /*base_table_context*/, child_contexts, output_context, m_dxl_to_plstmt_context);
 	if (!m_translator_dxl_to_scalar->HasConstTrue(residual_filter_dxlnode, m_md_accessor))
 	{
-		partition_selector->residualPredicate = (Node *) m_translator_dxl_to_scalar->TranslateScalarExprFromDXL(residual_filter_dxlnode, &colid_var_mapping);
+		partition_selector->residualPredicate = (Node *) m_translator_dxl_to_scalar->TranslateDXLToScalar(residual_filter_dxlnode, &colid_var_mapping);
 	}
 
 	//translate propagation expression
 	if (!m_translator_dxl_to_scalar->HasConstNull(proj_expr_dxlnode))
 	{
-		partition_selector->propagationExpression = (Node *) m_translator_dxl_to_scalar->TranslateScalarExprFromDXL(proj_expr_dxlnode, &colid_var_mapping);
+		partition_selector->propagationExpression = (Node *) m_translator_dxl_to_scalar->TranslateDXLToScalar(proj_expr_dxlnode, &colid_var_mapping);
 	}
 
 	// no need to translate printable filter - since it is not needed by the executor
@@ -2941,7 +2941,7 @@ CTranslatorDXLToPlStmt::TranslateDXLFilterList
 			continue;
 		}
 
-		Expr *filter_expr = m_translator_dxl_to_scalar->TranslateScalarExprFromDXL(child_filter_dxlnode, &colid_var_mapping);
+		Expr *filter_expr = m_translator_dxl_to_scalar->TranslateDXLToScalar(child_filter_dxlnode, &colid_var_mapping);
 		filters_list = gpdb::LAppend(filters_list, filter_expr);
 	}
 
@@ -3929,7 +3929,7 @@ CTranslatorDXLToPlStmt::GetDXLDatumGPDBHash
 	{
 		CDXLDatum *datum_dxl = (*dxl_datum_array)[ul];
 		
-		Const *const_expr = (Const *) m_translator_dxl_to_scalar->TranslateConstExprFromDXL(datum_dxl);
+		Const *const_expr = (Const *) m_translator_dxl_to_scalar->TranslateDXLDatumToScalar(datum_dxl);
 		consts_list = gpdb::LAppend(consts_list, const_expr);
 	}
 
@@ -4368,7 +4368,7 @@ CTranslatorDXLToPlStmt::TranslateDXLProjList
 																m_dxl_to_plstmt_context
 																);
 
-		Expr *expr = m_translator_dxl_to_scalar->TranslateScalarExprFromDXL(expr_dxlnode, &colid_var_mapping);
+		Expr *expr = m_translator_dxl_to_scalar->TranslateDXLToScalar(expr_dxlnode, &colid_var_mapping);
 
 		GPOS_ASSERT(NULL != expr);
 
@@ -4633,7 +4633,7 @@ CTranslatorDXLToPlStmt::TranslateDXLScCondToQual
 															m_dxl_to_plstmt_context
 															);
 
-	Expr *expr = m_translator_dxl_to_scalar->TranslateScalarExprFromDXL
+	Expr *expr = m_translator_dxl_to_scalar->TranslateDXLToScalar
 					(
 					condition_dxlnode,
 					&colid_var_mapping
@@ -4764,7 +4764,7 @@ CTranslatorDXLToPlStmt::TranslateHashExprList
 																m_dxl_to_plstmt_context
 																);
 
-		Expr *expr = m_translator_dxl_to_scalar->TranslateScalarExprFromDXL(expr_dxlnode, &colid_var_mapping);
+		Expr *expr = m_translator_dxl_to_scalar->TranslateDXLToScalar(expr_dxlnode, &colid_var_mapping);
 
 		hash_expr_list = gpdb::LAppend(hash_expr_list, expr);
 

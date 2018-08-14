@@ -884,7 +884,7 @@ CTranslatorRelcacheToDXL::GetDefaultColumnValue
 							NULL /* cte_dxlnode_array */
 							);
 
-	return scalar_translator.CreateScalarOpFromExpr
+	return scalar_translator.TranslateScalarToDXL
 							(
 							(Expr *) node,
 							NULL /* var_colid_mapping --- subquery or external variable are not supported in default expression */
@@ -2103,7 +2103,7 @@ CTranslatorRelcacheToDXL::RetrieveCheckConstraints
 	var_colid_mapping->LoadColumns(0 /*query_level */, 1 /* rteIndex */, dxl_col_descr_array);
 
 	// translate the check constraint expression
-	CDXLNode *scalar_dxlnode = scalar_translator.CreateScalarOpFromExpr((Expr *) node, var_colid_mapping);
+	CDXLNode *scalar_dxlnode = scalar_translator.TranslateScalarToDXL((Expr *) node, var_colid_mapping);
 
 	// cleanup
 	dxl_col_descr_array->Release();
@@ -3608,7 +3608,7 @@ CTranslatorRelcacheToDXL::RetrievePartConstraintFromNode
 	var_colid_mapping->LoadColumns(0 /*query_level */, 1 /* rteIndex */, dxl_col_descr_array);
 
 	// translate the check constraint expression
-	CDXLNode *scalar_dxlnode = scalar_translator.CreateScalarOpFromExpr((Expr *) part_constraints, var_colid_mapping);
+	CDXLNode *scalar_dxlnode = scalar_translator.TranslateScalarToDXL((Expr *) part_constraints, var_colid_mapping);
 
 	// cleanup
 	GPOS_DELETE(var_colid_mapping);

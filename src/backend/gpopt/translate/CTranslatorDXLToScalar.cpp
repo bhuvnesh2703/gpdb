@@ -74,13 +74,13 @@ CTranslatorDXLToScalar::CTranslatorDXLToScalar
 
 //---------------------------------------------------------------------------
 //	@function:
-//		CTranslatorDXLToScalar::TranslateScalarExprFromDXL
+//		CTranslatorDXLToScalar::TranslateDXLToScalar
 //
 //	@doc:
 //		Translates a DXL scalar expression into a GPDB Expression node
 //---------------------------------------------------------------------------
 Expr *
-CTranslatorDXLToScalar::TranslateScalarExprFromDXL
+CTranslatorDXLToScalar::TranslateDXLToScalar
 	(
 	const CDXLNode *dxlnode,
 	CMappingColIdVar *colid_var
@@ -88,38 +88,38 @@ CTranslatorDXLToScalar::TranslateScalarExprFromDXL
 {
 	static const STranslatorElem translators[] =
 	{
-		{EdxlopScalarIdent, &CTranslatorDXLToScalar::TranslateScalarIdExprFromDXL},
-		{EdxlopScalarCmp, &CTranslatorDXLToScalar::TranslateScalarCmpExprFromDXL},
-		{EdxlopScalarDistinct, &CTranslatorDXLToScalar::TranslateScalarDistinctCmpExprFromDXL},
-		{EdxlopScalarOpExpr, &CTranslatorDXLToScalar::TranslateScalarOpExprFromDXL},
-		{EdxlopScalarArrayComp, &CTranslatorDXLToScalar::TranslateScalarArrayCompFromDXLNode},
-		{EdxlopScalarCoalesce, &CTranslatorDXLToScalar::TranslateScalarCoalesceExprFromDXL},
-		{EdxlopScalarMinMax, &CTranslatorDXLToScalar::TranslateScalarMinMaxExprFromDXL},
-		{EdxlopScalarConstValue, &CTranslatorDXLToScalar::TranslateScalarConstExprFromDXL},
-		{EdxlopScalarBoolExpr, &CTranslatorDXLToScalar::TranslateScalarBoolExprFromDXL},
-		{EdxlopScalarBooleanTest, &CTranslatorDXLToScalar::TranslateScalarBoolTestExprFromDXL},
-		{EdxlopScalarNullTest, &CTranslatorDXLToScalar::TranslateScalarNULLTestExprFromDXL},
-		{EdxlopScalarNullIf, &CTranslatorDXLToScalar::TranslateScalarNULLIfExprFromDXL},
-		{EdxlopScalarIfStmt, &CTranslatorDXLToScalar::TranslateScalarIfStmtExprFromDXL},
-		{EdxlopScalarSwitch, &CTranslatorDXLToScalar::TranslateScalarSwitchExprFromDXL},
-		{EdxlopScalarCaseTest, &CTranslatorDXLToScalar::TranslateScalarCaseTestExprFromDXL},
-		{EdxlopScalarFuncExpr, &CTranslatorDXLToScalar::TranslateScalarFuncExprFromDXL},
-		{EdxlopScalarAggref, &CTranslatorDXLToScalar::TranslateScalarAggrefExprFromDXL},
-		{EdxlopScalarWindowRef, &CTranslatorDXLToScalar::TranslateScalarWindowRefExprFromDXL},
-		{EdxlopScalarCast, &CTranslatorDXLToScalar::TranslateScalarCastExprFromDXL},
-		{EdxlopScalarCoerceToDomain, &CTranslatorDXLToScalar::TranslateScalarCoerceToDomainExprFromDXL},
-		{EdxlopScalarCoerceViaIO, &CTranslatorDXLToScalar::TranslateScalarCoerceViaIOExprFromDXL},
-		{EdxlopScalarArrayCoerceExpr, &CTranslatorDXLToScalar::TranslateScalarArrayCoerceExprFromDXL},
-		{EdxlopScalarSubPlan, &CTranslatorDXLToScalar::TranslateScalarSubplanExprFromDXL},
-		{EdxlopScalarArray, &CTranslatorDXLToScalar::TranslateArrayExprFromDXL},
-		{EdxlopScalarArrayRef, &CTranslatorDXLToScalar::TranslateArrayRefExprFromDXL},
-		{EdxlopScalarDMLAction, &CTranslatorDXLToScalar::TranslateDMLActionExprFromDXL},
-		{EdxlopScalarPartDefault, &CTranslatorDXLToScalar::TranslatePartDefaultExprFromDXL},
-		{EdxlopScalarPartBound, &CTranslatorDXLToScalar::TranslatePartBoundExprFromDXL},
-		{EdxlopScalarPartBoundInclusion, &CTranslatorDXLToScalar::TranslatePartBoundInclusionExprFromDXL},
-		{EdxlopScalarPartBoundOpen, &CTranslatorDXLToScalar::TranslatePartBoundOpenExprFromDXL},
-		{EdxlopScalarPartListValues, &CTranslatorDXLToScalar::TranslatePartListValuesExprFromDXL},
-		{EdxlopScalarPartListNullTest, &CTranslatorDXLToScalar::TranslatePartListNullTestExprFromDXL},
+		{EdxlopScalarIdent, &CTranslatorDXLToScalar::TranslateDXLScalarIdentToScalar},
+		{EdxlopScalarCmp, &CTranslatorDXLToScalar::TranslateDXLScalarCmpToScalar},
+		{EdxlopScalarDistinct, &CTranslatorDXLToScalar::TranslateDXLScalarDistinctToScalar},
+		{EdxlopScalarOpExpr, &CTranslatorDXLToScalar::TranslateDXLScalarOpExprToScalar},
+		{EdxlopScalarArrayComp, &CTranslatorDXLToScalar::TranslateDXLScalarArrayCompToScalar},
+		{EdxlopScalarCoalesce, &CTranslatorDXLToScalar::TranslateDXLScalarCoalesceToScalar},
+		{EdxlopScalarMinMax, &CTranslatorDXLToScalar::TranslateDXLScalarMinMaxToScalar},
+		{EdxlopScalarConstValue, &CTranslatorDXLToScalar::TranslateDXLScalarConstToScalar},
+		{EdxlopScalarBoolExpr, &CTranslatorDXLToScalar::TranslateDXLScalarBoolExprToScalar},
+		{EdxlopScalarBooleanTest, &CTranslatorDXLToScalar::TranslateDXLScalarBooleanTestToScalar},
+		{EdxlopScalarNullTest, &CTranslatorDXLToScalar::TranslateDXLScalarNullTestToScalar},
+		{EdxlopScalarNullIf, &CTranslatorDXLToScalar::TranslateDXLScalarNullIfToScalar},
+		{EdxlopScalarIfStmt, &CTranslatorDXLToScalar::TranslateDXLScalarIfStmtToScalar},
+		{EdxlopScalarSwitch, &CTranslatorDXLToScalar::TranslateDXLScalarSwitchToScalar},
+		{EdxlopScalarCaseTest, &CTranslatorDXLToScalar::TranslateDXLScalarCaseTestToScalar},
+		{EdxlopScalarFuncExpr, &CTranslatorDXLToScalar::TranslateDXLScalarFuncExprToScalar},
+		{EdxlopScalarAggref, &CTranslatorDXLToScalar::TranslateDXLScalarAggrefToScalar},
+		{EdxlopScalarWindowRef, &CTranslatorDXLToScalar::TranslateDXLScalarWindowRefToScalar},
+		{EdxlopScalarCast, &CTranslatorDXLToScalar::TranslateDXLScalarCastToScalar},
+		{EdxlopScalarCoerceToDomain, &CTranslatorDXLToScalar::TranslateDXLScalarCoerceToDomainToScalar},
+		{EdxlopScalarCoerceViaIO, &CTranslatorDXLToScalar::TranslateDXLScalarCoerceViaIOToScalar},
+		{EdxlopScalarArrayCoerceExpr, &CTranslatorDXLToScalar::TranslateDXLScalarArrayCoerceExprToScalar},
+		{EdxlopScalarSubPlan, &CTranslatorDXLToScalar::TranslateDXLScalarSubplanToScalar},
+		{EdxlopScalarArray, &CTranslatorDXLToScalar::TranslateDXLScalarArrayToScalar},
+		{EdxlopScalarArrayRef, &CTranslatorDXLToScalar::TranslateDXLScalarArrayRefToScalar},
+		{EdxlopScalarDMLAction, &CTranslatorDXLToScalar::TranslateDXLScalarDMLActionToScalar},
+		{EdxlopScalarPartDefault, &CTranslatorDXLToScalar::TranslateDXLScalarPartDefaultToScalar},
+		{EdxlopScalarPartBound, &CTranslatorDXLToScalar::TranslateDXLScalarPartBoundToScalar},
+		{EdxlopScalarPartBoundInclusion, &CTranslatorDXLToScalar::TranslateDXLScalarPartBoundInclusionToScalar},
+		{EdxlopScalarPartBoundOpen, &CTranslatorDXLToScalar::TranslateDXLScalarPartBoundOpenToScalar},
+		{EdxlopScalarPartListValues, &CTranslatorDXLToScalar::TranslateDXLScalarPartListValuesToScalar},
+		{EdxlopScalarPartListNullTest, &CTranslatorDXLToScalar::TranslateDXLScalarPartListNullTestToScalar},
 	};
 
 	const ULONG num_translators = GPOS_ARRAY_SIZE(translators);
@@ -149,13 +149,13 @@ CTranslatorDXLToScalar::TranslateScalarExprFromDXL
 
 //---------------------------------------------------------------------------
 //	@function:
-//		CTranslatorDXLToScalar::TranslateScalarIfStmtExprFromDXL
+//		CTranslatorDXLToScalar::TranslateDXLScalarIfStmtToScalar
 //
 //	@doc:
 //		Translates a DXL scalar if stmt into a GPDB CaseExpr node
 //---------------------------------------------------------------------------
 Expr *
-CTranslatorDXLToScalar::TranslateScalarIfStmtExprFromDXL
+CTranslatorDXLToScalar::TranslateDXLScalarIfStmtToScalar
 	(
 	const CDXLNode *scalar_if_stmt_node,
 	CMappingColIdVar *colid_var
@@ -189,8 +189,8 @@ CTranslatorDXLToScalar::TranslateScalarIfStmtExprFromDXL
 			return NULL;
 		}
 
-		Expr *when_expr = TranslateScalarExprFromDXL((*curr_node)[0], colid_var);
-		Expr *then_expr = TranslateScalarExprFromDXL((*curr_node)[1], colid_var);
+		Expr *when_expr = TranslateDXLToScalar((*curr_node)[0], colid_var);
+		Expr *then_expr = TranslateDXLToScalar((*curr_node)[1], colid_var);
 
 		CaseWhen *case_when = MakeNode(CaseWhen);
 		case_when->expr = when_expr;
@@ -204,7 +204,7 @@ CTranslatorDXLToScalar::TranslateScalarIfStmtExprFromDXL
 		else
 		{
 			is_leaf_else_stmt = true;
-			else_expr = TranslateScalarExprFromDXL((*curr_node)[2], colid_var);
+			else_expr = TranslateDXLToScalar((*curr_node)[2], colid_var);
 		}
 	}
 
@@ -215,13 +215,13 @@ CTranslatorDXLToScalar::TranslateScalarIfStmtExprFromDXL
 
 //---------------------------------------------------------------------------
 //	@function:
-//		CTranslatorDXLToScalar::TranslateScalarSwitchExprFromDXL
+//		CTranslatorDXLToScalar::TranslateDXLScalarSwitchToScalar
 //
 //	@doc:
 //		Translates a DXL scalar switch into a GPDB CaseExpr node
 //---------------------------------------------------------------------------
 Expr *
-CTranslatorDXLToScalar::TranslateScalarSwitchExprFromDXL
+CTranslatorDXLToScalar::TranslateDXLScalarSwitchToScalar
 	(
 	const CDXLNode *scalar_switch_node,
 	CMappingColIdVar *colid_var
@@ -236,7 +236,7 @@ CTranslatorDXLToScalar::TranslateScalarSwitchExprFromDXL
 	case_expr->casecollid = gpdb::TypeCollation(case_expr->casetype);
 
 	// translate arg child
-	case_expr->arg = TranslateScalarExprFromDXL((*scalar_switch_node)[0], colid_var);
+	case_expr->arg = TranslateDXLToScalar((*scalar_switch_node)[0], colid_var);
 	GPOS_ASSERT(NULL != case_expr->arg);
 
 	const ULONG arity = scalar_switch_node->Arity();
@@ -248,15 +248,15 @@ CTranslatorDXLToScalar::TranslateScalarSwitchExprFromDXL
 		if (EdxlopScalarSwitchCase == child_dxl->GetOperator()->GetDXLOperator())
 		{
 			CaseWhen *case_when = MakeNode(CaseWhen);
-			case_when->expr = TranslateScalarExprFromDXL((*child_dxl)[0], colid_var);
-			case_when->result = TranslateScalarExprFromDXL((*child_dxl)[1], colid_var);
+			case_when->expr = TranslateDXLToScalar((*child_dxl)[0], colid_var);
+			case_when->result = TranslateDXLToScalar((*child_dxl)[1], colid_var);
 			case_expr->args = gpdb::LAppend(case_expr->args, case_when);
 		}
 		else
 		{
 			// default return value
 			GPOS_ASSERT(ul == arity - 1);
-			case_expr->defresult = TranslateScalarExprFromDXL((*scalar_switch_node)[ul], colid_var);
+			case_expr->defresult = TranslateDXLToScalar((*scalar_switch_node)[ul], colid_var);
 		}
 	}
 
@@ -265,13 +265,13 @@ CTranslatorDXLToScalar::TranslateScalarSwitchExprFromDXL
 
 //---------------------------------------------------------------------------
 //	@function:
-//		CTranslatorDXLToScalar::TranslateScalarCaseTestExprFromDXL
+//		CTranslatorDXLToScalar::TranslateDXLScalarCaseTestToScalar
 //
 //	@doc:
 //		Translates a DXL scalar case test into a GPDB CaseTestExpr node
 //---------------------------------------------------------------------------
 Expr *
-CTranslatorDXLToScalar::TranslateScalarCaseTestExprFromDXL
+CTranslatorDXLToScalar::TranslateDXLScalarCaseTestToScalar
 	(
 	const CDXLNode *scalar_case_test_node,
 	CMappingColIdVar * //colid_var
@@ -291,13 +291,13 @@ CTranslatorDXLToScalar::TranslateScalarCaseTestExprFromDXL
 
 //---------------------------------------------------------------------------
 //	@function:
-//		CTranslatorDXLToScalar::TranslateScalarOpExprFromDXL
+//		CTranslatorDXLToScalar::TranslateDXLScalarOpExprToScalar
 //
 //	@doc:
 //		Translates a DXL scalar opexpr into a GPDB OpExpr node
 //---------------------------------------------------------------------------
 Expr *
-CTranslatorDXLToScalar::TranslateScalarOpExprFromDXL
+CTranslatorDXLToScalar::TranslateDXLScalarOpExprToScalar
 	(
 	const CDXLNode *scalar_op_expr_node,
 	CMappingColIdVar *colid_var
@@ -339,14 +339,14 @@ CTranslatorDXLToScalar::TranslateScalarOpExprFromDXL
 
 //---------------------------------------------------------------------------
 //	@function:
-//		CTranslatorDXLToScalar::TranslateScalarArrayCompFromDXLNode
+//		CTranslatorDXLToScalar::TranslateDXLScalarArrayCompToScalar
 //
 //	@doc:
 //		Translates a CDXLScalarArrayComp into a GPDB ScalarArrayOpExpr
 //
 //---------------------------------------------------------------------------
 Expr *
-CTranslatorDXLToScalar::TranslateScalarArrayCompFromDXLNode
+CTranslatorDXLToScalar::TranslateDXLScalarArrayCompToScalar
 	(
 	const CDXLNode *scalar_array_comp_node,
 	CMappingColIdVar *colid_var
@@ -386,8 +386,8 @@ CTranslatorDXLToScalar::TranslateScalarArrayCompFromDXLNode
 	CDXLNode *left_node = (*scalar_array_comp_node)[EdxlsccmpIndexLeft];
 	CDXLNode *right_node = (*scalar_array_comp_node)[EdxlsccmpIndexRight];
 
-	Expr *left_expr = TranslateScalarExprFromDXL(left_node, colid_var);
-	Expr *right_expr = TranslateScalarExprFromDXL(right_node, colid_var);
+	Expr *left_expr = TranslateDXLToScalar(left_node, colid_var);
+	Expr *right_expr = TranslateDXLToScalar(right_node, colid_var);
 
 	array_op_expr->args = ListMake2(left_expr, right_expr);
 	// GDPB_91_MERGE_FIXME: collation
@@ -398,14 +398,14 @@ CTranslatorDXLToScalar::TranslateScalarArrayCompFromDXLNode
 
 //---------------------------------------------------------------------------
 //	@function:
-//		CTranslatorDXLToScalar::TranslateScalarDistinctCmpExprFromDXL
+//		CTranslatorDXLToScalar::TranslateDXLScalarDistinctToScalar
 //
 //	@doc:
 //		Translates a DXL scalar distinct comparison into a GPDB DistinctExpr node
 //
 //---------------------------------------------------------------------------
 Expr *
-CTranslatorDXLToScalar::TranslateScalarDistinctCmpExprFromDXL
+CTranslatorDXLToScalar::TranslateDXLScalarDistinctToScalar
 	(
 	const CDXLNode *scalar_distinct_cmp_node,
 	CMappingColIdVar *colid_var
@@ -429,8 +429,8 @@ CTranslatorDXLToScalar::TranslateScalarDistinctCmpExprFromDXL
 	CDXLNode *left_node = (*scalar_distinct_cmp_node)[EdxlscdistcmpIndexLeft];
 	CDXLNode *right_node = (*scalar_distinct_cmp_node)[EdxlscdistcmpIndexRight];
 
-	Expr *left_expr = TranslateScalarExprFromDXL(left_node, colid_var);
-	Expr *right_expr = TranslateScalarExprFromDXL(right_node, colid_var);
+	Expr *left_expr = TranslateDXLToScalar(left_node, colid_var);
+	Expr *right_expr = TranslateDXLToScalar(right_node, colid_var);
 
 	dist_expr->args = ListMake2(left_expr, right_expr);
 
@@ -439,14 +439,14 @@ CTranslatorDXLToScalar::TranslateScalarDistinctCmpExprFromDXL
 
 //---------------------------------------------------------------------------
 //	@function:
-//		CTranslatorDXLToScalar::TranslateScalarAggrefExprFromDXL
+//		CTranslatorDXLToScalar::TranslateDXLScalarAggrefToScalar
 //
 //	@doc:
 //		Translates a DXL scalar aggref_node into a GPDB Aggref node
 //
 //---------------------------------------------------------------------------
 Expr *
-CTranslatorDXLToScalar::TranslateScalarAggrefExprFromDXL
+CTranslatorDXLToScalar::TranslateDXLScalarAggrefToScalar
 	(
 	const CDXLNode *aggref_node,
 	CMappingColIdVar *colid_var
@@ -547,14 +547,14 @@ CTranslatorDXLToScalar::TranslateScalarAggrefExprFromDXL
 
 //---------------------------------------------------------------------------
 //	@function:
-//		CTranslatorDXLToScalar::TranslateScalarWindowRefExprFromDXL
+//		CTranslatorDXLToScalar::TranslateDXLScalarWindowRefToScalar
 //
 //	@doc:
 //		Translate a DXL scalar window ref into a GPDB WindowRef node
 //
 //---------------------------------------------------------------------------
 Expr *
-CTranslatorDXLToScalar::TranslateScalarWindowRefExprFromDXL
+CTranslatorDXLToScalar::TranslateDXLScalarWindowRefToScalar
 	(
 	const CDXLNode *scalar_winref_node,
 	CMappingColIdVar *colid_var
@@ -605,14 +605,14 @@ CTranslatorDXLToScalar::TranslateScalarWindowRefExprFromDXL
 
 //---------------------------------------------------------------------------
 //	@function:
-//		CTranslatorDXLToScalar::TranslateScalarFuncExprFromDXL
+//		CTranslatorDXLToScalar::TranslateDXLScalarFuncExprToScalar
 //
 //	@doc:
 //		Translates a DXL scalar opexpr into a GPDB FuncExpr node
 //
 //---------------------------------------------------------------------------
 Expr *
-CTranslatorDXLToScalar::TranslateScalarFuncExprFromDXL
+CTranslatorDXLToScalar::TranslateDXLScalarFuncExprToScalar
 	(
 	const CDXLNode *scalar_func_expr_node,
 	CMappingColIdVar *colid_var
@@ -637,14 +637,14 @@ CTranslatorDXLToScalar::TranslateScalarFuncExprFromDXL
 
 //---------------------------------------------------------------------------
 //	@function:
-//		CTranslatorDXLToScalar::TranslateScalarSubplanExprFromDXL
+//		CTranslatorDXLToScalar::TranslateDXLScalarSubplanToScalar
 //
 //	@doc:
 //		Translates a DXL scalar SubPlan into a GPDB SubPlan node
 //
 //---------------------------------------------------------------------------
 Expr *
-CTranslatorDXLToScalar::TranslateScalarSubplanExprFromDXL
+CTranslatorDXLToScalar::TranslateDXLScalarSubplanToScalar
 	(
 	const CDXLNode *scalar_subplan_node,
 	CMappingColIdVar *colid_var
@@ -774,7 +774,7 @@ CTranslatorDXLToScalar::TranslateSubplanTestExprFromDXL
 	if (HasConstTrue(test_expr_node, m_md_accessor))
 	{
 		// dummy test expression
-		return (Expr *) TranslateScalarConstExprFromDXL(test_expr_node, NULL);
+		return (Expr *) TranslateDXLScalarConstToScalar(test_expr_node, NULL);
 	}
 
 	if (EdxlopScalarCmp != test_expr_node->GetOperator()->GetDXLOperator())
@@ -808,7 +808,7 @@ CTranslatorDXLToScalar::TranslateSubplanTestExprFromDXL
         op_expr->opretset = false;
 
         // translate outer expression (can be a deep scalar tree)
-        Expr *outer_arg_expr = TranslateScalarExprFromDXL(outer_child_node, colid_var);
+        Expr *outer_arg_expr = TranslateDXLToScalar(outer_child_node, colid_var);
 
         // add translated outer expression as first arg of OpExpr
         List *args = NIL;
@@ -985,14 +985,14 @@ CTranslatorDXLToScalar::TranslateParamFromMapping
 
 //---------------------------------------------------------------------------
 //	@function:
-//		CTranslatorDXLToScalar::TranslateScalarBoolExprFromDXL
+//		CTranslatorDXLToScalar::TranslateDXLScalarBoolExprToScalar
 //
 //	@doc:
 //		Translates a DXL scalar BoolExpr into a GPDB OpExpr node
 //
 //---------------------------------------------------------------------------
 Expr *
-CTranslatorDXLToScalar::TranslateScalarBoolExprFromDXL
+CTranslatorDXLToScalar::TranslateDXLScalarBoolExprToScalar
 	(
 	const CDXLNode *scalar_bool_expr_node,
 	CMappingColIdVar *colid_var
@@ -1038,14 +1038,14 @@ CTranslatorDXLToScalar::TranslateScalarBoolExprFromDXL
 
 //---------------------------------------------------------------------------
 //	@function:
-//		CTranslatorDXLToScalar::TranslateScalarBoolTestExprFromDXL
+//		CTranslatorDXLToScalar::TranslateDXLScalarBooleanTestToScalar
 //
 //	@doc:
 //		Translates a DXL scalar BooleanTest into a GPDB OpExpr node
 //
 //---------------------------------------------------------------------------
 Expr *
-CTranslatorDXLToScalar::TranslateScalarBoolTestExprFromDXL
+CTranslatorDXLToScalar::TranslateDXLScalarBooleanTestToScalar
 	(
 	const CDXLNode *scalar_boolean_test_node,
 	CMappingColIdVar *colid_var
@@ -1085,7 +1085,7 @@ CTranslatorDXLToScalar::TranslateScalarBoolTestExprFromDXL
 	GPOS_ASSERT(1 == scalar_boolean_test_node->Arity());
 	CDXLNode *dxlnode_arg = (*scalar_boolean_test_node)[0];
 
-	Expr *arg_expr = TranslateScalarExprFromDXL(dxlnode_arg, colid_var);
+	Expr *arg_expr = TranslateDXLToScalar(dxlnode_arg, colid_var);
 	scalar_boolean_test->arg = arg_expr;
 
 	return (Expr *)scalar_boolean_test;
@@ -1093,14 +1093,14 @@ CTranslatorDXLToScalar::TranslateScalarBoolTestExprFromDXL
 
 //---------------------------------------------------------------------------
 //	@function:
-//		CTranslatorDXLToScalar::TranslateScalarNULLTestExprFromDXL
+//		CTranslatorDXLToScalar::TranslateDXLScalarNullTestToScalar
 //
 //	@doc:
 //		Translates a DXL scalar NullTest into a GPDB NullTest node
 //
 //---------------------------------------------------------------------------
 Expr *
-CTranslatorDXLToScalar::TranslateScalarNULLTestExprFromDXL
+CTranslatorDXLToScalar::TranslateDXLScalarNullTestToScalar
 	(
 	const CDXLNode *scalar_null_test_node,
 	CMappingColIdVar *colid_var
@@ -1112,7 +1112,7 @@ CTranslatorDXLToScalar::TranslateScalarNULLTestExprFromDXL
 
 	GPOS_ASSERT(1 == scalar_null_test_node->Arity());
 	CDXLNode *child_dxl = (*scalar_null_test_node)[0];
-	Expr *child_expr = TranslateScalarExprFromDXL(child_dxl, colid_var);
+	Expr *child_expr = TranslateDXLToScalar(child_dxl, colid_var);
 
 	if (dxlop->IsNullTest())
 	{
@@ -1129,14 +1129,14 @@ CTranslatorDXLToScalar::TranslateScalarNULLTestExprFromDXL
 
 //---------------------------------------------------------------------------
 //	@function:
-//		CTranslatorDXLToScalar::TranslateScalarNULLIfExprFromDXL
+//		CTranslatorDXLToScalar::TranslateDXLScalarNullIfToScalar
 //
 //	@doc:
 //		Translates a DXL scalar nullif into a GPDB NullIfExpr node
 //
 //---------------------------------------------------------------------------
 Expr *
-CTranslatorDXLToScalar::TranslateScalarNULLIfExprFromDXL
+CTranslatorDXLToScalar::TranslateDXLScalarNullIfToScalar
 	(
 	const CDXLNode *scalar_null_if_node,
 	CMappingColIdVar *colid_var
@@ -1203,7 +1203,7 @@ CTranslatorDXLToScalar::TranslateRelabelTypeOrFuncExprFromDXL(const CDXLScalarCa
 
 // Translates a DXL scalar cast into a GPDB RelabelType / FuncExpr node
 Expr *
-CTranslatorDXLToScalar::TranslateScalarCastExprFromDXL
+CTranslatorDXLToScalar::TranslateDXLScalarCastToScalar
 	(
 	const CDXLNode *scalar_cast_node,
 	CMappingColIdVar *colid_var
@@ -1215,7 +1215,7 @@ CTranslatorDXLToScalar::TranslateScalarCastExprFromDXL
 	GPOS_ASSERT(1 == scalar_cast_node->Arity());
 	CDXLNode *child_dxl = (*scalar_cast_node)[0];
 
-	Expr *child_expr = TranslateScalarExprFromDXL(child_dxl, colid_var);
+	Expr *child_expr = TranslateDXLToScalar(child_dxl, colid_var);
 
 	return TranslateRelabelTypeOrFuncExprFromDXL(dxlop, child_expr);
 }
@@ -1223,14 +1223,14 @@ CTranslatorDXLToScalar::TranslateScalarCastExprFromDXL
 
 //---------------------------------------------------------------------------
 //      @function:
-//              CTranslatorDXLToScalar::TranslateScalarCoerceToDomainExprFromDXL
+//              CTranslatorDXLToScalar::TranslateDXLScalarCoerceToDomainToScalar
 //
 //      @doc:
 //              Translates a DXL scalar coerce into a GPDB coercetodomain node
 //
 //---------------------------------------------------------------------------
 Expr *
-CTranslatorDXLToScalar::TranslateScalarCoerceToDomainExprFromDXL
+CTranslatorDXLToScalar::TranslateDXLScalarCoerceToDomainToScalar
 	(
 	const CDXLNode *scalar_coerce_node,
 	CMappingColIdVar *colid_var
@@ -1241,7 +1241,7 @@ CTranslatorDXLToScalar::TranslateScalarCoerceToDomainExprFromDXL
 
 	GPOS_ASSERT(1 == scalar_coerce_node->Arity());
 	CDXLNode *child_dxl = (*scalar_coerce_node)[0];
-	Expr *child_expr = TranslateScalarExprFromDXL(child_dxl, colid_var);
+	Expr *child_expr = TranslateDXLToScalar(child_dxl, colid_var);
 
 	CoerceToDomain *coerce = MakeNode(CoerceToDomain);
 
@@ -1258,14 +1258,14 @@ CTranslatorDXLToScalar::TranslateScalarCoerceToDomainExprFromDXL
 
 //---------------------------------------------------------------------------
 //      @function:
-//              CTranslatorDXLToScalar::TranslateScalarCoerceViaIOExprFromDXL
+//              CTranslatorDXLToScalar::TranslateDXLScalarCoerceViaIOToScalar
 //
 //      @doc:
 //              Translates a DXL scalar coerce into a GPDB coerceviaio node
 //
 //---------------------------------------------------------------------------
 Expr *
-CTranslatorDXLToScalar::TranslateScalarCoerceViaIOExprFromDXL
+CTranslatorDXLToScalar::TranslateDXLScalarCoerceViaIOToScalar
 	(
 	const CDXLNode *scalar_coerce_node,
 	CMappingColIdVar *colid_var
@@ -1276,7 +1276,7 @@ CTranslatorDXLToScalar::TranslateScalarCoerceViaIOExprFromDXL
 
 	GPOS_ASSERT(1 == scalar_coerce_node->Arity());
 	CDXLNode *child_dxl = (*scalar_coerce_node)[0];
-	Expr *child_expr = TranslateScalarExprFromDXL(child_dxl, colid_var);
+	Expr *child_expr = TranslateDXLToScalar(child_dxl, colid_var);
 
 	CoerceViaIO *coerce = MakeNode(CoerceViaIO);
 
@@ -1292,14 +1292,14 @@ CTranslatorDXLToScalar::TranslateScalarCoerceViaIOExprFromDXL
 
 //---------------------------------------------------------------------------
 //      @function:
-//              CTranslatorDXLToScalar::TranslateScalarArrayCoerceExprFromDXL
+//              CTranslatorDXLToScalar::TranslateDXLScalarArrayCoerceExprToScalar
 //
 //      @doc:
 //              Translates a DXL scalar array coerce expr into a GPDB T_ArrayCoerceExpr node
 //
 //---------------------------------------------------------------------------
 Expr *
-CTranslatorDXLToScalar::TranslateScalarArrayCoerceExprFromDXL
+CTranslatorDXLToScalar::TranslateDXLScalarArrayCoerceExprToScalar
 	(
 	const CDXLNode *scalar_coerce_node,
 	CMappingColIdVar *colid_var
@@ -1311,7 +1311,7 @@ CTranslatorDXLToScalar::TranslateScalarArrayCoerceExprFromDXL
 	GPOS_ASSERT(1 == scalar_coerce_node->Arity());
 	CDXLNode *child_dxl = (*scalar_coerce_node)[0];
 
-	Expr *child_expr = TranslateScalarExprFromDXL(child_dxl, colid_var);
+	Expr *child_expr = TranslateDXLToScalar(child_dxl, colid_var);
 
 	ArrayCoerceExpr *coerce = MakeNode(ArrayCoerceExpr);
 
@@ -1330,14 +1330,14 @@ CTranslatorDXLToScalar::TranslateScalarArrayCoerceExprFromDXL
 
 //---------------------------------------------------------------------------
 //	@function:
-//		CTranslatorDXLToScalar::TranslateScalarCoalesceExprFromDXL
+//		CTranslatorDXLToScalar::TranslateDXLScalarCoalesceToScalar
 //
 //	@doc:
 //		Translates a DXL scalar coalesce operator into a GPDB coalesce node
 //
 //---------------------------------------------------------------------------
 Expr *
-CTranslatorDXLToScalar::TranslateScalarCoalesceExprFromDXL
+CTranslatorDXLToScalar::TranslateDXLScalarCoalesceToScalar
 	(
 	const CDXLNode *scalar_coalesce_node,
 	CMappingColIdVar *colid_var
@@ -1357,14 +1357,14 @@ CTranslatorDXLToScalar::TranslateScalarCoalesceExprFromDXL
 
 //---------------------------------------------------------------------------
 //	@function:
-//		CTranslatorDXLToScalar::TranslateScalarMinMaxExprFromDXL
+//		CTranslatorDXLToScalar::TranslateDXLScalarMinMaxToScalar
 //
 //	@doc:
 //		Translates a DXL scalar minmax operator into a GPDB minmax node
 //
 //---------------------------------------------------------------------------
 Expr *
-CTranslatorDXLToScalar::TranslateScalarMinMaxExprFromDXL
+CTranslatorDXLToScalar::TranslateDXLScalarMinMaxToScalar
 	(
 	const CDXLNode *scalar_min_max_node,
 	CMappingColIdVar *colid_var
@@ -1417,7 +1417,7 @@ CTranslatorDXLToScalar::TranslateScalarChildren
 	for (ULONG ul = 0; ul < arity; ul++)
 	{
 		CDXLNode *child_dxl = (*dxlnode)[ul];
-		Expr *child_expr = TranslateScalarExprFromDXL(child_dxl, colid_var);
+		Expr *child_expr = TranslateDXLToScalar(child_dxl, colid_var);
 		new_list = gpdb::LAppend(new_list, child_expr);
 	}
 
@@ -1426,14 +1426,14 @@ CTranslatorDXLToScalar::TranslateScalarChildren
 
 //---------------------------------------------------------------------------
 //	@function:
-//		CTranslatorDXLToScalar::TranslateScalarConstExprFromDXL
+//		CTranslatorDXLToScalar::TranslateDXLScalarConstToScalar
 //
 //	@doc:
 //		Translates a DXL scalar constant operator into a GPDB scalar const node
 //
 //---------------------------------------------------------------------------
 Expr *
-CTranslatorDXLToScalar::TranslateScalarConstExprFromDXL
+CTranslatorDXLToScalar::TranslateDXLScalarConstToScalar
 	(
 	const CDXLNode *const_node,
 	CMappingColIdVar * //colid_var
@@ -1443,19 +1443,19 @@ CTranslatorDXLToScalar::TranslateScalarConstExprFromDXL
 	CDXLScalarConstValue *dxlop = CDXLScalarConstValue::Cast(const_node->GetOperator());
 	CDXLDatum *datum_dxl = const_cast<CDXLDatum*>(dxlop->GetDatumVal());
 
-	return TranslateConstExprFromDXL(datum_dxl);
+	return TranslateDXLDatumToScalar(datum_dxl);
 }
 
 //---------------------------------------------------------------------------
 //	@function:
-//		CTranslatorDXLToScalar::TranslateConstExprFromDXL
+//		CTranslatorDXLToScalar::TranslateDXLDatumToScalar
 //
 //	@doc:
 //		Translates a DXL datum into a GPDB scalar const node
 //
 //---------------------------------------------------------------------------
 Expr *
-CTranslatorDXLToScalar::TranslateConstExprFromDXL
+CTranslatorDXLToScalar::TranslateDXLDatumToScalar
 	(
 	CDXLDatum *datum_dxl
 	)
@@ -1731,14 +1731,14 @@ CTranslatorDXLToScalar::TranslateConstGenericExprFromDXL
 
 //---------------------------------------------------------------------------
 //	@function:
-//		CTranslatorDXLToScalar::TranslatePartDefaultExprFromDXL
+//		CTranslatorDXLToScalar::TranslateDXLScalarPartDefaultToScalar
 //
 //	@doc:
 //		Translates a DXL part default into a GPDB part default
 //
 //---------------------------------------------------------------------------
 Expr *
-CTranslatorDXLToScalar::TranslatePartDefaultExprFromDXL
+CTranslatorDXLToScalar::TranslateDXLScalarPartDefaultToScalar
 	(
 	const CDXLNode *part_default_node,
 	CMappingColIdVar * //colid_var
@@ -1754,14 +1754,14 @@ CTranslatorDXLToScalar::TranslatePartDefaultExprFromDXL
 
 //---------------------------------------------------------------------------
 //	@function:
-//		CTranslatorDXLToScalar::TranslatePartBoundExprFromDXL
+//		CTranslatorDXLToScalar::TranslateDXLScalarPartBoundToScalar
 //
 //	@doc:
 //		Translates a DXL part bound into a GPDB part bound
 //
 //---------------------------------------------------------------------------
 Expr *
-CTranslatorDXLToScalar::TranslatePartBoundExprFromDXL
+CTranslatorDXLToScalar::TranslateDXLScalarPartBoundToScalar
 	(
 	const CDXLNode *part_bound_node,
 	CMappingColIdVar * //colid_var
@@ -1779,14 +1779,14 @@ CTranslatorDXLToScalar::TranslatePartBoundExprFromDXL
 
 //---------------------------------------------------------------------------
 //	@function:
-//		CTranslatorDXLToScalar::TranslatePartBoundInclusionExprFromDXL
+//		CTranslatorDXLToScalar::TranslateDXLScalarPartBoundInclusionToScalar
 //
 //	@doc:
 //		Translates a DXL part bound inclusion into a GPDB part bound inclusion
 //
 //---------------------------------------------------------------------------
 Expr *
-CTranslatorDXLToScalar::TranslatePartBoundInclusionExprFromDXL
+CTranslatorDXLToScalar::TranslateDXLScalarPartBoundInclusionToScalar
 	(
 	const CDXLNode *part_bound_incl_node,
 	CMappingColIdVar * //colid_var
@@ -1803,14 +1803,14 @@ CTranslatorDXLToScalar::TranslatePartBoundInclusionExprFromDXL
 
 //---------------------------------------------------------------------------
 //	@function:
-//		CTranslatorDXLToScalar::TranslatePartBoundOpenExprFromDXL
+//		CTranslatorDXLToScalar::TranslateDXLScalarPartBoundOpenToScalar
 //
 //	@doc:
 //		Translates a DXL part bound openness into a GPDB part bound openness
 //
 //---------------------------------------------------------------------------
 Expr *
-CTranslatorDXLToScalar::TranslatePartBoundOpenExprFromDXL
+CTranslatorDXLToScalar::TranslateDXLScalarPartBoundOpenToScalar
 	(
 	const CDXLNode *part_bound_open_node,
 	CMappingColIdVar * //colid_var
@@ -1827,14 +1827,14 @@ CTranslatorDXLToScalar::TranslatePartBoundOpenExprFromDXL
 
 //---------------------------------------------------------------------------
 //	@function:
-//		CTranslatorDXLToScalar::TranslatePartListValuesExprFromDXL
+//		CTranslatorDXLToScalar::TranslateDXLScalarPartListValuesToScalar
 //
 //	@doc:
 //		Translates a DXL part list values into a GPDB part list values
 //
 //---------------------------------------------------------------------------
 Expr *
-CTranslatorDXLToScalar::TranslatePartListValuesExprFromDXL
+CTranslatorDXLToScalar::TranslateDXLScalarPartListValuesToScalar
 	(
 	const CDXLNode *part_list_values_node,
 	CMappingColIdVar * //colid_var
@@ -1852,14 +1852,14 @@ CTranslatorDXLToScalar::TranslatePartListValuesExprFromDXL
 
 //---------------------------------------------------------------------------
 //	@function:
-//		CTranslatorDXLToScalar::TranslatePartListNullTestExprFromDXL
+//		CTranslatorDXLToScalar::TranslateDXLScalarPartListNullTestToScalar
 //
 //	@doc:
 //		Translates a DXL part list values into a GPDB part list null test
 //
 //---------------------------------------------------------------------------
 Expr *
-CTranslatorDXLToScalar::TranslatePartListNullTestExprFromDXL
+CTranslatorDXLToScalar::TranslateDXLScalarPartListNullTestToScalar
 	(
 	const CDXLNode *part_list_null_test_node,
 	CMappingColIdVar * //colid_var
@@ -1876,14 +1876,14 @@ CTranslatorDXLToScalar::TranslatePartListNullTestExprFromDXL
 
 //---------------------------------------------------------------------------
 //	@function:
-//		CTranslatorDXLToScalar::TranslateScalarIdExprFromDXL
+//		CTranslatorDXLToScalar::TranslateDXLScalarIdentToScalar
 //
 //	@doc:
 //		Translates a DXL scalar ident into a GPDB Expr node
 //
 //---------------------------------------------------------------------------
 Expr *
-CTranslatorDXLToScalar::TranslateScalarIdExprFromDXL
+CTranslatorDXLToScalar::TranslateDXLScalarIdentToScalar
 	(
 	const CDXLNode *scalar_id_node,
 	CMappingColIdVar *colid_var
@@ -1914,14 +1914,14 @@ CTranslatorDXLToScalar::TranslateScalarIdExprFromDXL
 
 //---------------------------------------------------------------------------
 //	@function:
-//		CTranslatorDXLToScalar::TranslateScalarCmpExprFromDXL
+//		CTranslatorDXLToScalar::TranslateDXLScalarCmpToScalar
 //
 //	@doc:
 //		Translates a DXL scalar comparison operator or a scalar distinct comparison into a GPDB OpExpr node
 //
 //---------------------------------------------------------------------------
 Expr *
-CTranslatorDXLToScalar::TranslateScalarCmpExprFromDXL
+CTranslatorDXLToScalar::TranslateDXLScalarCmpToScalar
 	(
 	const CDXLNode *scalar_cmp_node,
 	CMappingColIdVar *colid_var
@@ -1945,8 +1945,8 @@ CTranslatorDXLToScalar::TranslateScalarCmpExprFromDXL
 	CDXLNode *left_node = (*scalar_cmp_node)[EdxlsccmpIndexLeft];
 	CDXLNode *right_node = (*scalar_cmp_node)[EdxlsccmpIndexRight];
 
-	Expr *left_expr = TranslateScalarExprFromDXL(left_node, colid_var);
-	Expr *right_expr = TranslateScalarExprFromDXL(right_node, colid_var);
+	Expr *left_expr = TranslateDXLToScalar(left_node, colid_var);
+	Expr *right_expr = TranslateDXLToScalar(right_node, colid_var);
 
 	op_expr->args = ListMake2(left_expr, right_expr);
 
@@ -1959,14 +1959,14 @@ CTranslatorDXLToScalar::TranslateScalarCmpExprFromDXL
 
 //---------------------------------------------------------------------------
 //	@function:
-//		CTranslatorDXLToScalar::TranslateArrayExprFromDXL
+//		CTranslatorDXLToScalar::TranslateDXLScalarArrayToScalar
 //
 //	@doc:
 //		Translates a DXL scalar array into a GPDB ArrayExpr node
 //
 //---------------------------------------------------------------------------
 Expr *
-CTranslatorDXLToScalar::TranslateArrayExprFromDXL
+CTranslatorDXLToScalar::TranslateDXLScalarArrayToScalar
 	(
 	const CDXLNode *scalar_array_node,
 	CMappingColIdVar *colid_var
@@ -1996,14 +1996,14 @@ CTranslatorDXLToScalar::TranslateArrayExprFromDXL
 
 //---------------------------------------------------------------------------
 //	@function:
-//		CTranslatorDXLToScalar::TranslateArrayRefExprFromDXL
+//		CTranslatorDXLToScalar::TranslateDXLScalarArrayRefToScalar
 //
 //	@doc:
 //		Translates a DXL scalar arrayref into a GPDB ArrayRef node
 //
 //---------------------------------------------------------------------------
 Expr *
-CTranslatorDXLToScalar::TranslateArrayRefExprFromDXL
+CTranslatorDXLToScalar::TranslateDXLScalarArrayRefToScalar
 	(
 	const CDXLNode *scalar_array_ref_node,
 	CMappingColIdVar *colid_var
@@ -2025,11 +2025,11 @@ CTranslatorDXLToScalar::TranslateArrayRefExprFromDXL
 	array_ref->reflowerindexpr = TranslateArrayRefIndexListExprFromDXL((*scalar_array_ref_node)[0], CDXLScalarArrayRefIndexList::EilbLower, colid_var);
 	array_ref->refupperindexpr = TranslateArrayRefIndexListExprFromDXL((*scalar_array_ref_node)[1], CDXLScalarArrayRefIndexList::EilbUpper, colid_var);
 
-	array_ref->refexpr = TranslateScalarExprFromDXL((*scalar_array_ref_node)[2], colid_var);
+	array_ref->refexpr = TranslateDXLToScalar((*scalar_array_ref_node)[2], colid_var);
 	array_ref->refassgnexpr = NULL;
 	if (4 == arity)
 	{
-		array_ref->refassgnexpr = TranslateScalarExprFromDXL((*scalar_array_ref_node)[3], colid_var);
+		array_ref->refassgnexpr = TranslateDXLToScalar((*scalar_array_ref_node)[3], colid_var);
 	}
 
 	return (Expr *) array_ref;
@@ -2066,14 +2066,14 @@ CTranslatorDXLToScalar::TranslateArrayRefIndexListExprFromDXL
 
 //---------------------------------------------------------------------------
 //	@function:
-//		CTranslatorDXLToScalar::TranslateDMLActionExprFromDXL
+//		CTranslatorDXLToScalar::TranslateDXLScalarDMLActionToScalar
 //
 //	@doc:
 //		Translates a DML action expression 
 //
 //---------------------------------------------------------------------------
 Expr *
-CTranslatorDXLToScalar::TranslateDMLActionExprFromDXL
+CTranslatorDXLToScalar::TranslateDXLScalarDMLActionToScalar
 	(
 	const CDXLNode *
 #ifdef GPOS_DEBUG

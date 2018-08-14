@@ -3373,7 +3373,7 @@ CTranslatorQueryToDXL::TranslateTVFToDXL
 		Node *arg_node = (Node *) lfirst(lc);
 		is_subquery_in_args = is_subquery_in_args || CTranslatorUtils::HasSubquery(arg_node);
 		CDXLNode *func_expr_arg_dxlnode =
-				m_scalar_translator->CreateScalarOpFromExpr((Expr *) arg_node, m_var_to_colid_map, &m_has_distributed_tables);
+				m_scalar_translator->TranslateScalarToDXL((Expr *) arg_node, m_var_to_colid_map, &m_has_distributed_tables);
 		GPOS_ASSERT(NULL != func_expr_arg_dxlnode);
 		tvf_dxlnode->AddChild(func_expr_arg_dxlnode);
 	}
@@ -3512,7 +3512,7 @@ CTranslatorQueryToDXL::TranslateExprToDXL
 	Expr *expr
 	)
 {
-	CDXLNode *scalar_dxlnode = m_scalar_translator->CreateScalarOpFromExpr(expr, m_var_to_colid_map, &m_has_distributed_tables);
+	CDXLNode *scalar_dxlnode = m_scalar_translator->TranslateScalarToDXL(expr, m_var_to_colid_map, &m_has_distributed_tables);
 	GPOS_ASSERT(NULL != scalar_dxlnode);
 
 	return scalar_dxlnode;
