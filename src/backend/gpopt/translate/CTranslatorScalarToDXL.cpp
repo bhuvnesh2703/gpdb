@@ -1397,13 +1397,13 @@ CTranslatorScalarToDXL::TranslateAggrefToDXL
 
 //---------------------------------------------------------------------------
 //	@function:
-//		CTranslatorScalarToDXL::GetWindowFrame
+//		CTranslatorScalarToDXL::TranslateWindowFrameToDXL
 //
 //	@doc:
 //		Create a DXL window frame from a GPDB WindowFrame
 //---------------------------------------------------------------------------
 CDXLWindowFrame *
-CTranslatorScalarToDXL::GetWindowFrame
+CTranslatorScalarToDXL::TranslateWindowFrameToDXL
 	(
 	int frame_options,
 	const Node *start_offset,

@@ -409,7 +409,7 @@ namespace gpdxl
 				);
 
 			// create a DXL WindowFrame node from a GPDB expression
-			CDXLWindowFrame *GetWindowFrame
+			CDXLWindowFrame *TranslateWindowFrameToDXL
 				(
 				int frame_options,
 				const Node *start_offset,

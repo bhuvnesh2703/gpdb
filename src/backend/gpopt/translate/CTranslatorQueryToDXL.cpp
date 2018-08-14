@@ -1537,7 +1537,7 @@ CTranslatorQueryToDXL::TranslateWindowSpecToDXL
 			dxl_sort_cols->Release();
 		}
 
-		window_frame = m_scalar_translator->GetWindowFrame(wc->frameOptions,
+		window_frame = m_scalar_translator->TranslateWindowFrameToDXL(wc->frameOptions,
 						 wc->startOffset,
 						 wc->endOffset,
 						 m_var_to_colid_map,
