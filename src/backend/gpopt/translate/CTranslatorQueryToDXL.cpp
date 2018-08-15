@@ -3019,35 +3019,34 @@ CTranslatorQueryToDXL::TranslateRTEToDXLLogicalGet
 	ULONG //current_query_level
 	)
 {
-	CDXLTableDescr *table_descr = CTranslatorUtils::GetTableDescr(m_mp, m_md_accessor, m_colid_counter, rte, &m_has_distributed_tables);
-
-	CDXLLogicalGet *dxlop = NULL;
-	const IMDRelation *md_rel = m_md_accessor->RetrieveRel(table_descr->MDId());
-
-
-	if (false == rte->inh  && IMDRelation::ErelstorageExternal != md_rel->RetrieveRelStorageType())
+	if (false == rte->inh)
 	{
+		GPOS_ASSERT(RTE_RELATION == rte->rtekind);
 		// RangeTblEntry::inh is set to false iff there is ONLY in the FROM
 		// clause. c.f. transformTableEntry, called from transformFromClauseItem
 		GPOS_RAISE(gpdxl::ExmaDXL, gpdxl::ExmiQuery2DXLUnsupportedFeature, GPOS_WSZ_LIT("ONLY in the FROM clause"));
 	}
 
 	// construct table descriptor for the scan node from the range table entry
+	CDXLTableDescr *dxl_table_descr = CTranslatorUtils::GetTableDescr(m_mp, m_md_accessor, m_colid_counter, rte, &m_has_distributed_tables);
+
+	CDXLLogicalGet *lg_get_dxl_op = NULL;
+	const IMDRelation *md_rel = m_md_accessor->RetrieveRel(dxl_table_descr->MDId());
 	if (IMDRelation::ErelstorageExternal == md_rel->RetrieveRelStorageType())
 	{
-		dxlop = GPOS_NEW(m_mp) CDXLLogicalExternalGet(m_mp, table_descr);
+		lg_get_dxl_op = GPOS_NEW(m_mp) CDXLLogicalExternalGet(m_mp, dxl_table_descr);
 	}
 	else
 	{
-		dxlop = GPOS_NEW(m_mp) CDXLLogicalGet(m_mp, table_descr);
+		lg_get_dxl_op = GPOS_NEW(m_mp) CDXLLogicalGet(m_mp, dxl_table_descr);
 	}
 
-	CDXLNode *get_dxlnode = GPOS_NEW(m_mp) CDXLNode(m_mp, dxlop);
+	CDXLNode *lg_get_dxl_node = GPOS_NEW(m_mp) CDXLNode(m_mp, lg_get_dxl_op);
 
 	// make note of new columns from base relation
-	m_var_to_colid_map->LoadTblColumns(m_query_level, rt_index, table_descr);
+	m_var_to_colid_map->LoadTblColumns(m_query_level, rt_index, dxl_table_descr);
 
-	return get_dxlnode;
+	return lg_get_dxl_node;
 }
 
 //---------------------------------------------------------------------------
