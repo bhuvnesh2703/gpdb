@@ -4,7 +4,8 @@ image_resource:
   source:
     repository: pivotaldata/qp-gpdbdev
 inputs:
-  - name: bin_orca
+  - name: bin_orca_centos5_release
+  - name: bin_orca_centos5_debug
   - name: bin_xerces
   - name: gpdb_tarball
   - name: gpdb_main_src

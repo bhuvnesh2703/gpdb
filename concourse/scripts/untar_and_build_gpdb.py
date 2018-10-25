@@ -26,12 +26,15 @@ exec_command(untar_gpdb_cmd)
 assert_mode = get_assert_mode()
 if assert_mode == 'enable-cassert':
     configure_option += ' --enable-cassert'
+    orca_dir = 'bin_orca_centos5_debug'
 elif assert_mode != 'disable-cassert':
     raise Exception('Unknown build type: (%s). Possible options are \'enable-cassert\' or \'disable-cassert\'')
+else:
+    orca_dir = 'bin_orca_centos5_release'
 
 print "Beginning to {0}".format(action)
 if action == 'build':
-    build_gpdb_cmd = "gpdb_src/concourse/scripts/build_gpdb.py --mode={0} --output_dir=bin_gpdb/install --action={1} --configure-option='{2}' --orca-in-gpdb-install-location bin_orca bin_xerces".format(mode, action, configure_option)
+    build_gpdb_cmd = "gpdb_src/concourse/scripts/build_gpdb.py --mode={0} --output_dir=bin_gpdb/install --action={1} --configure-option='{2}' --orca-in-gpdb-install-location {3} bin_xerces".format(mode, action, configure_option, orca_dir)
     exec_command(build_gpdb_cmd)
 
     package_tarball_cmd = "env src_root=bin_gpdb/install dst_tarball=package_tarball/bin_gpdb.tar.gz gpdb_src/concourse/scripts/package_tarball.bash"
