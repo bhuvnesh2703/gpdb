@@ -1,0 +1,162 @@
+-- start query 1 in stream 0 using template query31.tpl
+explain
+with ss as
+ (select ca_county,d_qoy, d_year,sum(ss_ext_sales_price) as store_sales
+ from store_sales,date_dim,customer_address
+ where ss_sold_date_sk = d_date_sk
+  and ss_addr_sk=ca_address_sk
+ group by ca_county,d_qoy, d_year),
+ ws as
+ (select ca_county,d_qoy, d_year,sum(ws_ext_sales_price) as web_sales
+ from web_sales,date_dim,customer_address
+ where ws_sold_date_sk = d_date_sk
+  and ws_bill_addr_sk=ca_address_sk
+ group by ca_county,d_qoy, d_year)
+ select /* tt */
+        ss1.ca_county
+       ,ss1.d_year
+       ,ws2.web_sales/ws1.web_sales web_q1_q2_increase
+       ,ss2.store_sales/ss1.store_sales store_q1_q2_increase
+       ,ws3.web_sales/ws2.web_sales web_q2_q3_increase
+       ,ss3.store_sales/ss2.store_sales store_q2_q3_increase
+ from
+        ss ss1
+       ,ss ss2
+       ,ss ss3
+       ,ws ws1
+       ,ws ws2
+       ,ws ws3
+ where
+    ss1.d_qoy = 1
+    and ss1.d_year = 2000
+    and ss1.ca_county = ss2.ca_county
+    and ss2.d_qoy = 2
+    and ss2.d_year = 2000
+ and ss2.ca_county = ss3.ca_county
+    and ss3.d_qoy = 3
+    and ss3.d_year = 2000
+    and ss1.ca_county = ws1.ca_county
+    and ws1.d_qoy = 1
+    and ws1.d_year = 2000
+    and ws1.ca_county = ws2.ca_county
+    and ws2.d_qoy = 2
+    and ws2.d_year = 2000
+    and ws1.ca_county = ws3.ca_county
+    and ws3.d_qoy = 3
+    and ws3.d_year =2000
+    and case when ws1.web_sales > 0 then ws2.web_sales/ws1.web_sales else null end 
+       > case when ss1.store_sales > 0 then ss2.store_sales/ss1.store_sales else null end
+    and case when ws2.web_sales > 0 then ws3.web_sales/ws2.web_sales else null end
+       > case when ss2.store_sales > 0 then ss3.store_sales/ss2.store_sales else null end
+ order by ss1.d_year;
+                                                                                                                                                                 QUERY PLAN                                                                                                                                                                 
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Gather Motion 3:1  (slice15; segments: 3)  (cost=0.00..535108.72 rows=10 width=44)
+   Merge Key: share0_ref3.d_year
+   ->  Sort  (cost=0.00..535108.72 rows=4 width=44)
+         Sort Key: share0_ref3.d_year
+         ->  Sequence  (cost=0.00..535108.72 rows=4 width=44)
+               ->  Shared Scan (share slice:id 15:0)  (cost=0.00..421144.30 rows=1039 width=1)
+                     ->  Materialize  (cost=0.00..421144.30 rows=1039 width=1)
+                           ->  HashAggregate  (cost=0.00..421144.30 rows=1039 width=30)
+                                 Group Key: customer_address_1.ca_county, date_dim_1.d_qoy, date_dim_1.d_year
+                                 ->  Redistribute Motion 3:3  (slice14; segments: 3)  (cost=0.00..421143.90 rows=1039 width=30)
+                                       Hash Key: customer_address_1.ca_county, date_dim_1.d_qoy, date_dim_1.d_year
+                                       ->  Result  (cost=0.00..421143.80 rows=1039 width=30)
+                                             ->  HashAggregate  (cost=0.00..421143.80 rows=1039 width=30)
+                                                   Group Key: customer_address_1.ca_county, date_dim_1.d_qoy, date_dim_1.d_year
+                                                   ->  Hash Join  (cost=0.00..348184.36 rows=192761949 width=28)
+                                                         Hash Cond: (store_sales.ss_addr_sk = customer_address_1.ca_address_sk)
+                                                         ->  Redistribute Motion 3:3  (slice13; segments: 3)  (cost=0.00..292012.42 rows=192761949 width=18)
+                                                               Hash Key: store_sales.ss_addr_sk
+                                                               ->  Hash Join  (cost=0.00..281152.21 rows=192761949 width=18)
+                                                                     Hash Cond: (store_sales.ss_sold_date_sk = date_dim_1.d_date_sk)
+                                                                     ->  Dynamic Table Scan on store_sales (dynamic scan id: 1)  (cost=0.00..68542.76 rows=959996672 width=14)
+                                                                     ->  Hash  (cost=100.00..100.00 rows=34 width=4)
+                                                                           ->  Partition Selector for store_sales (dynamic scan id: 1)  (cost=10.00..100.00 rows=34 width=4)
+                                                                                 ->  Broadcast Motion 3:3  (slice12; segments: 3)  (cost=0.00..434.64 rows=366 width=12)
+                                                                                       ->  Table Scan on date_dim date_dim_1  (cost=0.00..434.56 rows=122 width=12)
+                                                                                             Filter: ((d_year = 2000) AND ((d_qoy = 1) OR (d_qoy = 2) OR (d_qoy = 3)))
+                                                         ->  Hash  (cost=581.74..581.74 rows=2000530 width=18)
+                                                               ->  Table Scan on customer_address customer_address_1  (cost=0.00..581.74 rows=2000530 width=18)
+               ->  Sequence  (cost=0.00..113964.41 rows=4 width=44)
+                     ->  Shared Scan (share slice:id 15:1)  (cost=0.00..111376.12 rows=1039 width=1)
+                           ->  Materialize  (cost=0.00..111376.12 rows=1039 width=1)
+                                 ->  HashAggregate  (cost=0.00..111376.12 rows=1039 width=30)
+                                       Group Key: customer_address.ca_county, date_dim.d_qoy, date_dim.d_year
+                                       ->  Redistribute Motion 3:3  (slice11; segments: 3)  (cost=0.00..111375.72 rows=1039 width=30)
+                                             Hash Key: customer_address.ca_county, date_dim.d_qoy, date_dim.d_year
+                                             ->  Result  (cost=0.00..111375.62 rows=1039 width=30)
+                                                   ->  HashAggregate  (cost=0.00..111375.62 rows=1039 width=30)
+                                                         Group Key: customer_address.ca_county, date_dim.d_qoy, date_dim.d_year
+                                                         ->  Hash Join  (cost=0.00..93125.66 rows=48217162 width=27)
+                                                               Hash Cond: (web_sales.ws_bill_addr_sk = customer_address.ca_address_sk)
+                                                               ->  Redistribute Motion 3:3  (slice10; segments: 3)  (cost=0.00..78023.62 rows=48217162 width=17)
+                                                                     Hash Key: web_sales.ws_bill_addr_sk
+                                                                     ->  Hash Join  (cost=0.00..75457.98 rows=48217162 width=17)
+                                                                           Hash Cond: (web_sales.ws_sold_date_sk = date_dim.d_date_sk)
+                                                                           ->  Dynamic Table Scan on web_sales (dynamic scan id: 2)  (cost=0.00..22739.00 rows=240000000 width=13)
+                                                                           ->  Hash  (cost=100.00..100.00 rows=34 width=4)
+                                                                                 ->  Partition Selector for web_sales (dynamic scan id: 2)  (cost=10.00..100.00 rows=34 width=4)
+                                                                                       ->  Broadcast Motion 3:3  (slice9; segments: 3)  (cost=0.00..434.64 rows=366 width=12)
+                                                                                             ->  Table Scan on date_dim  (cost=0.00..434.56 rows=122 width=12)
+                                                                                                   Filter: ((d_year = 2000) AND ((d_qoy = 1) OR (d_qoy = 2) OR (d_qoy = 3)))
+                                                               ->  Hash  (cost=581.74..581.74 rows=2000530 width=18)
+                                                                     ->  Table Scan on customer_address  (cost=0.00..581.74 rows=2000530 width=18)
+                     ->  Result  (cost=0.00..2588.29 rows=4 width=44)
+                           ->  Hash Join  (cost=0.00..2588.29 rows=4 width=66)
+                                 Hash Cond: ((share0_ref4.ca_county)::text = (share0_ref2.ca_county)::text)
+                                 Join Filter: (CASE WHEN (share1_ref2.web_sales > 0::numeric) THEN (share1_ref4.web_sales / share1_ref2.web_sales) ELSE NULL::numeric END > CASE WHEN (share0_ref2.store_sales > 0::numeric) THEN (share0_ref4.store_sales / share0_ref2.store_sales) ELSE NULL::numeric END)
+                                 ->  Redistribute Motion 3:3  (slice1; segments: 3)  (cost=0.00..431.17 rows=347 width=22)
+                                       Hash Key: (share0_ref4.ca_county)::text
+                                       ->  Result  (cost=0.00..431.14 rows=347 width=22)
+                                             Filter: ((share0_ref4.d_qoy = 3) AND (share0_ref4.d_year = 2000))
+                                             ->  Shared Scan (share slice:id 1:0)  (cost=0.00..431.08 rows=1039 width=30)
+                                 ->  Hash  (cost=2156.91..2156.91 rows=14 width=72)
+                                       ->  Redistribute Motion 3:3  (slice8; segments: 3)  (cost=0.00..2156.91 rows=14 width=72)
+                                             Hash Key: (share0_ref2.ca_county)::text
+                                             ->  Hash Join  (cost=0.00..2156.90 rows=14 width=72)
+                                                   Hash Cond: ((share1_ref4.ca_county)::text = (share1_ref3.ca_county)::text)
+                                                   ->  Redistribute Motion 3:3  (slice2; segments: 3)  (cost=0.00..431.17 rows=347 width=22)
+                                                         Hash Key: (share1_ref4.ca_county)::text
+                                                         ->  Result  (cost=0.00..431.14 rows=347 width=22)
+                                                               Filter: ((share1_ref4.d_qoy = 3) AND (share1_ref4.d_year = 2000))
+                                                               ->  Shared Scan (share slice:id 2:1)  (cost=0.00..431.08 rows=1039 width=30)
+                                                   ->  Hash  (cost=1725.62..1725.62 rows=25 width=78)
+                                                         ->  Hash Join  (cost=0.00..1725.62 rows=25 width=78)
+                                                               Hash Cond: ((share1_ref3.ca_county)::text = (share1_ref2.ca_county)::text)
+                                                               Join Filter: (CASE WHEN (share1_ref3.web_sales > 0::numeric) THEN (share1_ref2.web_sales / share1_ref3.web_sales) ELSE NULL::numeric END > CASE WHEN (share0_ref3.store_sales > 0::numeric) THEN (share0_ref2.store_sales / share0_ref3.store_sales) ELSE NULL::numeric END)
+                                                               ->  Redistribute Motion 3:3  (slice6; segments: 3)  (cost=0.00..1294.11 rows=110 width=70)
+                                                                     Hash Key: share1_ref3.ca_county
+                                                                     ->  Hash Join  (cost=0.00..1294.09 rows=110 width=70)
+                                                                           Hash Cond: ((share0_ref3.ca_county)::text = (share1_ref3.ca_county)::text)
+                                                                           ->  Hash Join  (cost=0.00..862.64 rows=195 width=48)
+                                                                                 Hash Cond: ((share0_ref3.ca_county)::text = (share0_ref2.ca_county)::text)
+                                                                                 ->  Redistribute Motion 3:3  (slice3; segments: 3)  (cost=0.00..431.17 rows=347 width=26)
+                                                                                       Hash Key: share0_ref3.ca_county
+                                                                                       ->  Result  (cost=0.00..431.14 rows=347 width=26)
+                                                                                             Filter: ((share0_ref3.d_qoy = 1) AND (share0_ref3.d_year = 2000))
+                                                                                             ->  Shared Scan (share slice:id 3:0)  (cost=0.00..431.08 rows=1039 width=30)
+                                                                                 ->  Hash  (cost=431.17..431.17 rows=347 width=22)
+                                                                                       ->  Redistribute Motion 3:3  (slice4; segments: 3)  (cost=0.00..431.17 rows=347 width=22)
+                                                                                             Hash Key: (share0_ref2.ca_county)::text
+                                                                                             ->  Result  (cost=0.00..431.14 rows=347 width=22)
+                                                                                                   Filter: ((share0_ref2.d_qoy = 2) AND (share0_ref2.d_year = 2000))
+                                                                                                   ->  Shared Scan (share slice:id 4:0)  (cost=0.00..431.08 rows=1039 width=30)
+                                                                           ->  Hash  (cost=431.17..431.17 rows=347 width=22)
+                                                                                 ->  Redistribute Motion 3:3  (slice5; segments: 3)  (cost=0.00..431.17 rows=347 width=22)
+                                                                                       Hash Key: (share1_ref3.ca_county)::text
+                                                                                       ->  Result  (cost=0.00..431.14 rows=347 width=22)
+                                                                                             Filter: ((share1_ref3.d_qoy = 1) AND (share1_ref3.d_year = 2000))
+                                                                                             ->  Shared Scan (share slice:id 5:1)  (cost=0.00..431.08 rows=1039 width=30)
+                                                               ->  Hash  (cost=431.17..431.17 rows=347 width=22)
+                                                                     ->  Redistribute Motion 3:3  (slice7; segments: 3)  (cost=0.00..431.17 rows=347 width=22)
+                                                                           Hash Key: (share1_ref2.ca_county)::text
+                                                                           ->  Result  (cost=0.00..431.14 rows=347 width=22)
+                                                                                 Filter: ((share1_ref2.d_qoy = 2) AND (share1_ref2.d_year = 2000))
+                                                                                 ->  Shared Scan (share slice:id 7:1)  (cost=0.00..431.08 rows=1039 width=30)
+ Planning time: 1121.001 ms
+ Optimizer: PQO version 3.8.0
+(106 rows)
+
+-- end query 1 in stream 0 using template query31.tpl

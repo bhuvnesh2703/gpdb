@@ -1,0 +1,154 @@
+-- start query 1 in stream 0 using template query85.tpl
+explain
+select  substr(r_reason_desc,1,20)
+       ,avg(ws_quantity)
+       ,avg(wr_refunded_cash)
+       ,avg(wr_fee)
+ from web_sales, web_returns, web_page, customer_demographics cd1,
+      customer_demographics cd2, customer_address, date_dim, reason 
+ where ws_web_page_sk = wp_web_page_sk
+   and ws_item_sk = wr_item_sk
+   and ws_order_number = wr_order_number
+   and ws_sold_date_sk = d_date_sk and d_year = 1998
+   and cd1.cd_demo_sk = wr_refunded_cdemo_sk 
+   and cd2.cd_demo_sk = wr_returning_cdemo_sk
+   and ca_address_sk = wr_refunded_addr_sk
+   and r_reason_sk = wr_reason_sk
+   and
+   (
+    (
+     cd1.cd_marital_status = 'M'
+     and
+     cd1.cd_marital_status = cd2.cd_marital_status
+     and
+     cd1.cd_education_status = '4 yr Degree'
+     and 
+     cd1.cd_education_status = cd2.cd_education_status
+     and
+     ws_sales_price between 100.00 and 150.00
+    )
+   or
+    (
+     cd1.cd_marital_status = 'D'
+     and
+     cd1.cd_marital_status = cd2.cd_marital_status
+     and
+     cd1.cd_education_status = 'Primary' 
+     and
+     cd1.cd_education_status = cd2.cd_education_status
+     and
+     ws_sales_price between 50.00 and 100.00
+    )
+   or
+    (
+     cd1.cd_marital_status = 'U'
+     and
+     cd1.cd_marital_status = cd2.cd_marital_status
+     and
+     cd1.cd_education_status = 'Advanced Degree'
+     and
+     cd1.cd_education_status = cd2.cd_education_status
+     and
+     ws_sales_price between 150.00 and 200.00
+    )
+   )
+   and
+   (
+    (
+     ca_country = 'United States'
+     and
+     ca_state in ('KY', 'GA', 'NM')
+     and ws_net_profit between 100 and 200  
+    )
+    or
+    (
+     ca_country = 'United States'
+     and
+     ca_state in ('MT', 'OR', 'IN')
+     and ws_net_profit between 150 and 300  
+    )
+    or
+    (
+     ca_country = 'United States'
+     and
+     ca_state in ('WI', 'MO', 'WV')
+     and ws_net_profit between 50 and 250  
+    )
+   )
+group by r_reason_desc
+order by substr(r_reason_desc,1,20)
+        ,avg(ws_quantity)
+        ,avg(wr_refunded_cash)
+        ,avg(wr_fee)
+limit 100;
+                                                                                                                                                                                                                                                                                                                                                                     QUERY PLAN                                                                                                                                                                                                                                                                                                                                                                      
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=0.00..68984.05 rows=22 width=32)
+   ->  Gather Motion 3:1  (slice9; segments: 3)  (cost=0.00..68984.05 rows=64 width=32)
+         Merge Key: (substr((reason.r_reason_desc)::text, 1, 20)), (pg_catalog.avg((avg(web_sales.ws_quantity)))), (pg_catalog.avg((avg(web_returns.wr_refunded_cash)))), (pg_catalog.avg((avg(web_returns.wr_fee))))
+         ->  Sort  (cost=0.00..68984.04 rows=22 width=32)
+               Sort Key: (substr((reason.r_reason_desc)::text, 1, 20)), (pg_catalog.avg((avg(web_sales.ws_quantity)))), (pg_catalog.avg((avg(web_returns.wr_refunded_cash)))), (pg_catalog.avg((avg(web_returns.wr_fee))))
+               ->  Result  (cost=0.00..68984.03 rows=22 width=32)
+                     ->  HashAggregate  (cost=0.00..68984.02 rows=22 width=38)
+                           Group Key: reason.r_reason_desc
+                           ->  Redistribute Motion 3:3  (slice8; segments: 3)  (cost=0.00..68984.02 rows=22 width=38)
+                                 Hash Key: reason.r_reason_desc
+                                 ->  Result  (cost=0.00..68984.02 rows=22 width=38)
+                                       ->  HashAggregate  (cost=0.00..68984.02 rows=22 width=38)
+                                             Group Key: reason.r_reason_desc
+                                             ->  Hash Join  (cost=0.00..68984.01 rows=68 width=30)
+                                                   Hash Cond: ((customer_demographics.cd_demo_sk = web_returns.wr_refunded_cdemo_sk) AND (customer_demographics.cd_marital_status = customer_demographics_1.cd_marital_status) AND ((customer_demographics.cd_education_status)::text = (customer_demographics_1.cd_education_status)::text))
+                                                   Join Filter: (((customer_demographics.cd_marital_status = 'M'::bpchar) AND ((customer_demographics.cd_education_status)::text = '4 yr Degree'::text) AND (web_sales.ws_sales_price >= 100.00) AND (web_sales.ws_sales_price <= 150.00)) OR ((customer_demographics.cd_marital_status = 'D'::bpchar) AND ((customer_demographics.cd_education_status)::text = 'Primary'::text) AND (web_sales.ws_sales_price >= 50.00) AND (web_sales.ws_sales_price <= 100.00)) OR ((customer_demographics.cd_marital_status = 'U'::bpchar) AND ((customer_demographics.cd_education_status)::text = 'Advanced Degree'::text) AND (web_sales.ws_sales_price >= 150.00) AND (web_sales.ws_sales_price <= 200.00)))
+                                                   ->  Table Scan on customer_demographics  (cost=0.00..500.05 rows=64535 width=16)
+                                                         Filter: (((cd_marital_status = 'M'::bpchar) AND ((cd_education_status)::text = '4 yr Degree'::text)) OR ((cd_marital_status = 'D'::bpchar) AND ((cd_education_status)::text = 'Primary'::text)) OR ((cd_marital_status = 'U'::bpchar) AND ((cd_education_status)::text = 'Advanced Degree'::text)))
+                                                   ->  Hash  (cost=68442.82..68442.82 rows=825 width=51)
+                                                         ->  Redistribute Motion 3:3  (slice7; segments: 3)  (cost=0.00..68442.82 rows=825 width=51)
+                                                               Hash Key: web_returns.wr_refunded_cdemo_sk
+                                                               ->  Hash Join  (cost=0.00..68442.69 rows=825 width=51)
+                                                                     Hash Cond: (web_sales.ws_web_page_sk = web_page.wp_web_page_sk)
+                                                                     ->  Redistribute Motion 3:3  (slice6; segments: 3)  (cost=0.00..68011.11 rows=829 width=55)
+                                                                           Hash Key: web_sales.ws_web_page_sk
+                                                                           ->  Hash Join  (cost=0.00..68010.97 rows=829 width=55)
+                                                                                 Hash Cond: (web_returns.wr_reason_sk = reason.r_reason_sk)
+                                                                                 ->  Hash Join  (cost=0.00..67579.58 rows=841 width=45)
+                                                                                       Hash Cond: (customer_demographics_1.cd_demo_sk = web_returns.wr_returning_cdemo_sk)
+                                                                                       ->  Table Scan on customer_demographics customer_demographics_1  (cost=0.00..480.88 rows=128053 width=16)
+                                                                                             Filter: ((cd_marital_status = 'D'::bpchar) OR (cd_marital_status = 'M'::bpchar) OR (cd_marital_status = 'U'::bpchar))
+                                                                                       ->  Hash  (cost=67071.29..67071.29 rows=4026 width=37)
+                                                                                             ->  Redistribute Motion 3:3  (slice4; segments: 3)  (cost=0.00..67071.29 rows=4026 width=37)
+                                                                                                   Hash Key: web_returns.wr_returning_cdemo_sk
+                                                                                                   ->  Hash Join  (cost=0.00..67070.82 rows=4026 width=37)
+                                                                                                         Hash Cond: (web_sales.ws_sold_date_sk = date_dim.d_date_sk)
+                                                                                                         ->  Hash Join  (cost=0.00..66632.46 rows=20037 width=41)
+                                                                                                               Hash Cond: ((web_returns.wr_item_sk = web_sales.ws_item_sk) AND (web_returns.wr_order_number = web_sales.ws_order_number))
+                                                                                                               Join Filter: ((((customer_address.ca_state)::text = ANY ('{KY,GA,NM}'::text[])) AND (web_sales.ws_net_profit >= 100::numeric) AND (web_sales.ws_net_profit <= 200::numeric)) OR (((customer_address.ca_state)::text = ANY ('{MT,OR,IN}'::text[])) AND (web_sales.ws_net_profit >= 150::numeric) AND (web_sales.ws_net_profit <= 300::numeric)) OR (((customer_address.ca_state)::text = ANY ('{WI,MO,WV}'::text[])) AND (web_sales.ws_net_profit >= 50::numeric) AND (web_sales.ws_net_profit <= 250::numeric)))
+                                                                                                               ->  Redistribute Motion 3:3  (slice2; segments: 3)  (cost=0.00..10177.89 rows=561956 width=35)
+                                                                                                                     Hash Key: web_returns.wr_item_sk, web_returns.wr_order_number
+                                                                                                                     ->  Hash Join  (cost=0.00..10116.33 rows=561956 width=35)
+                                                                                                                           Hash Cond: (web_returns.wr_refunded_addr_sk = customer_address.ca_address_sk)
+                                                                                                                           ->  Sequence  (cost=0.00..2120.54 rows=23999168 width=36)
+                                                                                                                                 ->  Partition Selector for web_returns (dynamic scan id: 2)  (cost=10.00..100.00 rows=34 width=4)
+                                                                                                                                       Partitions selected: 80 (out of 80)
+                                                                                                                                 ->  Dynamic Table Scan on web_returns (dynamic scan id: 2)  (cost=0.00..2120.54 rows=23999168 width=36)
+                                                                                                                           ->  Hash  (cost=729.19..729.19 rows=114311 width=7)
+                                                                                                                                 ->  Broadcast Motion 3:3  (slice1; segments: 3)  (cost=0.00..729.19 rows=114311 width=7)
+                                                                                                                                       ->  Table Scan on customer_address  (cost=0.00..714.86 rows=38104 width=7)
+                                                                                                                                             Filter: (((ca_country)::text = 'United States'::text) AND (((ca_state)::text = ANY ('{KY,GA,NM}'::text[])) OR ((ca_state)::text = ANY ('{MT,OR,IN}'::text[])) OR ((ca_state)::text = ANY ('{WI,MO,WV}'::text[]))))
+                                                                                                               ->  Hash  (cost=39351.32..39351.32 rows=14701056 width=30)
+                                                                                                                     ->  Dynamic Table Scan on web_sales (dynamic scan id: 1)  (cost=0.00..39351.32 rows=14701056 width=30)
+                                                                                                                           Filter: ((((ws_sales_price >= 100.00) AND (ws_sales_price <= 150.00)) OR ((ws_sales_price >= 50.00) AND (ws_sales_price <= 100.00)) OR ((ws_sales_price >= 150.00) AND (ws_sales_price <= 200.00))) AND (((ws_net_profit >= 100::numeric) AND (ws_net_profit <= 200::numeric)) OR ((ws_net_profit >= 150::numeric) AND (ws_net_profit <= 300::numeric)) OR ((ws_net_profit >= 50::numeric) AND (ws_net_profit <= 250::numeric))))
+                                                                                                         ->  Hash  (cost=100.00..100.00 rows=34 width=4)
+                                                                                                               ->  Partition Selector for web_sales (dynamic scan id: 1)  (cost=10.00..100.00 rows=34 width=4)
+                                                                                                                     ->  Broadcast Motion 3:3  (slice3; segments: 3)  (cost=0.00..433.78 rows=366 width=4)
+                                                                                                                           ->  Table Scan on date_dim  (cost=0.00..433.76 rows=122 width=4)
+                                                                                                                                 Filter: (d_year = 1998)
+                                                                                 ->  Hash  (cost=431.02..431.02 rows=65 width=18)
+                                                                                       ->  Broadcast Motion 3:3  (slice5; segments: 3)  (cost=0.00..431.02 rows=65 width=18)
+                                                                                             ->  Table Scan on reason  (cost=0.00..431.00 rows=22 width=18)
+                                                                     ->  Hash  (cost=431.06..431.06 rows=1000 width=4)
+                                                                           ->  Table Scan on web_page  (cost=0.00..431.06 rows=1000 width=4)
+ Planning time: 3175.191 ms
+ Optimizer: PQO version 3.8.0
+(66 rows)
+
+-- end query 1 in stream 0 using template query85.tpl

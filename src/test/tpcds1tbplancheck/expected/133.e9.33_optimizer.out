@@ -1,0 +1,204 @@
+-- start query 1 in stream 0 using template query33.tpl
+explain
+with ss as (
+ select
+          i_manufact_id,sum(ss_ext_sales_price) total_sales
+ from
+ 	store_sales,
+ 	date_dim,
+         customer_address,
+         item
+ where
+         i_manufact_id in (select
+  i_manufact_id
+from
+ item
+where i_category in ('Books'))
+ and     ss_item_sk              = i_item_sk
+ and     ss_sold_date_sk         = d_date_sk
+ and     d_year                  = 1999
+ and     d_moy                   = 3
+ and     ss_addr_sk              = ca_address_sk
+ and     ca_gmt_offset           = -6 
+ group by i_manufact_id),
+ cs as (
+ select
+          i_manufact_id,sum(cs_ext_sales_price) total_sales
+ from
+ 	catalog_sales,
+ 	date_dim,
+         customer_address,
+         item
+ where
+         i_manufact_id               in (select
+  i_manufact_id
+from
+ item
+where i_category in ('Books'))
+ and     cs_item_sk              = i_item_sk
+ and     cs_sold_date_sk         = d_date_sk
+ and     d_year                  = 1999
+ and     d_moy                   = 3
+ and     cs_bill_addr_sk         = ca_address_sk
+ and     ca_gmt_offset           = -6 
+ group by i_manufact_id),
+ ws as (
+ select
+          i_manufact_id,sum(ws_ext_sales_price) total_sales
+ from
+ 	web_sales,
+ 	date_dim,
+         customer_address,
+         item
+ where
+         i_manufact_id               in (select
+  i_manufact_id
+from
+ item
+where i_category in ('Books'))
+ and     ws_item_sk              = i_item_sk
+ and     ws_sold_date_sk         = d_date_sk
+ and     d_year                  = 1999
+ and     d_moy                   = 3
+ and     ws_bill_addr_sk         = ca_address_sk
+ and     ca_gmt_offset           = -6
+ group by i_manufact_id)
+  select  i_manufact_id ,sum(total_sales) total_sales
+ from  (select * from ss 
+        union all
+        select * from cs 
+        union all
+        select * from ws) tmp1
+ group by i_manufact_id
+ order by total_sales
+limit 100;
+                                                                                             QUERY PLAN                                                                                              
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Sort  (cost=0.00..532056.94 rows=34 width=12)
+   Sort Key: (sum((pg_catalog.sum((sum(store_sales.ss_ext_sales_price))))))
+   ->  Limit  (cost=0.00..532056.89 rows=34 width=12)
+         ->  Gather Motion 3:1  (slice16; segments: 3)  (cost=0.00..532056.89 rows=100 width=12)
+               Merge Key: (sum((pg_catalog.sum((sum(store_sales.ss_ext_sales_price))))))
+               ->  Limit  (cost=0.00..532056.89 rows=34 width=12)
+                     ->  Sort  (cost=0.00..532056.89 rows=1001 width=12)
+                           Sort Key: (sum((pg_catalog.sum((sum(store_sales.ss_ext_sales_price))))))
+                           ->  HashAggregate  (cost=0.00..532056.21 rows=1001 width=12)
+                                 Group Key: item.i_manufact_id
+                                 ->  Append  (cost=0.00..532056.08 rows=1001 width=12)
+                                       ->  Hash Join  (cost=0.00..293330.04 rows=334 width=12)
+                                             Hash Cond: (item.i_manufact_id = item_1.i_manufact_id)
+                                             ->  HashAggregate  (cost=0.00..292877.50 rows=334 width=12)
+                                                   Group Key: item.i_manufact_id
+                                                   ->  Redistribute Motion 3:3  (slice4; segments: 3)  (cost=0.00..292877.46 rows=334 width=12)
+                                                         Hash Key: item.i_manufact_id
+                                                         ->  Result  (cost=0.00..292877.45 rows=334 width=12)
+                                                               ->  HashAggregate  (cost=0.00..292877.45 rows=334 width=12)
+                                                                     Group Key: item.i_manufact_id
+                                                                     ->  Hash Join  (cost=0.00..291007.66 rows=14993086 width=10)
+                                                                           Hash Cond: (store_sales.ss_item_sk = item.i_item_sk)
+                                                                           ->  Hash Join  (cost=0.00..287209.51 rows=14993086 width=10)
+                                                                                 Hash Cond: (store_sales.ss_addr_sk = customer_address.ca_address_sk)
+                                                                                 ->  Hash Join  (cost=0.00..279938.29 rows=29578765 width=14)
+                                                                                       Hash Cond: (store_sales.ss_sold_date_sk = date_dim.d_date_sk)
+                                                                                       ->  Dynamic Table Scan on store_sales (dynamic scan id: 1)  (cost=0.00..68542.76 rows=959996672 width=18)
+                                                                                       ->  Hash  (cost=100.00..100.00 rows=34 width=4)
+                                                                                             ->  Partition Selector for store_sales (dynamic scan id: 1)  (cost=10.00..100.00 rows=34 width=4)
+                                                                                                   ->  Broadcast Motion 3:3  (slice1; segments: 3)  (cost=0.00..434.56 rows=57 width=4)
+                                                                                                         ->  Table Scan on date_dim  (cost=0.00..434.56 rows=19 width=4)
+                                                                                                               Filter: ((d_year = 1999) AND (d_moy = 3))
+                                                                                 ->  Hash  (cost=850.87..850.87 rows=2634266 width=4)
+                                                                                       ->  Broadcast Motion 3:3  (slice2; segments: 3)  (cost=0.00..850.87 rows=2634266 width=4)
+                                                                                             ->  Table Scan on customer_address  (cost=0.00..662.26 rows=878089 width=4)
+                                                                                                   Filter: (ca_gmt_offset = (-6)::numeric)
+                                                                           ->  Hash  (cost=492.01..492.01 rows=299247 width=8)
+                                                                                 ->  Broadcast Motion 3:3  (slice3; segments: 3)  (cost=0.00..492.01 rows=299247 width=8)
+                                                                                       ->  Table Scan on item  (cost=0.00..447.68 rows=99749 width=8)
+                                             ->  Hash  (cost=452.40..452.40 rows=334 width=4)
+                                                   ->  HashAggregate  (cost=0.00..452.40 rows=334 width=4)
+                                                         Group Key: item_1.i_manufact_id
+                                                         ->  Redistribute Motion 3:3  (slice5; segments: 3)  (cost=0.00..452.36 rows=334 width=4)
+                                                               Hash Key: item_1.i_manufact_id
+                                                               ->  HashAggregate  (cost=0.00..452.36 rows=334 width=4)
+                                                                     Group Key: item_1.i_manufact_id
+                                                                     ->  Table Scan on item item_1  (cost=0.00..451.14 rows=9953 width=4)
+                                                                           Filter: ((i_category)::text = 'Books'::text)
+                                       ->  Hash Join  (cost=0.00..158469.90 rows=334 width=12)
+                                             Hash Cond: (item_2.i_manufact_id = item_3.i_manufact_id)
+                                             ->  HashAggregate  (cost=0.00..158017.37 rows=334 width=12)
+                                                   Group Key: item_2.i_manufact_id
+                                                   ->  Redistribute Motion 3:3  (slice9; segments: 3)  (cost=0.00..158017.32 rows=334 width=12)
+                                                         Hash Key: item_2.i_manufact_id
+                                                         ->  Result  (cost=0.00..158017.31 rows=334 width=12)
+                                                               ->  HashAggregate  (cost=0.00..158017.31 rows=334 width=12)
+                                                                     Group Key: item_2.i_manufact_id
+                                                                     ->  Hash Join  (cost=0.00..157118.05 rows=7210798 width=9)
+                                                                           Hash Cond: (catalog_sales.cs_item_sk = item_2.i_item_sk)
+                                                                           ->  Hash Join  (cost=0.00..155021.87 rows=7210798 width=9)
+                                                                                 Hash Cond: (catalog_sales.cs_bill_addr_sk = customer_address_1.ca_address_sk)
+                                                                                 ->  Hash Join  (cost=0.00..150774.31 rows=14676272 width=13)
+                                                                                       Hash Cond: (catalog_sales.cs_sold_date_sk = date_dim_1.d_date_sk)
+                                                                                       ->  Dynamic Table Scan on catalog_sales (dynamic scan id: 2)  (cost=0.00..46102.37 rows=479993344 width=17)
+                                                                                       ->  Hash  (cost=100.00..100.00 rows=34 width=4)
+                                                                                             ->  Partition Selector for catalog_sales (dynamic scan id: 2)  (cost=10.00..100.00 rows=34 width=4)
+                                                                                                   ->  Broadcast Motion 3:3  (slice6; segments: 3)  (cost=0.00..434.56 rows=57 width=4)
+                                                                                                         ->  Table Scan on date_dim date_dim_1  (cost=0.00..434.56 rows=19 width=4)
+                                                                                                               Filter: ((d_year = 1999) AND (d_moy = 3))
+                                                                                 ->  Hash  (cost=850.87..850.87 rows=2634266 width=4)
+                                                                                       ->  Broadcast Motion 3:3  (slice7; segments: 3)  (cost=0.00..850.87 rows=2634266 width=4)
+                                                                                             ->  Table Scan on customer_address customer_address_1  (cost=0.00..662.26 rows=878089 width=4)
+                                                                                                   Filter: (ca_gmt_offset = (-6)::numeric)
+                                                                           ->  Hash  (cost=492.01..492.01 rows=299247 width=8)
+                                                                                 ->  Broadcast Motion 3:3  (slice8; segments: 3)  (cost=0.00..492.01 rows=299247 width=8)
+                                                                                       ->  Table Scan on item item_2  (cost=0.00..447.68 rows=99749 width=8)
+                                             ->  Hash  (cost=452.40..452.40 rows=334 width=4)
+                                                   ->  HashAggregate  (cost=0.00..452.40 rows=334 width=4)
+                                                         Group Key: item_3.i_manufact_id
+                                                         ->  Redistribute Motion 3:3  (slice10; segments: 3)  (cost=0.00..452.36 rows=334 width=4)
+                                                               Hash Key: item_3.i_manufact_id
+                                                               ->  HashAggregate  (cost=0.00..452.36 rows=334 width=4)
+                                                                     Group Key: item_3.i_manufact_id
+                                                                     ->  Table Scan on item item_3  (cost=0.00..451.14 rows=9953 width=4)
+                                                                           Filter: ((i_category)::text = 'Books'::text)
+                                       ->  Hash Join  (cost=0.00..80256.12 rows=334 width=12)
+                                             Hash Cond: (item_4.i_manufact_id = item_5.i_manufact_id)
+                                             ->  HashAggregate  (cost=0.00..79803.58 rows=334 width=12)
+                                                   Group Key: item_4.i_manufact_id
+                                                   ->  Redistribute Motion 3:3  (slice14; segments: 3)  (cost=0.00..79803.54 rows=334 width=12)
+                                                         Hash Key: item_4.i_manufact_id
+                                                         ->  Result  (cost=0.00..79803.53 rows=334 width=12)
+                                                               ->  HashAggregate  (cost=0.00..79803.53 rows=334 width=12)
+                                                                     Group Key: item_4.i_manufact_id
+                                                                     ->  Hash Join  (cost=0.00..79308.69 rows=3967860 width=9)
+                                                                           Hash Cond: (web_sales.ws_item_sk = item_4.i_item_sk)
+                                                                           ->  Hash Join  (cost=0.00..77896.06 rows=3967860 width=9)
+                                                                                 Hash Cond: (web_sales.ws_bill_addr_sk = customer_address_2.ca_address_sk)
+                                                                                 ->  Redistribute Motion 3:3  (slice12; segments: 3)  (cost=0.00..75596.79 rows=7398785 width=13)
+                                                                                       Hash Key: web_sales.ws_bill_addr_sk
+                                                                                       ->  Hash Join  (cost=0.00..75295.74 rows=7398785 width=13)
+                                                                                             Hash Cond: (web_sales.ws_sold_date_sk = date_dim_2.d_date_sk)
+                                                                                             ->  Dynamic Table Scan on web_sales (dynamic scan id: 3)  (cost=0.00..22739.00 rows=240000000 width=17)
+                                                                                             ->  Hash  (cost=100.00..100.00 rows=34 width=4)
+                                                                                                   ->  Partition Selector for web_sales (dynamic scan id: 3)  (cost=10.00..100.00 rows=34 width=4)
+                                                                                                         ->  Broadcast Motion 3:3  (slice11; segments: 3)  (cost=0.00..434.56 rows=57 width=4)
+                                                                                                               ->  Table Scan on date_dim date_dim_2  (cost=0.00..434.56 rows=19 width=4)
+                                                                                                                     Filter: ((d_year = 1999) AND (d_moy = 3))
+                                                                                 ->  Hash  (cost=662.26..662.26 rows=878089 width=4)
+                                                                                       ->  Table Scan on customer_address customer_address_2  (cost=0.00..662.26 rows=878089 width=4)
+                                                                                             Filter: (ca_gmt_offset = (-6)::numeric)
+                                                                           ->  Hash  (cost=492.01..492.01 rows=299247 width=8)
+                                                                                 ->  Broadcast Motion 3:3  (slice13; segments: 3)  (cost=0.00..492.01 rows=299247 width=8)
+                                                                                       ->  Table Scan on item item_4  (cost=0.00..447.68 rows=99749 width=8)
+                                             ->  Hash  (cost=452.40..452.40 rows=334 width=4)
+                                                   ->  HashAggregate  (cost=0.00..452.40 rows=334 width=4)
+                                                         Group Key: item_5.i_manufact_id
+                                                         ->  Redistribute Motion 3:3  (slice15; segments: 3)  (cost=0.00..452.36 rows=334 width=4)
+                                                               Hash Key: item_5.i_manufact_id
+                                                               ->  HashAggregate  (cost=0.00..452.36 rows=334 width=4)
+                                                                     Group Key: item_5.i_manufact_id
+                                                                     ->  Table Scan on item item_5  (cost=0.00..451.14 rows=9953 width=4)
+                                                                           Filter: ((i_category)::text = 'Books'::text)
+ Planning time: 2178.276 ms
+ Optimizer: PQO version 3.8.0
+(125 rows)
+
+-- end query 1 in stream 0 using template query33.tpl

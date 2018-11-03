@@ -1,0 +1,88 @@
+-- start query 1 in stream 0 using template query1.tpl
+explain
+with customer_total_return as
+(select sr_customer_sk as ctr_customer_sk
+,sr_store_sk as ctr_store_sk
+,sum(SR_FEE) as ctr_total_return
+from store_returns
+,date_dim
+where sr_returned_date_sk = d_date_sk
+and d_year =2000
+group by sr_customer_sk
+,sr_store_sk)
+ select  c_customer_id
+from customer_total_return ctr1
+,store
+,customer
+where ctr1.ctr_total_return > (select avg(ctr_total_return)*1.2
+from customer_total_return ctr2
+where ctr1.ctr_store_sk = ctr2.ctr_store_sk)
+and s_store_sk = ctr1.ctr_store_sk
+and s_state = 'TN'
+and ctr1.ctr_customer_sk = c_customer_sk
+order by c_customer_id
+limit 100;
+                                                                                                 QUERY PLAN                                                                                                 
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Gather Motion 3:1  (slice9; segments: 3)  (cost=0.00..57794.42 rows=100 width=17)
+   Merge Key: customer.c_customer_id
+   ->  Sort  (cost=0.00..57794.41 rows=34 width=17)
+         Sort Key: customer.c_customer_id
+         ->  Sequence  (cost=0.00..57794.39 rows=34 width=17)
+               ->  Shared Scan (share slice:id 9:0)  (cost=0.00..37798.66 rows=17566894 width=1)
+                     ->  Materialize  (cost=0.00..37798.66 rows=17566894 width=1)
+                           ->  HashAggregate  (cost=0.00..37781.10 rows=17566894 width=16)
+                                 Group Key: store_returns.sr_customer_sk, store_returns.sr_store_sk
+                                 ->  Redistribute Motion 3:3  (slice8; segments: 3)  (cost=0.00..33344.40 rows=17566894 width=16)
+                                       Hash Key: store_returns.sr_customer_sk, store_returns.sr_store_sk
+                                       ->  Result  (cost=0.00..32464.65 rows=17566894 width=16)
+                                             ->  HashAggregate  (cost=0.00..32464.65 rows=17566894 width=16)
+                                                   Group Key: store_returns.sr_customer_sk, store_returns.sr_store_sk
+                                                   ->  Hash Join  (cost=0.00..28027.96 rows=17566894 width=13)
+                                                         Hash Cond: (store_returns.sr_returned_date_sk = date_dim.d_date_sk)
+                                                         ->  Dynamic Table Scan on store_returns (dynamic scan id: 1)  (cost=0.00..6080.60 rows=96000000 width=17)
+                                                         ->  Hash  (cost=100.00..100.00 rows=34 width=4)
+                                                               ->  Partition Selector for store_returns (dynamic scan id: 1)  (cost=10.00..100.00 rows=34 width=4)
+                                                                     ->  Broadcast Motion 3:3  (slice7; segments: 3)  (cost=0.00..433.78 rows=366 width=4)
+                                                                           ->  Table Scan on date_dim  (cost=0.00..433.76 rows=122 width=4)
+                                                                                 Filter: (d_year = 2000)
+               ->  Redistribute Motion 1:3  (slice6)  (cost=0.00..19995.73 rows=100 width=17)
+                     ->  Limit  (cost=0.00..19995.73 rows=34 width=17)
+                           ->  Gather Motion 3:1  (slice5; segments: 3)  (cost=0.00..19995.72 rows=100 width=17)
+                                 Merge Key: customer.c_customer_id
+                                 ->  Limit  (cost=0.00..19995.72 rows=34 width=17)
+                                       ->  Sort  (cost=0.00..19995.72 rows=1658079 width=17)
+                                             Sort Key: customer.c_customer_id
+                                             ->  Hash Join  (cost=0.00..16693.62 rows=1658079 width=17)
+                                                   Hash Cond: (customer.c_customer_sk = share0_ref3.sr_customer_sk)
+                                                   ->  Table Scan on customer  (cost=0.00..754.40 rows=3999967 width=21)
+                                                   ->  Hash  (cost=14621.62..14621.62 rows=1658079 width=4)
+                                                         ->  Redistribute Motion 3:3  (slice4; segments: 3)  (cost=0.00..14621.62 rows=1658079 width=4)
+                                                               Hash Key: share0_ref3.sr_customer_sk
+                                                               ->  Hash Join  (cost=0.00..14600.86 rows=1658079 width=4)
+                                                                     Hash Cond: (share0_ref3.sr_store_sk = store.s_store_sk)
+                                                                     ->  Hash Join  (cost=0.00..11007.86 rows=17566894 width=8)
+                                                                           Hash Cond: (share0_ref3.sr_store_sk = share0_ref2.sr_store_sk)
+                                                                           Join Filter: (share0_ref3.ctr_total_return > (((pg_catalog.avg((avg(share0_ref2.ctr_total_return)))) * 1.2)))
+                                                                           ->  Shared Scan (share slice:id 4:0)  (cost=0.00..1108.38 rows=17566894 width=16)
+                                                                           ->  Hash  (cost=3129.94..3129.94 rows=504 width=12)
+                                                                                 ->  Broadcast Motion 3:3  (slice2; segments: 3)  (cost=0.00..3129.94 rows=504 width=12)
+                                                                                       ->  Result  (cost=0.00..3129.83 rows=168 width=12)
+                                                                                             ->  Result  (cost=0.00..3129.83 rows=168 width=12)
+                                                                                                   ->  HashAggregate  (cost=0.00..3129.83 rows=168 width=12)
+                                                                                                         Group Key: share0_ref2.sr_store_sk
+                                                                                                         ->  Redistribute Motion 3:3  (slice1; segments: 3)  (cost=0.00..3129.81 rows=168 width=12)
+                                                                                                               Hash Key: share0_ref2.sr_store_sk
+                                                                                                               ->  Result  (cost=0.00..3129.80 rows=168 width=12)
+                                                                                                                     ->  HashAggregate  (cost=0.00..3129.80 rows=168 width=12)
+                                                                                                                           Group Key: share0_ref2.sr_store_sk
+                                                                                                                           ->  Shared Scan (share slice:id 1:0)  (cost=0.00..939.03 rows=17566894 width=12)
+                                                                     ->  Hash  (cost=431.07..431.07 rows=48 width=4)
+                                                                           ->  Broadcast Motion 3:3  (slice3; segments: 3)  (cost=0.00..431.07 rows=48 width=4)
+                                                                                 ->  Table Scan on store  (cost=0.00..431.06 rows=16 width=4)
+                                                                                       Filter: ((s_state)::text = 'TN'::text)
+ Planning time: 440.745 ms
+ Optimizer: PQO version 3.8.0
+(59 rows)
+
+-- end query 1 in stream 0 using template query1.tpl

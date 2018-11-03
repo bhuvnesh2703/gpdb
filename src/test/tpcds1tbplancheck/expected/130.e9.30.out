@@ -1,0 +1,593 @@
+-- start query 1 in stream 0 using template query30.tpl
+explain
+with customer_total_return as
+ (select wr_returning_customer_sk as ctr_customer_sk
+        ,ca_state as ctr_state, 
+ 	sum(wr_return_amt) as ctr_total_return
+ from web_returns
+     ,date_dim
+     ,customer_address
+ where wr_returned_date_sk = d_date_sk 
+   and d_year =2002
+   and wr_returning_addr_sk = ca_address_sk 
+ group by wr_returning_customer_sk
+         ,ca_state)
+  select  c_customer_id,c_salutation,c_first_name,c_last_name,c_preferred_cust_flag
+       ,c_birth_day,c_birth_month,c_birth_year,c_birth_country,c_login,c_email_address
+       ,c_last_review_date,ctr_total_return
+ from customer_total_return ctr1
+     ,customer_address
+     ,customer
+ where ctr1.ctr_total_return > (select avg(ctr_total_return)*1.2
+ 			  from customer_total_return ctr2 
+                  	  where ctr1.ctr_state = ctr2.ctr_state)
+       and ca_address_sk = c_current_addr_sk
+       and ca_state = 'IL'
+       and ctr1.ctr_customer_sk = c_customer_sk
+ order by c_customer_id,c_salutation,c_first_name,c_last_name,c_preferred_cust_flag
+                  ,c_birth_day,c_birth_month,c_birth_year,c_birth_country,c_login,c_email_address
+                  ,c_last_review_date,ctr_total_return
+limit 100;
+                                                                                                                                                                       QUERY PLAN                                                                                                                                                                        
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=327016.98..327017.11 rows=6 width=169)
+   ->  Gather Motion 3:1  (slice11; segments: 3)  (cost=327016.98..327017.11 rows=6 width=169)
+         Merge Key: customer.c_customer_id, customer.c_salutation, customer.c_first_name, customer.c_last_name, customer.c_preferred_cust_flag, customer.c_birth_day, customer.c_birth_month, customer.c_birth_year, customer.c_birth_country, customer.c_login, customer.c_email_address, customer.c_last_review_date, ctr1.ctr_total_return
+         ->  Limit  (cost=327016.98..327016.99 rows=2 width=169)
+               ->  Sort  (cost=327016.98..327016.99 rows=2 width=169)
+                     Sort Key: customer.c_customer_id, customer.c_salutation, customer.c_first_name, customer.c_last_name, customer.c_preferred_cust_flag, customer.c_birth_day, customer.c_birth_month, customer.c_birth_year, customer.c_birth_country, customer.c_login, customer.c_email_address, customer.c_last_review_date, ctr1.ctr_total_return
+                     ->  Hash Join  (cost=103233.79..327016.90 rows=2 width=169)
+                           Hash Cond: ((ctr1.ctr_state)::text = "Expr_SUBQUERY".csq_c0)
+                           Join Filter: (ctr1.ctr_total_return > "Expr_SUBQUERY".csq_c1)
+                           ->  Redistribute Motion 3:3  (slice6; segments: 3)  (cost=103231.65..327014.59 rows=6 width=181)
+                                 Hash Key: ctr1.ctr_state
+                                 ->  Hash Join  (cost=103231.65..327014.24 rows=6 width=181)
+                                       Hash Cond: (customer.c_current_addr_sk = customer_address.ca_address_sk)
+                                       ->  Redistribute Motion 3:3  (slice5; segments: 3)  (cost=1.16..223783.49 rows=8 width=185)
+                                             Hash Key: customer.c_current_addr_sk
+                                             ->  Hash Join  (cost=1.16..223783.02 rows=8 width=185)
+                                                   Hash Cond: (customer.c_customer_sk = ctr1.ctr_customer_sk)
+                                                   ->  Seq Scan on customer  (cost=0.00..178782.00 rows=3999967 width=145)
+                                                   ->  Hash  (cost=0.88..0.88 rows=8 width=48)
+                                                         ->  Redistribute Motion 3:3  (slice4; segments: 3)  (cost=0.00..0.88 rows=8 width=48)
+                                                               Hash Key: ctr1.ctr_customer_sk
+                                                               ->  Subquery Scan on ctr1  (cost=0.00..0.44 rows=8 width=48)
+                                                                     ->  HashAggregate  (cost=1542923.72..1542923.99 rows=8 width=48)
+                                                                           Group Key: web_returns_1_prt_outliers.wr_returning_customer_sk, customer_address_1.ca_state
+                                                                           ->  Redistribute Motion 3:3  (slice3; segments: 3)  (cost=1542922.89..1542923.33 rows=8 width=48)
+                                                                                 Hash Key: web_returns_1_prt_outliers.wr_returning_customer_sk, customer_address_1.ca_state
+                                                                                 ->  HashAggregate  (cost=1542922.89..1542922.89 rows=8 width=48)
+                                                                                       Group Key: web_returns_1_prt_outliers.wr_returning_customer_sk, customer_address_1.ca_state
+                                                                                       ->  Hash Join  (cost=1434525.63..1542922.72 rows=8 width=13)
+                                                                                             Hash Cond: (customer_address_1.ca_address_sk = web_returns_1_prt_outliers.wr_returning_addr_sk)
+                                                                                             ->  Seq Scan on customer_address customer_address_1  (cost=0.00..85890.90 rows=2000530 width=7)
+                                                                                             ->  Hash  (cost=1434525.31..1434525.31 rows=9 width=14)
+                                                                                                   ->  Redistribute Motion 3:3  (slice2; segments: 3)  (cost=1297.42..1434525.31 rows=9 width=14)
+                                                                                                         Hash Key: web_returns_1_prt_outliers.wr_returning_addr_sk
+                                                                                                         ->  Hash Join  (cost=1297.42..1434524.79 rows=9 width=14)
+                                                                                                               Hash Cond: (web_returns_1_prt_outliers.wr_returned_date_sk = date_dim.d_date_sk)
+                                                                                                               ->  Append  (cost=0.00..983242.45 rows=23999182 width=18)
+                                                                                                                     ->  Result  (cost=0.00..38893.60 rows=1079754 width=18)
+                                                                                                                           One-Time Filter: PartSelected
+                                                                                                                           ->  Append-only Columnar Scan on web_returns_1_prt_outliers  (cost=0.00..38893.60 rows=1079754 width=18)
+                                                                                                                     ->  Result  (cost=0.00..51.87 rows=663 width=18)
+                                                                                                                           One-Time Filter: PartSelected
+                                                                                                                           ->  Append-only Columnar Scan on web_returns_1_prt_2  (cost=0.00..51.87 rows=663 width=18)
+                                                                                                                     ->  Result  (cost=0.00..243.39 rows=5547 width=18)
+                                                                                                                           One-Time Filter: PartSelected
+                                                                                                                           ->  Append-only Columnar Scan on web_returns_1_prt_3  (cost=0.00..243.39 rows=5547 width=18)
+                                                                                                                     ->  Result  (cost=0.00..672.62 rows=16021 width=18)
+                                                                                                                           One-Time Filter: PartSelected
+                                                                                                                           ->  Append-only Columnar Scan on web_returns_1_prt_4  (cost=0.00..672.62 rows=16021 width=18)
+                                                                                                                     ->  Result  (cost=0.00..1337.96 rows=31999 width=18)
+                                                                                                                           One-Time Filter: PartSelected
+                                                                                                                           ->  Append-only Columnar Scan on web_returns_1_prt_5  (cost=0.00..1337.96 rows=31999 width=18)
+                                                                                                                     ->  Result  (cost=0.00..2194.10 rows=52937 width=18)
+                                                                                                                           One-Time Filter: PartSelected
+                                                                                                                           ->  Append-only Columnar Scan on web_returns_1_prt_6  (cost=0.00..2194.10 rows=52937 width=18)
+                                                                                                                     ->  Result  (cost=0.00..3165.94 rows=76598 width=18)
+                                                                                                                           One-Time Filter: PartSelected
+                                                                                                                           ->  Append-only Columnar Scan on web_returns_1_prt_7  (cost=0.00..3165.94 rows=76598 width=18)
+                                                                                                                     ->  Result  (cost=0.00..4149.44 rows=100482 width=18)
+                                                                                                                           One-Time Filter: PartSelected
+                                                                                                                           ->  Append-only Columnar Scan on web_returns_1_prt_8  (cost=0.00..4149.44 rows=100482 width=18)
+                                                                                                                     ->  Result  (cost=0.00..5123.76 rows=124092 width=18)
+                                                                                                                           One-Time Filter: PartSelected
+                                                                                                                           ->  Append-only Columnar Scan on web_returns_1_prt_9  (cost=0.00..5123.76 rows=124092 width=18)
+                                                                                                                     ->  Result  (cost=0.00..6205.45 rows=150449 width=18)
+                                                                                                                           One-Time Filter: PartSelected
+                                                                                                                           ->  Append-only Columnar Scan on web_returns_1_prt_10  (cost=0.00..6205.45 rows=150449 width=18)
+                                                                                                                     ->  Result  (cost=0.00..7467.74 rows=181092 width=18)
+                                                                                                                           One-Time Filter: PartSelected
+                                                                                                                           ->  Append-only Columnar Scan on web_returns_1_prt_11  (cost=0.00..7467.74 rows=181092 width=18)
+                                                                                                                     ->  Result  (cost=0.00..8787.18 rows=213173 width=18)
+                                                                                                                           One-Time Filter: PartSelected
+                                                                                                                           ->  Append-only Columnar Scan on web_returns_1_prt_12  (cost=0.00..8787.18 rows=213173 width=18)
+                                                                                                                     ->  Result  (cost=0.00..10246.69 rows=248690 width=18)
+                                                                                                                           One-Time Filter: PartSelected
+                                                                                                                           ->  Append-only Columnar Scan on web_returns_1_prt_13  (cost=0.00..10246.69 rows=248690 width=18)
+                                                                                                                     ->  Result  (cost=0.00..11962.54 rows=290352 width=18)
+                                                                                                                           One-Time Filter: PartSelected
+                                                                                                                           ->  Append-only Columnar Scan on web_returns_1_prt_14  (cost=0.00..11962.54 rows=290352 width=18)
+                                                                                                                     ->  Result  (cost=0.00..13706.59 rows=332753 width=18)
+                                                                                                                           One-Time Filter: PartSelected
+                                                                                                                           ->  Append-only Columnar Scan on web_returns_1_prt_15  (cost=0.00..13706.59 rows=332753 width=18)
+                                                                                                                     ->  Result  (cost=0.00..15323.50 rows=371984 width=18)
+                                                                                                                           One-Time Filter: PartSelected
+                                                                                                                           ->  Append-only Columnar Scan on web_returns_1_prt_16  (cost=0.00..15323.50 rows=371984 width=18)
+                                                                                                                     ->  Result  (cost=0.00..16613.80 rows=403427 width=18)
+                                                                                                                           One-Time Filter: PartSelected
+                                                                                                                           ->  Append-only Columnar Scan on web_returns_1_prt_17  (cost=0.00..16613.80 rows=403427 width=18)
+                                                                                                                     ->  Result  (cost=0.00..17449.40 rows=423747 width=18)
+                                                                                                                           One-Time Filter: PartSelected
+                                                                                                                           ->  Append-only Columnar Scan on web_returns_1_prt_18  (cost=0.00..17449.40 rows=423747 width=18)
+                                                                                                                     ->  Result  (cost=0.00..17450.10 rows=423704 width=18)
+                                                                                                                           One-Time Filter: PartSelected
+                                                                                                                           ->  Append-only Columnar Scan on web_returns_1_prt_19  (cost=0.00..17450.10 rows=423704 width=18)
+                                                                                                                     ->  Result  (cost=0.00..16964.80 rows=411894 width=18)
+                                                                                                                           One-Time Filter: PartSelected
+                                                                                                                           ->  Append-only Columnar Scan on web_returns_1_prt_20  (cost=0.00..16964.80 rows=411894 width=18)
+                                                                                                                     ->  Result  (cost=0.00..16132.20 rows=391674 width=18)
+                                                                                                                           One-Time Filter: PartSelected
+                                                                                                                           ->  Append-only Columnar Scan on web_returns_1_prt_21  (cost=0.00..16132.20 rows=391674 width=18)
+                                                                                                                     ->  Result  (cost=0.00..14907.70 rows=361924 width=18)
+                                                                                                                           One-Time Filter: PartSelected
+                                                                                                                           ->  Append-only Columnar Scan on web_returns_1_prt_22  (cost=0.00..14907.70 rows=361924 width=18)
+                                                                                                                     ->  Result  (cost=0.00..13378.79 rows=324693 width=18)
+                                                                                                                           One-Time Filter: PartSelected
+                                                                                                                           ->  Append-only Columnar Scan on web_returns_1_prt_23  (cost=0.00..13378.79 rows=324693 width=18)
+                                                                                                                     ->  Result  (cost=0.00..12047.21 rows=292341 width=18)
+                                                                                                                           One-Time Filter: PartSelected
+                                                                                                                           ->  Append-only Columnar Scan on web_returns_1_prt_24  (cost=0.00..12047.21 rows=292341 width=18)
+                                                                                                                     ->  Result  (cost=0.00..11228.09 rows=272470 width=18)
+                                                                                                                           One-Time Filter: PartSelected
+                                                                                                                           ->  Append-only Columnar Scan on web_returns_1_prt_25  (cost=0.00..11228.09 rows=272470 width=18)
+                                                                                                                     ->  Result  (cost=0.00..11109.92 rows=269631 width=18)
+                                                                                                                           One-Time Filter: PartSelected
+                                                                                                                           ->  Append-only Columnar Scan on web_returns_1_prt_26  (cost=0.00..11109.92 rows=269631 width=18)
+                                                                                                                     ->  Result  (cost=0.00..12030.70 rows=291957 width=18)
+                                                                                                                           One-Time Filter: PartSelected
+                                                                                                                           ->  Append-only Columnar Scan on web_returns_1_prt_27  (cost=0.00..12030.70 rows=291957 width=18)
+                                                                                                                     ->  Result  (cost=0.00..13656.34 rows=331512 width=18)
+                                                                                                                           One-Time Filter: PartSelected
+                                                                                                                           ->  Append-only Columnar Scan on web_returns_1_prt_28  (cost=0.00..13656.34 rows=331512 width=18)
+                                                                                                                     ->  Result  (cost=0.00..15310.30 rows=371677 width=18)
+                                                                                                                           One-Time Filter: PartSelected
+                                                                                                                           ->  Append-only Columnar Scan on web_returns_1_prt_29  (cost=0.00..15310.30 rows=371677 width=18)
+                                                                                                                     ->  Result  (cost=0.00..16610.30 rows=403277 width=18)
+                                                                                                                           One-Time Filter: PartSelected
+                                                                                                                           ->  Append-only Columnar Scan on web_returns_1_prt_30  (cost=0.00..16610.30 rows=403277 width=18)
+                                                                                                                     ->  Result  (cost=0.00..17417.80 rows=422960 width=18)
+                                                                                                                           One-Time Filter: PartSelected
+                                                                                                                           ->  Append-only Columnar Scan on web_returns_1_prt_31  (cost=0.00..17417.80 rows=422960 width=18)
+                                                                                                                     ->  Result  (cost=0.00..17462.40 rows=423914 width=18)
+                                                                                                                           One-Time Filter: PartSelected
+                                                                                                                           ->  Append-only Columnar Scan on web_returns_1_prt_32  (cost=0.00..17462.40 rows=423914 width=18)
+                                                                                                                     ->  Result  (cost=0.00..16977.10 rows=412204 width=18)
+                                                                                                                           One-Time Filter: PartSelected
+                                                                                                                           ->  Append-only Columnar Scan on web_returns_1_prt_33  (cost=0.00..16977.10 rows=412204 width=18)
+                                                                                                                     ->  Result  (cost=0.00..16214.80 rows=393694 width=18)
+                                                                                                                           One-Time Filter: PartSelected
+                                                                                                                           ->  Append-only Columnar Scan on web_returns_1_prt_34  (cost=0.00..16214.80 rows=393694 width=18)
+                                                                                                                     ->  Result  (cost=0.00..14996.10 rows=364070 width=18)
+                                                                                                                           One-Time Filter: PartSelected
+                                                                                                                           ->  Append-only Columnar Scan on web_returns_1_prt_35  (cost=0.00..14996.10 rows=364070 width=18)
+                                                                                                                     ->  Result  (cost=0.00..13465.95 rows=326865 width=18)
+                                                                                                                           One-Time Filter: PartSelected
+                                                                                                                           ->  Append-only Columnar Scan on web_returns_1_prt_36  (cost=0.00..13465.95 rows=326865 width=18)
+                                                                                                                     ->  Result  (cost=0.00..12069.06 rows=292936 width=18)
+                                                                                                                           One-Time Filter: PartSelected
+                                                                                                                           ->  Append-only Columnar Scan on web_returns_1_prt_37  (cost=0.00..12069.06 rows=292936 width=18)
+                                                                                                                     ->  Result  (cost=0.00..11277.57 rows=273619 width=18)
+                                                                                                                           One-Time Filter: PartSelected
+                                                                                                                           ->  Append-only Columnar Scan on web_returns_1_prt_38  (cost=0.00..11277.57 rows=273619 width=18)
+                                                                                                                     ->  Result  (cost=0.00..11095.59 rows=269287 width=18)
+                                                                                                                           One-Time Filter: PartSelected
+                                                                                                                           ->  Append-only Columnar Scan on web_returns_1_prt_39  (cost=0.00..11095.59 rows=269287 width=18)
+                                                                                                                     ->  Result  (cost=0.00..11960.13 rows=290238 width=18)
+                                                                                                                           One-Time Filter: PartSelected
+                                                                                                                           ->  Append-only Columnar Scan on web_returns_1_prt_40  (cost=0.00..11960.13 rows=290238 width=18)
+                                                                                                                     ->  Result  (cost=0.00..13588.95 rows=329865 width=18)
+                                                                                                                           One-Time Filter: PartSelected
+                                                                                                                           ->  Append-only Columnar Scan on web_returns_1_prt_41  (cost=0.00..13588.95 rows=329865 width=18)
+                                                                                                                     ->  Result  (cost=0.00..15197.90 rows=368897 width=18)
+                                                                                                                           One-Time Filter: PartSelected
+                                                                                                                           ->  Append-only Columnar Scan on web_returns_1_prt_42  (cost=0.00..15197.90 rows=368897 width=18)
+                                                                                                                     ->  Result  (cost=0.00..16516.40 rows=401014 width=18)
+                                                                                                                           One-Time Filter: PartSelected
+                                                                                                                           ->  Append-only Columnar Scan on web_returns_1_prt_43  (cost=0.00..16516.40 rows=401014 width=18)
+                                                                                                                     ->  Result  (cost=0.00..17313.10 rows=420337 width=18)
+                                                                                                                           One-Time Filter: PartSelected
+                                                                                                                           ->  Append-only Columnar Scan on web_returns_1_prt_44  (cost=0.00..17313.10 rows=420337 width=18)
+                                                                                                                     ->  Result  (cost=0.00..17436.40 rows=423380 width=18)
+                                                                                                                           One-Time Filter: PartSelected
+                                                                                                                           ->  Append-only Columnar Scan on web_returns_1_prt_45  (cost=0.00..17436.40 rows=423380 width=18)
+                                                                                                                     ->  Result  (cost=0.00..16959.40 rows=411714 width=18)
+                                                                                                                           One-Time Filter: PartSelected
+                                                                                                                           ->  Append-only Columnar Scan on web_returns_1_prt_46  (cost=0.00..16959.40 rows=411714 width=18)
+                                                                                                                     ->  Result  (cost=0.00..16178.70 rows=392790 width=18)
+                                                                                                                           One-Time Filter: PartSelected
+                                                                                                                           ->  Append-only Columnar Scan on web_returns_1_prt_47  (cost=0.00..16178.70 rows=392790 width=18)
+                                                                                                                     ->  Result  (cost=0.00..14974.00 rows=363534 width=18)
+                                                                                                                           One-Time Filter: PartSelected
+                                                                                                                           ->  Append-only Columnar Scan on web_returns_1_prt_48  (cost=0.00..14974.00 rows=363534 width=18)
+                                                                                                                     ->  Result  (cost=0.00..13451.19 rows=326507 width=18)
+                                                                                                                           One-Time Filter: PartSelected
+                                                                                                                           ->  Append-only Columnar Scan on web_returns_1_prt_49  (cost=0.00..13451.19 rows=326507 width=18)
+                                                                                                                     ->  Result  (cost=0.00..12077.63 rows=293188 width=18)
+                                                                                                                           One-Time Filter: PartSelected
+                                                                                                                           ->  Append-only Columnar Scan on web_returns_1_prt_50  (cost=0.00..12077.63 rows=293188 width=18)
+                                                                                                                     ->  Result  (cost=0.00..11199.36 rows=271779 width=18)
+                                                                                                                           One-Time Filter: PartSelected
+                                                                                                                           ->  Append-only Columnar Scan on web_returns_1_prt_51  (cost=0.00..11199.36 rows=271779 width=18)
+                                                                                                                     ->  Result  (cost=0.00..11055.33 rows=268278 width=18)
+                                                                                                                           One-Time Filter: PartSelected
+                                                                                                                           ->  Append-only Columnar Scan on web_returns_1_prt_52  (cost=0.00..11055.33 rows=268278 width=18)
+                                                                                                                     ->  Result  (cost=0.00..11851.16 rows=287672 width=18)
+                                                                                                                           One-Time Filter: PartSelected
+                                                                                                                           ->  Append-only Columnar Scan on web_returns_1_prt_53  (cost=0.00..11851.16 rows=287672 width=18)
+                                                                                                                     ->  Result  (cost=0.00..13492.27 rows=327476 width=18)
+                                                                                                                           One-Time Filter: PartSelected
+                                                                                                                           ->  Append-only Columnar Scan on web_returns_1_prt_54  (cost=0.00..13492.27 rows=327476 width=18)
+                                                                                                                     ->  Result  (cost=0.00..15119.10 rows=367037 width=18)
+                                                                                                                           One-Time Filter: PartSelected
+                                                                                                                           ->  Append-only Columnar Scan on web_returns_1_prt_55  (cost=0.00..15119.10 rows=367037 width=18)
+                                                                                                                     ->  Result  (cost=0.00..16452.40 rows=399414 width=18)
+                                                                                                                           One-Time Filter: PartSelected
+                                                                                                                           ->  Append-only Columnar Scan on web_returns_1_prt_56  (cost=0.00..16452.40 rows=399414 width=18)
+                                                                                                                     ->  Result  (cost=0.00..17332.10 rows=420837 width=18)
+                                                                                                                           One-Time Filter: PartSelected
+                                                                                                                           ->  Append-only Columnar Scan on web_returns_1_prt_57  (cost=0.00..17332.10 rows=420837 width=18)
+                                                                                                                     ->  Result  (cost=0.00..17526.30 rows=425544 width=18)
+                                                                                                                           One-Time Filter: PartSelected
+                                                                                                                           ->  Append-only Columnar Scan on web_returns_1_prt_58  (cost=0.00..17526.30 rows=425544 width=18)
+                                                                                                                     ->  Result  (cost=0.00..17030.00 rows=413467 width=18)
+                                                                                                                           One-Time Filter: PartSelected
+                                                                                                                           ->  Append-only Columnar Scan on web_returns_1_prt_59  (cost=0.00..17030.00 rows=413467 width=18)
+                                                                                                                     ->  Result  (cost=0.00..16294.00 rows=395634 width=18)
+                                                                                                                           One-Time Filter: PartSelected
+                                                                                                                           ->  Append-only Columnar Scan on web_returns_1_prt_60  (cost=0.00..16294.00 rows=395634 width=18)
+                                                                                                                     ->  Result  (cost=0.00..15121.60 rows=367087 width=18)
+                                                                                                                           One-Time Filter: PartSelected
+                                                                                                                           ->  Append-only Columnar Scan on web_returns_1_prt_61  (cost=0.00..15121.60 rows=367087 width=18)
+                                                                                                                     ->  Result  (cost=0.00..13616.65 rows=330622 width=18)
+                                                                                                                           One-Time Filter: PartSelected
+                                                                                                                           ->  Append-only Columnar Scan on web_returns_1_prt_62  (cost=0.00..13616.65 rows=330622 width=18)
+                                                                                                                     ->  Result  (cost=0.00..12209.64 rows=296355 width=18)
+                                                                                                                           One-Time Filter: PartSelected
+                                                                                                                           ->  Append-only Columnar Scan on web_returns_1_prt_63  (cost=0.00..12209.64 rows=296355 width=18)
+                                                                                                                     ->  Result  (cost=0.00..11321.38 rows=274746 width=18)
+                                                                                                                           One-Time Filter: PartSelected
+                                                                                                                           ->  Append-only Columnar Scan on web_returns_1_prt_64  (cost=0.00..11321.38 rows=274746 width=18)
+                                                                                                                     ->  Result  (cost=0.00..11070.08 rows=268603 width=18)
+                                                                                                                           One-Time Filter: PartSelected
+                                                                                                                           ->  Append-only Columnar Scan on web_returns_1_prt_65  (cost=0.00..11070.08 rows=268603 width=18)
+                                                                                                                     ->  Result  (cost=0.00..11802.27 rows=286443 width=18)
+                                                                                                                           One-Time Filter: PartSelected
+                                                                                                                           ->  Append-only Columnar Scan on web_returns_1_prt_66  (cost=0.00..11802.27 rows=286443 width=18)
+                                                                                                                     ->  Result  (cost=0.00..13397.43 rows=325215 width=18)
+                                                                                                                           One-Time Filter: PartSelected
+                                                                                                                           ->  Append-only Columnar Scan on web_returns_1_prt_67  (cost=0.00..13397.43 rows=325215 width=18)
+                                                                                                                     ->  Result  (cost=0.00..14873.40 rows=361080 width=18)
+                                                                                                                           One-Time Filter: PartSelected
+                                                                                                                           ->  Append-only Columnar Scan on web_returns_1_prt_68  (cost=0.00..14873.40 rows=361080 width=18)
+                                                                                                                     ->  Result  (cost=0.00..15860.80 rows=385127 width=18)
+                                                                                                                           One-Time Filter: PartSelected
+                                                                                                                           ->  Append-only Columnar Scan on web_returns_1_prt_69  (cost=0.00..15860.80 rows=385127 width=18)
+                                                                                                                     ->  Result  (cost=0.00..16127.10 rows=391604 width=18)
+                                                                                                                           One-Time Filter: PartSelected
+                                                                                                                           ->  Append-only Columnar Scan on web_returns_1_prt_70  (cost=0.00..16127.10 rows=391604 width=18)
+                                                                                                                     ->  Result  (cost=0.00..15525.80 rows=376927 width=18)
+                                                                                                                           One-Time Filter: PartSelected
+                                                                                                                           ->  Append-only Columnar Scan on web_returns_1_prt_71  (cost=0.00..15525.80 rows=376927 width=18)
+                                                                                                                     ->  Result  (cost=0.00..14130.60 rows=342987 width=18)
+                                                                                                                           One-Time Filter: PartSelected
+                                                                                                                           ->  Append-only Columnar Scan on web_returns_1_prt_72  (cost=0.00..14130.60 rows=342987 width=18)
+                                                                                                                     ->  Result  (cost=0.00..12407.21 rows=301141 width=18)
+                                                                                                                           One-Time Filter: PartSelected
+                                                                                                                           ->  Append-only Columnar Scan on web_returns_1_prt_73  (cost=0.00..12407.21 rows=301141 width=18)
+                                                                                                                     ->  Result  (cost=0.00..10303.48 rows=250016 width=18)
+                                                                                                                           One-Time Filter: PartSelected
+                                                                                                                           ->  Append-only Columnar Scan on web_returns_1_prt_74  (cost=0.00..10303.48 rows=250016 width=18)
+                                                                                                                     ->  Result  (cost=0.00..7747.34 rows=187845 width=18)
+                                                                                                                           One-Time Filter: PartSelected
+                                                                                                                           ->  Append-only Columnar Scan on web_returns_1_prt_75  (cost=0.00..7747.34 rows=187845 width=18)
+                                                                                                                     ->  Result  (cost=0.00..5077.79 rows=123060 width=18)
+                                                                                                                           One-Time Filter: PartSelected
+                                                                                                                           ->  Append-only Columnar Scan on web_returns_1_prt_76  (cost=0.00..5077.79 rows=123060 width=18)
+                                                                                                                     ->  Result  (cost=0.00..2838.35 rows=68612 width=18)
+                                                                                                                           One-Time Filter: PartSelected
+                                                                                                                           ->  Append-only Columnar Scan on web_returns_1_prt_77  (cost=0.00..2838.35 rows=68612 width=18)
+                                                                                                                     ->  Result  (cost=0.00..1156.60 rows=27854 width=18)
+                                                                                                                           One-Time Filter: PartSelected
+                                                                                                                           ->  Append-only Columnar Scan on web_returns_1_prt_78  (cost=0.00..1156.60 rows=27854 width=18)
+                                                                                                                     ->  Result  (cost=0.00..222.03 rows=5201 width=18)
+                                                                                                                           One-Time Filter: PartSelected
+                                                                                                                           ->  Append-only Columnar Scan on web_returns_1_prt_79  (cost=0.00..222.03 rows=5201 width=18)
+                                                                                                                     ->  Result  (cost=0.00..28.69 rows=23 width=18)
+                                                                                                                           One-Time Filter: PartSelected
+                                                                                                                           ->  Append-only Columnar Scan on web_returns_1_prt_80  (cost=0.00..28.69 rows=23 width=18)
+                                                                                                               ->  Hash  (cost=1283.72..1283.72 rows=366 width=4)
+                                                                                                                     ->  Partition Selector for web_returns (dynamic scan id: 1)  (cost=0.00..1283.72 rows=366 width=4)
+                                                                                                                           Filter: date_dim.d_date_sk
+                                                                                                                           ->  Broadcast Motion 3:3  (slice1; segments: 3)  (cost=0.00..1283.72 rows=366 width=4)
+                                                                                                                                 ->  Seq Scan on date_dim  (cost=0.00..1269.11 rows=122 width=4)
+                                                                                                                                       Filter: (d_year = 2002)
+                                       ->  Hash  (cost=100894.88..100894.88 rows=62284 width=4)
+                                             ->  Seq Scan on customer_address  (cost=0.00..100894.88 rows=62284 width=4)
+                                                   Filter: ((ca_state)::text = 'IL'::text)
+                           ->  Hash  (cost=1.87..1.87 rows=8 width=64)
+                                 ->  Subquery Scan on "Expr_SUBQUERY"  (cost=1.32..1.87 rows=8 width=64)
+                                       ->  HashAggregate  (cost=1.32..1.65 rows=8 width=64)
+                                             Group Key: ((ctr2.ctr_state)::text)
+                                             ->  Redistribute Motion 3:3  (slice10; segments: 3)  (cost=0.55..0.99 rows=8 width=64)
+                                                   Hash Key: ((ctr2.ctr_state)::text)
+                                                   ->  HashAggregate  (cost=0.55..0.55 rows=8 width=64)
+                                                         Group Key: (ctr2.ctr_state)::text
+                                                         ->  Subquery Scan on ctr2  (cost=0.00..0.44 rows=8 width=44)
+                                                               ->  HashAggregate  (cost=1542923.72..1542923.99 rows=8 width=48)
+                                                                     Group Key: web_returns_1_prt_outliers_1.wr_returning_customer_sk, customer_address_2.ca_state
+                                                                     ->  Redistribute Motion 3:3  (slice9; segments: 3)  (cost=1542922.89..1542923.33 rows=8 width=48)
+                                                                           Hash Key: web_returns_1_prt_outliers_1.wr_returning_customer_sk, customer_address_2.ca_state
+                                                                           ->  HashAggregate  (cost=1542922.89..1542922.89 rows=8 width=48)
+                                                                                 Group Key: web_returns_1_prt_outliers_1.wr_returning_customer_sk, customer_address_2.ca_state
+                                                                                 ->  Hash Join  (cost=1434525.63..1542922.72 rows=8 width=13)
+                                                                                       Hash Cond: (customer_address_2.ca_address_sk = web_returns_1_prt_outliers_1.wr_returning_addr_sk)
+                                                                                       ->  Seq Scan on customer_address customer_address_2  (cost=0.00..85890.90 rows=2000530 width=7)
+                                                                                       ->  Hash  (cost=1434525.31..1434525.31 rows=9 width=14)
+                                                                                             ->  Redistribute Motion 3:3  (slice8; segments: 3)  (cost=1297.42..1434525.31 rows=9 width=14)
+                                                                                                   Hash Key: web_returns_1_prt_outliers_1.wr_returning_addr_sk
+                                                                                                   ->  Hash Join  (cost=1297.42..1434524.79 rows=9 width=14)
+                                                                                                         Hash Cond: (web_returns_1_prt_outliers_1.wr_returned_date_sk = date_dim_1.d_date_sk)
+                                                                                                         ->  Append  (cost=0.00..983242.45 rows=23999182 width=18)
+                                                                                                               ->  Result  (cost=0.00..38893.60 rows=1079754 width=18)
+                                                                                                                     One-Time Filter: PartSelected
+                                                                                                                     ->  Append-only Columnar Scan on web_returns_1_prt_outliers web_returns_1_prt_outliers_1  (cost=0.00..38893.60 rows=1079754 width=18)
+                                                                                                               ->  Result  (cost=0.00..51.87 rows=663 width=18)
+                                                                                                                     One-Time Filter: PartSelected
+                                                                                                                     ->  Append-only Columnar Scan on web_returns_1_prt_2 web_returns_1_prt_2_1  (cost=0.00..51.87 rows=663 width=18)
+                                                                                                               ->  Result  (cost=0.00..243.39 rows=5547 width=18)
+                                                                                                                     One-Time Filter: PartSelected
+                                                                                                                     ->  Append-only Columnar Scan on web_returns_1_prt_3 web_returns_1_prt_3_1  (cost=0.00..243.39 rows=5547 width=18)
+                                                                                                               ->  Result  (cost=0.00..672.62 rows=16021 width=18)
+                                                                                                                     One-Time Filter: PartSelected
+                                                                                                                     ->  Append-only Columnar Scan on web_returns_1_prt_4 web_returns_1_prt_4_1  (cost=0.00..672.62 rows=16021 width=18)
+                                                                                                               ->  Result  (cost=0.00..1337.96 rows=31999 width=18)
+                                                                                                                     One-Time Filter: PartSelected
+                                                                                                                     ->  Append-only Columnar Scan on web_returns_1_prt_5 web_returns_1_prt_5_1  (cost=0.00..1337.96 rows=31999 width=18)
+                                                                                                               ->  Result  (cost=0.00..2194.10 rows=52937 width=18)
+                                                                                                                     One-Time Filter: PartSelected
+                                                                                                                     ->  Append-only Columnar Scan on web_returns_1_prt_6 web_returns_1_prt_6_1  (cost=0.00..2194.10 rows=52937 width=18)
+                                                                                                               ->  Result  (cost=0.00..3165.94 rows=76598 width=18)
+                                                                                                                     One-Time Filter: PartSelected
+                                                                                                                     ->  Append-only Columnar Scan on web_returns_1_prt_7 web_returns_1_prt_7_1  (cost=0.00..3165.94 rows=76598 width=18)
+                                                                                                               ->  Result  (cost=0.00..4149.44 rows=100482 width=18)
+                                                                                                                     One-Time Filter: PartSelected
+                                                                                                                     ->  Append-only Columnar Scan on web_returns_1_prt_8 web_returns_1_prt_8_1  (cost=0.00..4149.44 rows=100482 width=18)
+                                                                                                               ->  Result  (cost=0.00..5123.76 rows=124092 width=18)
+                                                                                                                     One-Time Filter: PartSelected
+                                                                                                                     ->  Append-only Columnar Scan on web_returns_1_prt_9 web_returns_1_prt_9_1  (cost=0.00..5123.76 rows=124092 width=18)
+                                                                                                               ->  Result  (cost=0.00..6205.45 rows=150449 width=18)
+                                                                                                                     One-Time Filter: PartSelected
+                                                                                                                     ->  Append-only Columnar Scan on web_returns_1_prt_10 web_returns_1_prt_10_1  (cost=0.00..6205.45 rows=150449 width=18)
+                                                                                                               ->  Result  (cost=0.00..7467.74 rows=181092 width=18)
+                                                                                                                     One-Time Filter: PartSelected
+                                                                                                                     ->  Append-only Columnar Scan on web_returns_1_prt_11 web_returns_1_prt_11_1  (cost=0.00..7467.74 rows=181092 width=18)
+                                                                                                               ->  Result  (cost=0.00..8787.18 rows=213173 width=18)
+                                                                                                                     One-Time Filter: PartSelected
+                                                                                                                     ->  Append-only Columnar Scan on web_returns_1_prt_12 web_returns_1_prt_12_1  (cost=0.00..8787.18 rows=213173 width=18)
+                                                                                                               ->  Result  (cost=0.00..10246.69 rows=248690 width=18)
+                                                                                                                     One-Time Filter: PartSelected
+                                                                                                                     ->  Append-only Columnar Scan on web_returns_1_prt_13 web_returns_1_prt_13_1  (cost=0.00..10246.69 rows=248690 width=18)
+                                                                                                               ->  Result  (cost=0.00..11962.54 rows=290352 width=18)
+                                                                                                                     One-Time Filter: PartSelected
+                                                                                                                     ->  Append-only Columnar Scan on web_returns_1_prt_14 web_returns_1_prt_14_1  (cost=0.00..11962.54 rows=290352 width=18)
+                                                                                                               ->  Result  (cost=0.00..13706.59 rows=332753 width=18)
+                                                                                                                     One-Time Filter: PartSelected
+                                                                                                                     ->  Append-only Columnar Scan on web_returns_1_prt_15 web_returns_1_prt_15_1  (cost=0.00..13706.59 rows=332753 width=18)
+                                                                                                               ->  Result  (cost=0.00..15323.50 rows=371984 width=18)
+                                                                                                                     One-Time Filter: PartSelected
+                                                                                                                     ->  Append-only Columnar Scan on web_returns_1_prt_16 web_returns_1_prt_16_1  (cost=0.00..15323.50 rows=371984 width=18)
+                                                                                                               ->  Result  (cost=0.00..16613.80 rows=403427 width=18)
+                                                                                                                     One-Time Filter: PartSelected
+                                                                                                                     ->  Append-only Columnar Scan on web_returns_1_prt_17 web_returns_1_prt_17_1  (cost=0.00..16613.80 rows=403427 width=18)
+                                                                                                               ->  Result  (cost=0.00..17449.40 rows=423747 width=18)
+                                                                                                                     One-Time Filter: PartSelected
+                                                                                                                     ->  Append-only Columnar Scan on web_returns_1_prt_18 web_returns_1_prt_18_1  (cost=0.00..17449.40 rows=423747 width=18)
+                                                                                                               ->  Result  (cost=0.00..17450.10 rows=423704 width=18)
+                                                                                                                     One-Time Filter: PartSelected
+                                                                                                                     ->  Append-only Columnar Scan on web_returns_1_prt_19 web_returns_1_prt_19_1  (cost=0.00..17450.10 rows=423704 width=18)
+                                                                                                               ->  Result  (cost=0.00..16964.80 rows=411894 width=18)
+                                                                                                                     One-Time Filter: PartSelected
+                                                                                                                     ->  Append-only Columnar Scan on web_returns_1_prt_20 web_returns_1_prt_20_1  (cost=0.00..16964.80 rows=411894 width=18)
+                                                                                                               ->  Result  (cost=0.00..16132.20 rows=391674 width=18)
+                                                                                                                     One-Time Filter: PartSelected
+                                                                                                                     ->  Append-only Columnar Scan on web_returns_1_prt_21 web_returns_1_prt_21_1  (cost=0.00..16132.20 rows=391674 width=18)
+                                                                                                               ->  Result  (cost=0.00..14907.70 rows=361924 width=18)
+                                                                                                                     One-Time Filter: PartSelected
+                                                                                                                     ->  Append-only Columnar Scan on web_returns_1_prt_22 web_returns_1_prt_22_1  (cost=0.00..14907.70 rows=361924 width=18)
+                                                                                                               ->  Result  (cost=0.00..13378.79 rows=324693 width=18)
+                                                                                                                     One-Time Filter: PartSelected
+                                                                                                                     ->  Append-only Columnar Scan on web_returns_1_prt_23 web_returns_1_prt_23_1  (cost=0.00..13378.79 rows=324693 width=18)
+                                                                                                               ->  Result  (cost=0.00..12047.21 rows=292341 width=18)
+                                                                                                                     One-Time Filter: PartSelected
+                                                                                                                     ->  Append-only Columnar Scan on web_returns_1_prt_24 web_returns_1_prt_24_1  (cost=0.00..12047.21 rows=292341 width=18)
+                                                                                                               ->  Result  (cost=0.00..11228.09 rows=272470 width=18)
+                                                                                                                     One-Time Filter: PartSelected
+                                                                                                                     ->  Append-only Columnar Scan on web_returns_1_prt_25 web_returns_1_prt_25_1  (cost=0.00..11228.09 rows=272470 width=18)
+                                                                                                               ->  Result  (cost=0.00..11109.92 rows=269631 width=18)
+                                                                                                                     One-Time Filter: PartSelected
+                                                                                                                     ->  Append-only Columnar Scan on web_returns_1_prt_26 web_returns_1_prt_26_1  (cost=0.00..11109.92 rows=269631 width=18)
+                                                                                                               ->  Result  (cost=0.00..12030.70 rows=291957 width=18)
+                                                                                                                     One-Time Filter: PartSelected
+                                                                                                                     ->  Append-only Columnar Scan on web_returns_1_prt_27 web_returns_1_prt_27_1  (cost=0.00..12030.70 rows=291957 width=18)
+                                                                                                               ->  Result  (cost=0.00..13656.34 rows=331512 width=18)
+                                                                                                                     One-Time Filter: PartSelected
+                                                                                                                     ->  Append-only Columnar Scan on web_returns_1_prt_28 web_returns_1_prt_28_1  (cost=0.00..13656.34 rows=331512 width=18)
+                                                                                                               ->  Result  (cost=0.00..15310.30 rows=371677 width=18)
+                                                                                                                     One-Time Filter: PartSelected
+                                                                                                                     ->  Append-only Columnar Scan on web_returns_1_prt_29 web_returns_1_prt_29_1  (cost=0.00..15310.30 rows=371677 width=18)
+                                                                                                               ->  Result  (cost=0.00..16610.30 rows=403277 width=18)
+                                                                                                                     One-Time Filter: PartSelected
+                                                                                                                     ->  Append-only Columnar Scan on web_returns_1_prt_30 web_returns_1_prt_30_1  (cost=0.00..16610.30 rows=403277 width=18)
+                                                                                                               ->  Result  (cost=0.00..17417.80 rows=422960 width=18)
+                                                                                                                     One-Time Filter: PartSelected
+                                                                                                                     ->  Append-only Columnar Scan on web_returns_1_prt_31 web_returns_1_prt_31_1  (cost=0.00..17417.80 rows=422960 width=18)
+                                                                                                               ->  Result  (cost=0.00..17462.40 rows=423914 width=18)
+                                                                                                                     One-Time Filter: PartSelected
+                                                                                                                     ->  Append-only Columnar Scan on web_returns_1_prt_32 web_returns_1_prt_32_1  (cost=0.00..17462.40 rows=423914 width=18)
+                                                                                                               ->  Result  (cost=0.00..16977.10 rows=412204 width=18)
+                                                                                                                     One-Time Filter: PartSelected
+                                                                                                                     ->  Append-only Columnar Scan on web_returns_1_prt_33 web_returns_1_prt_33_1  (cost=0.00..16977.10 rows=412204 width=18)
+                                                                                                               ->  Result  (cost=0.00..16214.80 rows=393694 width=18)
+                                                                                                                     One-Time Filter: PartSelected
+                                                                                                                     ->  Append-only Columnar Scan on web_returns_1_prt_34 web_returns_1_prt_34_1  (cost=0.00..16214.80 rows=393694 width=18)
+                                                                                                               ->  Result  (cost=0.00..14996.10 rows=364070 width=18)
+                                                                                                                     One-Time Filter: PartSelected
+                                                                                                                     ->  Append-only Columnar Scan on web_returns_1_prt_35 web_returns_1_prt_35_1  (cost=0.00..14996.10 rows=364070 width=18)
+                                                                                                               ->  Result  (cost=0.00..13465.95 rows=326865 width=18)
+                                                                                                                     One-Time Filter: PartSelected
+                                                                                                                     ->  Append-only Columnar Scan on web_returns_1_prt_36 web_returns_1_prt_36_1  (cost=0.00..13465.95 rows=326865 width=18)
+                                                                                                               ->  Result  (cost=0.00..12069.06 rows=292936 width=18)
+                                                                                                                     One-Time Filter: PartSelected
+                                                                                                                     ->  Append-only Columnar Scan on web_returns_1_prt_37 web_returns_1_prt_37_1  (cost=0.00..12069.06 rows=292936 width=18)
+                                                                                                               ->  Result  (cost=0.00..11277.57 rows=273619 width=18)
+                                                                                                                     One-Time Filter: PartSelected
+                                                                                                                     ->  Append-only Columnar Scan on web_returns_1_prt_38 web_returns_1_prt_38_1  (cost=0.00..11277.57 rows=273619 width=18)
+                                                                                                               ->  Result  (cost=0.00..11095.59 rows=269287 width=18)
+                                                                                                                     One-Time Filter: PartSelected
+                                                                                                                     ->  Append-only Columnar Scan on web_returns_1_prt_39 web_returns_1_prt_39_1  (cost=0.00..11095.59 rows=269287 width=18)
+                                                                                                               ->  Result  (cost=0.00..11960.13 rows=290238 width=18)
+                                                                                                                     One-Time Filter: PartSelected
+                                                                                                                     ->  Append-only Columnar Scan on web_returns_1_prt_40 web_returns_1_prt_40_1  (cost=0.00..11960.13 rows=290238 width=18)
+                                                                                                               ->  Result  (cost=0.00..13588.95 rows=329865 width=18)
+                                                                                                                     One-Time Filter: PartSelected
+                                                                                                                     ->  Append-only Columnar Scan on web_returns_1_prt_41 web_returns_1_prt_41_1  (cost=0.00..13588.95 rows=329865 width=18)
+                                                                                                               ->  Result  (cost=0.00..15197.90 rows=368897 width=18)
+                                                                                                                     One-Time Filter: PartSelected
+                                                                                                                     ->  Append-only Columnar Scan on web_returns_1_prt_42 web_returns_1_prt_42_1  (cost=0.00..15197.90 rows=368897 width=18)
+                                                                                                               ->  Result  (cost=0.00..16516.40 rows=401014 width=18)
+                                                                                                                     One-Time Filter: PartSelected
+                                                                                                                     ->  Append-only Columnar Scan on web_returns_1_prt_43 web_returns_1_prt_43_1  (cost=0.00..16516.40 rows=401014 width=18)
+                                                                                                               ->  Result  (cost=0.00..17313.10 rows=420337 width=18)
+                                                                                                                     One-Time Filter: PartSelected
+                                                                                                                     ->  Append-only Columnar Scan on web_returns_1_prt_44 web_returns_1_prt_44_1  (cost=0.00..17313.10 rows=420337 width=18)
+                                                                                                               ->  Result  (cost=0.00..17436.40 rows=423380 width=18)
+                                                                                                                     One-Time Filter: PartSelected
+                                                                                                                     ->  Append-only Columnar Scan on web_returns_1_prt_45 web_returns_1_prt_45_1  (cost=0.00..17436.40 rows=423380 width=18)
+                                                                                                               ->  Result  (cost=0.00..16959.40 rows=411714 width=18)
+                                                                                                                     One-Time Filter: PartSelected
+                                                                                                                     ->  Append-only Columnar Scan on web_returns_1_prt_46 web_returns_1_prt_46_1  (cost=0.00..16959.40 rows=411714 width=18)
+                                                                                                               ->  Result  (cost=0.00..16178.70 rows=392790 width=18)
+                                                                                                                     One-Time Filter: PartSelected
+                                                                                                                     ->  Append-only Columnar Scan on web_returns_1_prt_47 web_returns_1_prt_47_1  (cost=0.00..16178.70 rows=392790 width=18)
+                                                                                                               ->  Result  (cost=0.00..14974.00 rows=363534 width=18)
+                                                                                                                     One-Time Filter: PartSelected
+                                                                                                                     ->  Append-only Columnar Scan on web_returns_1_prt_48 web_returns_1_prt_48_1  (cost=0.00..14974.00 rows=363534 width=18)
+                                                                                                               ->  Result  (cost=0.00..13451.19 rows=326507 width=18)
+                                                                                                                     One-Time Filter: PartSelected
+                                                                                                                     ->  Append-only Columnar Scan on web_returns_1_prt_49 web_returns_1_prt_49_1  (cost=0.00..13451.19 rows=326507 width=18)
+                                                                                                               ->  Result  (cost=0.00..12077.63 rows=293188 width=18)
+                                                                                                                     One-Time Filter: PartSelected
+                                                                                                                     ->  Append-only Columnar Scan on web_returns_1_prt_50 web_returns_1_prt_50_1  (cost=0.00..12077.63 rows=293188 width=18)
+                                                                                                               ->  Result  (cost=0.00..11199.36 rows=271779 width=18)
+                                                                                                                     One-Time Filter: PartSelected
+                                                                                                                     ->  Append-only Columnar Scan on web_returns_1_prt_51 web_returns_1_prt_51_1  (cost=0.00..11199.36 rows=271779 width=18)
+                                                                                                               ->  Result  (cost=0.00..11055.33 rows=268278 width=18)
+                                                                                                                     One-Time Filter: PartSelected
+                                                                                                                     ->  Append-only Columnar Scan on web_returns_1_prt_52 web_returns_1_prt_52_1  (cost=0.00..11055.33 rows=268278 width=18)
+                                                                                                               ->  Result  (cost=0.00..11851.16 rows=287672 width=18)
+                                                                                                                     One-Time Filter: PartSelected
+                                                                                                                     ->  Append-only Columnar Scan on web_returns_1_prt_53 web_returns_1_prt_53_1  (cost=0.00..11851.16 rows=287672 width=18)
+                                                                                                               ->  Result  (cost=0.00..13492.27 rows=327476 width=18)
+                                                                                                                     One-Time Filter: PartSelected
+                                                                                                                     ->  Append-only Columnar Scan on web_returns_1_prt_54 web_returns_1_prt_54_1  (cost=0.00..13492.27 rows=327476 width=18)
+                                                                                                               ->  Result  (cost=0.00..15119.10 rows=367037 width=18)
+                                                                                                                     One-Time Filter: PartSelected
+                                                                                                                     ->  Append-only Columnar Scan on web_returns_1_prt_55 web_returns_1_prt_55_1  (cost=0.00..15119.10 rows=367037 width=18)
+                                                                                                               ->  Result  (cost=0.00..16452.40 rows=399414 width=18)
+                                                                                                                     One-Time Filter: PartSelected
+                                                                                                                     ->  Append-only Columnar Scan on web_returns_1_prt_56 web_returns_1_prt_56_1  (cost=0.00..16452.40 rows=399414 width=18)
+                                                                                                               ->  Result  (cost=0.00..17332.10 rows=420837 width=18)
+                                                                                                                     One-Time Filter: PartSelected
+                                                                                                                     ->  Append-only Columnar Scan on web_returns_1_prt_57 web_returns_1_prt_57_1  (cost=0.00..17332.10 rows=420837 width=18)
+                                                                                                               ->  Result  (cost=0.00..17526.30 rows=425544 width=18)
+                                                                                                                     One-Time Filter: PartSelected
+                                                                                                                     ->  Append-only Columnar Scan on web_returns_1_prt_58 web_returns_1_prt_58_1  (cost=0.00..17526.30 rows=425544 width=18)
+                                                                                                               ->  Result  (cost=0.00..17030.00 rows=413467 width=18)
+                                                                                                                     One-Time Filter: PartSelected
+                                                                                                                     ->  Append-only Columnar Scan on web_returns_1_prt_59 web_returns_1_prt_59_1  (cost=0.00..17030.00 rows=413467 width=18)
+                                                                                                               ->  Result  (cost=0.00..16294.00 rows=395634 width=18)
+                                                                                                                     One-Time Filter: PartSelected
+                                                                                                                     ->  Append-only Columnar Scan on web_returns_1_prt_60 web_returns_1_prt_60_1  (cost=0.00..16294.00 rows=395634 width=18)
+                                                                                                               ->  Result  (cost=0.00..15121.60 rows=367087 width=18)
+                                                                                                                     One-Time Filter: PartSelected
+                                                                                                                     ->  Append-only Columnar Scan on web_returns_1_prt_61 web_returns_1_prt_61_1  (cost=0.00..15121.60 rows=367087 width=18)
+                                                                                                               ->  Result  (cost=0.00..13616.65 rows=330622 width=18)
+                                                                                                                     One-Time Filter: PartSelected
+                                                                                                                     ->  Append-only Columnar Scan on web_returns_1_prt_62 web_returns_1_prt_62_1  (cost=0.00..13616.65 rows=330622 width=18)
+                                                                                                               ->  Result  (cost=0.00..12209.64 rows=296355 width=18)
+                                                                                                                     One-Time Filter: PartSelected
+                                                                                                                     ->  Append-only Columnar Scan on web_returns_1_prt_63 web_returns_1_prt_63_1  (cost=0.00..12209.64 rows=296355 width=18)
+                                                                                                               ->  Result  (cost=0.00..11321.38 rows=274746 width=18)
+                                                                                                                     One-Time Filter: PartSelected
+                                                                                                                     ->  Append-only Columnar Scan on web_returns_1_prt_64 web_returns_1_prt_64_1  (cost=0.00..11321.38 rows=274746 width=18)
+                                                                                                               ->  Result  (cost=0.00..11070.08 rows=268603 width=18)
+                                                                                                                     One-Time Filter: PartSelected
+                                                                                                                     ->  Append-only Columnar Scan on web_returns_1_prt_65 web_returns_1_prt_65_1  (cost=0.00..11070.08 rows=268603 width=18)
+                                                                                                               ->  Result  (cost=0.00..11802.27 rows=286443 width=18)
+                                                                                                                     One-Time Filter: PartSelected
+                                                                                                                     ->  Append-only Columnar Scan on web_returns_1_prt_66 web_returns_1_prt_66_1  (cost=0.00..11802.27 rows=286443 width=18)
+                                                                                                               ->  Result  (cost=0.00..13397.43 rows=325215 width=18)
+                                                                                                                     One-Time Filter: PartSelected
+                                                                                                                     ->  Append-only Columnar Scan on web_returns_1_prt_67 web_returns_1_prt_67_1  (cost=0.00..13397.43 rows=325215 width=18)
+                                                                                                               ->  Result  (cost=0.00..14873.40 rows=361080 width=18)
+                                                                                                                     One-Time Filter: PartSelected
+                                                                                                                     ->  Append-only Columnar Scan on web_returns_1_prt_68 web_returns_1_prt_68_1  (cost=0.00..14873.40 rows=361080 width=18)
+                                                                                                               ->  Result  (cost=0.00..15860.80 rows=385127 width=18)
+                                                                                                                     One-Time Filter: PartSelected
+                                                                                                                     ->  Append-only Columnar Scan on web_returns_1_prt_69 web_returns_1_prt_69_1  (cost=0.00..15860.80 rows=385127 width=18)
+                                                                                                               ->  Result  (cost=0.00..16127.10 rows=391604 width=18)
+                                                                                                                     One-Time Filter: PartSelected
+                                                                                                                     ->  Append-only Columnar Scan on web_returns_1_prt_70 web_returns_1_prt_70_1  (cost=0.00..16127.10 rows=391604 width=18)
+                                                                                                               ->  Result  (cost=0.00..15525.80 rows=376927 width=18)
+                                                                                                                     One-Time Filter: PartSelected
+                                                                                                                     ->  Append-only Columnar Scan on web_returns_1_prt_71 web_returns_1_prt_71_1  (cost=0.00..15525.80 rows=376927 width=18)
+                                                                                                               ->  Result  (cost=0.00..14130.60 rows=342987 width=18)
+                                                                                                                     One-Time Filter: PartSelected
+                                                                                                                     ->  Append-only Columnar Scan on web_returns_1_prt_72 web_returns_1_prt_72_1  (cost=0.00..14130.60 rows=342987 width=18)
+                                                                                                               ->  Result  (cost=0.00..12407.21 rows=301141 width=18)
+                                                                                                                     One-Time Filter: PartSelected
+                                                                                                                     ->  Append-only Columnar Scan on web_returns_1_prt_73 web_returns_1_prt_73_1  (cost=0.00..12407.21 rows=301141 width=18)
+                                                                                                               ->  Result  (cost=0.00..10303.48 rows=250016 width=18)
+                                                                                                                     One-Time Filter: PartSelected
+                                                                                                                     ->  Append-only Columnar Scan on web_returns_1_prt_74 web_returns_1_prt_74_1  (cost=0.00..10303.48 rows=250016 width=18)
+                                                                                                               ->  Result  (cost=0.00..7747.34 rows=187845 width=18)
+                                                                                                                     One-Time Filter: PartSelected
+                                                                                                                     ->  Append-only Columnar Scan on web_returns_1_prt_75 web_returns_1_prt_75_1  (cost=0.00..7747.34 rows=187845 width=18)
+                                                                                                               ->  Result  (cost=0.00..5077.79 rows=123060 width=18)
+                                                                                                                     One-Time Filter: PartSelected
+                                                                                                                     ->  Append-only Columnar Scan on web_returns_1_prt_76 web_returns_1_prt_76_1  (cost=0.00..5077.79 rows=123060 width=18)
+                                                                                                               ->  Result  (cost=0.00..2838.35 rows=68612 width=18)
+                                                                                                                     One-Time Filter: PartSelected
+                                                                                                                     ->  Append-only Columnar Scan on web_returns_1_prt_77 web_returns_1_prt_77_1  (cost=0.00..2838.35 rows=68612 width=18)
+                                                                                                               ->  Result  (cost=0.00..1156.60 rows=27854 width=18)
+                                                                                                                     One-Time Filter: PartSelected
+                                                                                                                     ->  Append-only Columnar Scan on web_returns_1_prt_78 web_returns_1_prt_78_1  (cost=0.00..1156.60 rows=27854 width=18)
+                                                                                                               ->  Result  (cost=0.00..222.03 rows=5201 width=18)
+                                                                                                                     One-Time Filter: PartSelected
+                                                                                                                     ->  Append-only Columnar Scan on web_returns_1_prt_79 web_returns_1_prt_79_1  (cost=0.00..222.03 rows=5201 width=18)
+                                                                                                               ->  Result  (cost=0.00..28.69 rows=23 width=18)
+                                                                                                                     One-Time Filter: PartSelected
+                                                                                                                     ->  Append-only Columnar Scan on web_returns_1_prt_80 web_returns_1_prt_80_1  (cost=0.00..28.69 rows=23 width=18)
+                                                                                                         ->  Hash  (cost=1283.72..1283.72 rows=366 width=4)
+                                                                                                               ->  Partition Selector for web_returns (dynamic scan id: 1)  (cost=0.00..1283.72 rows=366 width=4)
+                                                                                                                     Filter: date_dim_1.d_date_sk
+                                                                                                                     ->  Broadcast Motion 3:3  (slice7; segments: 3)  (cost=0.00..1283.72 rows=366 width=4)
+                                                                                                                           ->  Seq Scan on date_dim date_dim_1  (cost=0.00..1269.11 rows=122 width=4)
+                                                                                                                                 Filter: (d_year = 2002)
+ Planning time: 33.712 ms
+ Optimizer: legacy query optimizer
+(558 rows)
+
+-- end query 1 in stream 0 using template query30.tpl

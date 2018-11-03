@@ -1,0 +1,150 @@
+-- start query 1 in stream 0 using template query44.tpl
+explain
+select  asceding.rnk, i1.i_product_name best_performing, i2.i_product_name worst_performing
+from(select *
+     from (select item_sk,rank() over (order by rank_col asc) rnk
+           from (select ss_item_sk item_sk,avg(ss_net_profit) rank_col 
+                 from store_sales ss1
+                 where ss_store_sk = 236
+                 group by ss_item_sk
+                 having avg(ss_net_profit) > 0.9*(select avg(ss_net_profit) rank_col
+                                                  from store_sales
+                                                  where ss_store_sk = 236
+                                                    and ss_hdemo_sk is null
+                                                  group by ss_store_sk))V1)V11
+     where rnk  < 11) asceding,
+    (select *
+     from (select item_sk,rank() over (order by rank_col desc) rnk
+           from (select ss_item_sk item_sk,avg(ss_net_profit) rank_col
+                 from store_sales ss1
+                 where ss_store_sk = 236
+                 group by ss_item_sk
+                 having avg(ss_net_profit) > 0.9*(select avg(ss_net_profit) rank_col
+                                                  from store_sales
+                                                  where ss_store_sk = 236
+                                                    and ss_hdemo_sk is null
+                                                  group by ss_store_sk))V2)V21
+     where rnk  < 11) descending,
+item i1,
+item i2
+where asceding.rnk = descending.rnk 
+  and i1.i_item_sk=asceding.item_sk
+  and i2.i_item_sk=descending.item_sk
+order by asceding.rnk
+limit 100;
+                                                                                                                                        QUERY PLAN                                                                                                                                         
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=0.00..633688233.15 rows=34 width=54)
+   ->  Gather Motion 3:1  (slice13; segments: 3)  (cost=0.00..633688233.15 rows=100 width=54)
+         Merge Key: (rank() OVER (?))
+         ->  Limit  (cost=0.00..633688233.13 rows=34 width=54)
+               ->  Sort  (cost=0.00..633688233.13 rows=15609 width=54)
+                     Sort Key: (rank() OVER (?))
+                     ->  Hash Join  (cost=0.00..633688166.55 rows=15609 width=54)
+                           Hash Cond: (item.i_item_sk = store_sales.ss_item_sk)
+                           ->  Table Scan on item  (cost=0.00..447.68 rows=99749 width=27)
+                           ->  Hash  (cost=633687677.98..633687677.98 rows=15609 width=35)
+                                 ->  Redistribute Motion 3:3  (slice12; segments: 3)  (cost=0.00..633687677.98 rows=15609 width=35)
+                                       Hash Key: store_sales.ss_item_sk
+                                       ->  Hash Join  (cost=0.00..633687676.27 rows=15609 width=35)
+                                             Hash Cond: (store_sales_2.ss_item_sk = item_1.i_item_sk)
+                                             ->  Redistribute Motion 1:3  (slice11)  (cost=0.00..633687147.69 rows=46827 width=16)
+                                                   Hash Key: store_sales_2.ss_item_sk
+                                                   ->  Hash Join  (cost=0.00..633687145.75 rows=15609 width=16)
+                                                         Hash Cond: ((rank() OVER (?)) = (rank() OVER (?)))
+                                                         ->  Result  (cost=0.00..316843558.60 rows=15609 width=12)
+                                                               Filter: ((rank() OVER (?)) < 11)
+                                                               ->  WindowAgg  (cost=0.00..316843554.75 rows=39022 width=12)
+                                                                     Order By: (pg_catalog.avg((avg(store_sales.ss_net_profit))))
+                                                                     ->  Gather Motion 3:1  (slice5; segments: 3)  (cost=0.00..316843553.35 rows=117066 width=12)
+                                                                           Merge Key: (pg_catalog.avg((avg(store_sales.ss_net_profit))))
+                                                                           ->  Sort  (cost=0.00..316843548.11 rows=39022 width=12)
+                                                                                 Sort Key: (pg_catalog.avg((avg(store_sales.ss_net_profit))))
+                                                                                 ->  Nested Loop  (cost=0.00..316843507.62 rows=39022 width=12)
+                                                                                       Join Filter: ((pg_catalog.avg((avg(store_sales.ss_net_profit)))) > (0.9 * (pg_catalog.avg((avg(store_sales_1.ss_net_profit))))))
+                                                                                       ->  Assert  (cost=0.00..170167.03 rows=1 width=8)
+                                                                                             Assert Cond: ((row_number() OVER (?)) = 1)
+                                                                                             ->  Broadcast Motion 1:3  (slice4)  (cost=0.00..170167.03 rows=3 width=16)
+                                                                                                   ->  Result  (cost=0.00..170167.03 rows=1 width=16)
+                                                                                                         ->  WindowAgg  (cost=0.00..170167.03 rows=1 width=16)
+                                                                                                               ->  Gather Motion 3:1  (slice3; segments: 3)  (cost=0.00..170167.03 rows=1 width=8)
+                                                                                                                     ->  Result  (cost=0.00..170167.03 rows=1 width=8)
+                                                                                                                           ->  GroupAggregate  (cost=0.00..170167.03 rows=1 width=8)
+                                                                                                                                 Group Key: store_sales_1.ss_store_sk
+                                                                                                                                 ->  Sort  (cost=0.00..170167.03 rows=1 width=12)
+                                                                                                                                       Sort Key: store_sales_1.ss_store_sk
+                                                                                                                                       ->  Redistribute Motion 3:3  (slice2; segments: 3)  (cost=0.00..170167.03 rows=1 width=12)
+                                                                                                                                             Hash Key: store_sales_1.ss_store_sk
+                                                                                                                                             ->  Result  (cost=0.00..170167.03 rows=1 width=12)
+                                                                                                                                                   ->  HashAggregate  (cost=0.00..170167.03 rows=1 width=12)
+                                                                                                                                                         Group Key: store_sales_1.ss_store_sk
+                                                                                                                                                         ->  Sequence  (cost=0.00..170148.81 rows=146098 width=14)
+                                                                                                                                                               ->  Partition Selector for store_sales (dynamic scan id: 2)  (cost=10.00..100.00 rows=34 width=4)
+                                                                                                                                                                     Partitions selected: 80 (out of 80)
+                                                                                                                                                               ->  Dynamic Table Scan on store_sales store_sales_1 (dynamic scan id: 2)  (cost=0.00..170148.81 rows=146098 width=14)
+                                                                                                                                                                     Filter: ((ss_store_sk = 236) AND (ss_hdemo_sk IS NULL))
+                                                                                       ->  HashAggregate  (cost=0.00..138809.88 rows=97555 width=12)
+                                                                                             Group Key: store_sales.ss_item_sk
+                                                                                             ->  Materialize  (cost=0.00..138797.39 rows=97555 width=12)
+                                                                                                   ->  Redistribute Motion 3:3  (slice1; segments: 3)  (cost=0.00..138796.22 rows=97555 width=12)
+                                                                                                         Hash Key: store_sales.ss_item_sk
+                                                                                                         ->  Result  (cost=0.00..138792.55 rows=97555 width=12)
+                                                                                                               ->  HashAggregate  (cost=0.00..138792.55 rows=97555 width=12)
+                                                                                                                     Group Key: store_sales.ss_item_sk
+                                                                                                                     ->  Sequence  (cost=0.00..138564.92 rows=1822658 width=14)
+                                                                                                                           ->  Partition Selector for store_sales (dynamic scan id: 1)  (cost=10.00..100.00 rows=34 width=4)
+                                                                                                                                 Partitions selected: 80 (out of 80)
+                                                                                                                           ->  Dynamic Table Scan on store_sales (dynamic scan id: 1)  (cost=0.00..138564.92 rows=1822658 width=14)
+                                                                                                                                 Filter: (ss_store_sk = 236)
+                                                         ->  Hash  (cost=316843558.60..316843558.60 rows=15609 width=12)
+                                                               ->  Result  (cost=0.00..316843558.60 rows=15609 width=12)
+                                                                     Filter: ((rank() OVER (?)) < 11)
+                                                                     ->  WindowAgg  (cost=0.00..316843554.75 rows=39022 width=12)
+                                                                           Order By: (pg_catalog.avg((avg(store_sales_2.ss_net_profit))))
+                                                                           ->  Gather Motion 3:1  (slice10; segments: 3)  (cost=0.00..316843553.35 rows=117066 width=12)
+                                                                                 Merge Key: (pg_catalog.avg((avg(store_sales_2.ss_net_profit))))
+                                                                                 ->  Sort  (cost=0.00..316843548.11 rows=39022 width=12)
+                                                                                       Sort Key: (pg_catalog.avg((avg(store_sales_2.ss_net_profit))))
+                                                                                       ->  Nested Loop  (cost=0.00..316843507.62 rows=39022 width=12)
+                                                                                             Join Filter: ((pg_catalog.avg((avg(store_sales_2.ss_net_profit)))) > (0.9 * (pg_catalog.avg((avg(store_sales_3.ss_net_profit))))))
+                                                                                             ->  Assert  (cost=0.00..170167.03 rows=1 width=8)
+                                                                                                   Assert Cond: ((row_number() OVER (?)) = 1)
+                                                                                                   ->  Broadcast Motion 1:3  (slice9)  (cost=0.00..170167.03 rows=3 width=16)
+                                                                                                         ->  Result  (cost=0.00..170167.03 rows=1 width=16)
+                                                                                                               ->  WindowAgg  (cost=0.00..170167.03 rows=1 width=16)
+                                                                                                                     ->  Gather Motion 3:1  (slice8; segments: 3)  (cost=0.00..170167.03 rows=1 width=8)
+                                                                                                                           ->  Result  (cost=0.00..170167.03 rows=1 width=8)
+                                                                                                                                 ->  GroupAggregate  (cost=0.00..170167.03 rows=1 width=8)
+                                                                                                                                       Group Key: store_sales_3.ss_store_sk
+                                                                                                                                       ->  Sort  (cost=0.00..170167.03 rows=1 width=12)
+                                                                                                                                             Sort Key: store_sales_3.ss_store_sk
+                                                                                                                                             ->  Redistribute Motion 3:3  (slice7; segments: 3)  (cost=0.00..170167.03 rows=1 width=12)
+                                                                                                                                                   Hash Key: store_sales_3.ss_store_sk
+                                                                                                                                                   ->  Result  (cost=0.00..170167.03 rows=1 width=12)
+                                                                                                                                                         ->  HashAggregate  (cost=0.00..170167.03 rows=1 width=12)
+                                                                                                                                                               Group Key: store_sales_3.ss_store_sk
+                                                                                                                                                               ->  Sequence  (cost=0.00..170148.81 rows=146098 width=14)
+                                                                                                                                                                     ->  Partition Selector for store_sales (dynamic scan id: 4)  (cost=10.00..100.00 rows=34 width=4)
+                                                                                                                                                                           Partitions selected: 80 (out of 80)
+                                                                                                                                                                     ->  Dynamic Table Scan on store_sales store_sales_3 (dynamic scan id: 4)  (cost=0.00..170148.81 rows=146098 width=14)
+                                                                                                                                                                           Filter: ((ss_store_sk = 236) AND (ss_hdemo_sk IS NULL))
+                                                                                             ->  HashAggregate  (cost=0.00..138809.88 rows=97555 width=12)
+                                                                                                   Group Key: store_sales_2.ss_item_sk
+                                                                                                   ->  Materialize  (cost=0.00..138797.39 rows=97555 width=12)
+                                                                                                         ->  Redistribute Motion 3:3  (slice6; segments: 3)  (cost=0.00..138796.22 rows=97555 width=12)
+                                                                                                               Hash Key: store_sales_2.ss_item_sk
+                                                                                                               ->  Result  (cost=0.00..138792.55 rows=97555 width=12)
+                                                                                                                     ->  HashAggregate  (cost=0.00..138792.55 rows=97555 width=12)
+                                                                                                                           Group Key: store_sales_2.ss_item_sk
+                                                                                                                           ->  Sequence  (cost=0.00..138564.92 rows=1822658 width=14)
+                                                                                                                                 ->  Partition Selector for store_sales (dynamic scan id: 3)  (cost=10.00..100.00 rows=34 width=4)
+                                                                                                                                       Partitions selected: 80 (out of 80)
+                                                                                                                                 ->  Dynamic Table Scan on store_sales store_sales_2 (dynamic scan id: 3)  (cost=0.00..138564.92 rows=1822658 width=14)
+                                                                                                                                       Filter: (ss_store_sk = 236)
+                                             ->  Hash  (cost=447.68..447.68 rows=99749 width=27)
+                                                   ->  Table Scan on item item_1  (cost=0.00..447.68 rows=99749 width=27)
+ Planning time: 444.427 ms
+ Optimizer: PQO version 3.8.0
+(111 rows)
+
+-- end query 1 in stream 0 using template query44.tpl

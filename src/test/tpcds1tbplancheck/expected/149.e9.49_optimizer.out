@@ -1,0 +1,267 @@
+-- start query 1 in stream 0 using template query49.tpl
+explain
+select  
+ 'web' as channel
+ ,web.item
+ ,web.return_ratio
+ ,web.return_rank
+ ,web.currency_rank
+ from (
+ 	select 
+ 	 item
+ 	,return_ratio
+ 	,currency_ratio
+ 	,rank() over (order by return_ratio) as return_rank
+ 	,rank() over (order by currency_ratio) as currency_rank
+ 	from
+ 	(	select ws.ws_item_sk as item
+ 		,(cast(sum(coalesce(wr.wr_return_quantity,0)) as dec(15,4))/
+ 		cast(sum(coalesce(ws.ws_quantity,0)) as dec(15,4) )) as return_ratio
+ 		,(cast(sum(coalesce(wr.wr_return_amt,0)) as dec(15,4))/
+ 		cast(sum(coalesce(ws.ws_net_paid,0)) as dec(15,4) )) as currency_ratio
+ 		from 
+ 		 web_sales ws left outer join web_returns wr 
+ 			on (ws.ws_order_number = wr.wr_order_number and 
+ 			ws.ws_item_sk = wr.wr_item_sk)
+                 ,date_dim
+ 		where 
+ 			wr.wr_return_amt > 10000 
+ 			and ws.ws_net_profit > 1
+                         and ws.ws_net_paid > 0
+                         and ws.ws_quantity > 0
+                         and ws_sold_date_sk = d_date_sk
+                         and d_year = 2000
+                         and d_moy = 12
+ 		group by ws.ws_item_sk
+ 	) in_web
+ ) web
+ where 
+ (
+ web.return_rank <= 10
+ or
+ web.currency_rank <= 10
+ )
+ union
+ select 
+ 'catalog' as channel
+ ,catalog.item
+ ,catalog.return_ratio
+ ,catalog.return_rank
+ ,catalog.currency_rank
+ from (
+ 	select 
+ 	 item
+ 	,return_ratio
+ 	,currency_ratio
+ 	,rank() over (order by return_ratio) as return_rank
+ 	,rank() over (order by currency_ratio) as currency_rank
+ 	from
+ 	(	select 
+ 		cs.cs_item_sk as item
+ 		,(cast(sum(coalesce(cr.cr_return_quantity,0)) as dec(15,4))/
+ 		cast(sum(coalesce(cs.cs_quantity,0)) as dec(15,4) )) as return_ratio
+ 		,(cast(sum(coalesce(cr.cr_return_amount,0)) as dec(15,4))/
+ 		cast(sum(coalesce(cs.cs_net_paid,0)) as dec(15,4) )) as currency_ratio
+ 		from 
+ 		catalog_sales cs left outer join catalog_returns cr
+ 			on (cs.cs_order_number = cr.cr_order_number and 
+ 			cs.cs_item_sk = cr.cr_item_sk)
+                ,date_dim
+ 		where 
+ 			cr.cr_return_amount > 10000 
+ 			and cs.cs_net_profit > 1
+                         and cs.cs_net_paid > 0
+                         and cs.cs_quantity > 0
+                         and cs_sold_date_sk = d_date_sk
+                         and d_year = 2000
+                         and d_moy = 12
+                 group by cs.cs_item_sk
+ 	) in_cat
+ ) catalog
+ where 
+ (
+ catalog.return_rank <= 10
+ or
+ catalog.currency_rank <=10
+ )
+ union
+ select 
+ 'store' as channel
+ ,store.item
+ ,store.return_ratio
+ ,store.return_rank
+ ,store.currency_rank
+ from (
+ 	select 
+ 	 item
+ 	,return_ratio
+ 	,currency_ratio
+ 	,rank() over (order by return_ratio) as return_rank
+ 	,rank() over (order by currency_ratio) as currency_rank
+ 	from
+ 	(	select sts.ss_item_sk as item
+ 		,(cast(sum(coalesce(sr.sr_return_quantity,0)) as dec(15,4))/cast(sum(coalesce(sts.ss_quantity,0)) as dec(15,4) )) as return_ratio
+ 		,(cast(sum(coalesce(sr.sr_return_amt,0)) as dec(15,4))/cast(sum(coalesce(sts.ss_net_paid,0)) as dec(15,4) )) as currency_ratio
+ 		from 
+ 		store_sales sts left outer join store_returns sr
+ 			on (sts.ss_ticket_number = sr.sr_ticket_number and sts.ss_item_sk = sr.sr_item_sk)
+                ,date_dim
+ 		where 
+ 			sr.sr_return_amt > 10000 
+ 			and sts.ss_net_profit > 1
+                         and sts.ss_net_paid > 0 
+                         and sts.ss_quantity > 0
+                         and ss_sold_date_sk = d_date_sk
+                         and d_year = 2000
+                         and d_moy = 12
+ 		group by sts.ss_item_sk
+ 	) in_store
+ ) store
+ where  (
+ store.return_rank <= 10
+ or 
+ store.currency_rank <= 10
+ )
+ order by 1,4,5
+ limit 100;
+                                                                                                                                                            QUERY PLAN                                                                                                                                                            
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=0.00..469989.24 rows=34 width=36)
+   ->  Gather Motion 3:1  (slice13; segments: 3)  (cost=0.00..469989.24 rows=100 width=36)
+         Merge Key: "outer".channel, (rank() OVER (?)), (rank() OVER (?))
+         ->  Limit  (cost=0.00..469989.22 rows=34 width=36)
+               ->  GroupAggregate  (cost=0.00..469989.22 rows=62321 width=36)
+                     Group Key: "outer".channel, web_sales.ws_item_sk, (("numeric"(((pg_catalog.sum((sum(COALESCE(web_returns.wr_return_quantity, 0))))))::numeric, 983048) / "numeric"(((pg_catalog.sum((sum(COALESCE(web_sales.ws_quantity, 0))))))::numeric, 983048))), (rank() OVER (?)), (rank() OVER (?))
+                     ->  Sort  (cost=0.00..469985.72 rows=62321 width=36)
+                           Sort Key: "outer".channel, (rank() OVER (?)), (rank() OVER (?)), web_sales.ws_item_sk, (("numeric"(((pg_catalog.sum((sum(COALESCE(web_returns.wr_return_quantity, 0))))))::numeric, 983048) / "numeric"(((pg_catalog.sum((sum(COALESCE(web_sales.ws_quantity, 0))))))::numeric, 983048)))
+                           ->  Redistribute Motion 3:3  (slice12; segments: 3)  (cost=0.00..469783.11 rows=62321 width=36)
+                                 Hash Key: "outer".channel, web_sales.ws_item_sk, (("numeric"(((pg_catalog.sum((sum(COALESCE(web_returns.wr_return_quantity, 0))))))::numeric, 983048) / "numeric"(((pg_catalog.sum((sum(COALESCE(web_sales.ws_quantity, 0))))))::numeric, 983048))), (rank() OVER (?)), (rank() OVER (?))
+                                 ->  HashAggregate  (cost=0.00..469776.09 rows=62321 width=36)
+                                       Group Key: "outer".channel, web_sales.ws_item_sk, (("numeric"(((pg_catalog.sum((sum(COALESCE(web_returns.wr_return_quantity, 0))))))::numeric, 983048) / "numeric"(((pg_catalog.sum((sum(COALESCE(web_sales.ws_quantity, 0))))))::numeric, 983048))), (rank() OVER (?)), (rank() OVER (?))
+                                       ->  Redistribute Motion 1:3  (slice11)  (cost=0.00..469736.18 rows=186961 width=36)
+                                             ->  Result  (cost=0.00..469718.70 rows=62321 width=36)
+                                                   ->  Append  (cost=0.00..469718.70 rows=62321 width=36)
+                                                         ->  Result  (cost=0.00..74768.07 rows=1092 width=36)
+                                                               ->  Result  (cost=0.00..74767.96 rows=1092 width=28)
+                                                                     Filter: (((rank() OVER (?)) <= 10) OR ((rank() OVER (?)) <= 10))
+                                                                     ->  WindowAgg  (cost=0.00..74767.61 rows=1746 width=28)
+                                                                           Order By: (("numeric"((pg_catalog.sum((sum(COALESCE(web_returns.wr_return_amt, 0::numeric))))), 983048) / "numeric"((pg_catalog.sum((sum(COALESCE(web_sales.ws_net_paid, 0::numeric))))), 983048)))
+                                                                           ->  Sort  (cost=0.00..74767.46 rows=1746 width=28)
+                                                                                 Sort Key: (("numeric"((pg_catalog.sum((sum(COALESCE(web_returns.wr_return_amt, 0::numeric))))), 983048) / "numeric"((pg_catalog.sum((sum(COALESCE(web_sales.ws_net_paid, 0::numeric))))), 983048)))
+                                                                                 ->  WindowAgg  (cost=0.00..74757.19 rows=1746 width=28)
+                                                                                       Order By: (("numeric"(((pg_catalog.sum((sum(COALESCE(web_returns.wr_return_quantity, 0))))))::numeric, 983048) / "numeric"(((pg_catalog.sum((sum(COALESCE(web_sales.ws_quantity, 0))))))::numeric, 983048)))
+                                                                                       ->  Gather Motion 3:1  (slice4; segments: 3)  (cost=0.00..74757.09 rows=5236 width=20)
+                                                                                             Merge Key: (("numeric"(((pg_catalog.sum((sum(COALESCE(web_returns.wr_return_quantity, 0))))))::numeric, 983048) / "numeric"(((pg_catalog.sum((sum(COALESCE(web_sales.ws_quantity, 0))))))::numeric, 983048)))
+                                                                                             ->  Result  (cost=0.00..74756.70 rows=1746 width=20)
+                                                                                                   ->  Sort  (cost=0.00..74756.70 rows=1746 width=20)
+                                                                                                         Sort Key: (("numeric"(((pg_catalog.sum((sum(COALESCE(web_returns.wr_return_quantity, 0))))))::numeric, 983048) / "numeric"(((pg_catalog.sum((sum(COALESCE(web_sales.ws_quantity, 0))))))::numeric, 983048)))
+                                                                                                         ->  Result  (cost=0.00..74754.57 rows=1746 width=20)
+                                                                                                               ->  HashAggregate  (cost=0.00..74754.53 rows=1746 width=36)
+                                                                                                                     Group Key: web_sales.ws_item_sk
+                                                                                                                     ->  Redistribute Motion 3:3  (slice3; segments: 3)  (cost=0.00..74754.28 rows=1746 width=36)
+                                                                                                                           Hash Key: web_sales.ws_item_sk
+                                                                                                                           ->  Result  (cost=0.00..74754.08 rows=1746 width=36)
+                                                                                                                                 ->  HashAggregate  (cost=0.00..74754.08 rows=1746 width=36)
+                                                                                                                                       Group Key: web_sales.ws_item_sk
+                                                                                                                                       ->  Hash Join  (cost=0.00..74753.83 rows=1746 width=23)
+                                                                                                                                             Hash Cond: ((web_sales.ws_order_number = web_returns.wr_order_number) AND (web_sales.ws_item_sk = web_returns.wr_item_sk))
+                                                                                                                                             ->  Redistribute Motion 3:3  (slice2; segments: 3)  (cost=0.00..69424.64 rows=2881601 width=17)
+                                                                                                                                                   Hash Key: web_sales.ws_order_number, web_sales.ws_item_sk
+                                                                                                                                                   ->  Hash Join  (cost=0.00..69271.31 rows=2881601 width=17)
+                                                                                                                                                         Hash Cond: (web_sales.ws_sold_date_sk = date_dim.d_date_sk)
+                                                                                                                                                         ->  Dynamic Table Scan on web_sales (dynamic scan id: 1)  (cost=0.00..51004.35 rows=94651520 width=26)
+                                                                                                                                                               Filter: ((ws_net_profit > 1::numeric) AND (ws_net_paid > 0::numeric) AND (ws_quantity > 0))
+                                                                                                                                                         ->  Hash  (cost=100.00..100.00 rows=34 width=4)
+                                                                                                                                                               ->  Partition Selector for web_sales (dynamic scan id: 1)  (cost=10.00..100.00 rows=34 width=4)
+                                                                                                                                                                     ->  Broadcast Motion 3:3  (slice1; segments: 3)  (cost=0.00..434.56 rows=56 width=4)
+                                                                                                                                                                           ->  Table Scan on date_dim  (cost=0.00..434.56 rows=19 width=4)
+                                                                                                                                                                                 Filter: ((d_year = 2000) AND (d_moy = 12))
+                                                                                                                                             ->  Hash  (cost=4145.59..4145.59 rows=249731 width=18)
+                                                                                                                                                   ->  Sequence  (cost=0.00..4145.59 rows=249731 width=18)
+                                                                                                                                                         ->  Partition Selector for web_returns (dynamic scan id: 2)  (cost=10.00..100.00 rows=34 width=4)
+                                                                                                                                                               Partitions selected: 80 (out of 80)
+                                                                                                                                                         ->  Dynamic Table Scan on web_returns (dynamic scan id: 2)  (cost=0.00..4145.59 rows=249731 width=18)
+                                                                                                                                                               Filter: (wr_return_amt > 10000::numeric)
+                                                         ->  Result  (cost=0.00..151412.45 rows=1686 width=36)
+                                                               ->  Result  (cost=0.00..151412.27 rows=1686 width=28)
+                                                                     Filter: (((rank() OVER (?)) <= 10) OR ((rank() OVER (?)) <= 10))
+                                                                     ->  WindowAgg  (cost=0.00..151411.74 rows=2696 width=28)
+                                                                           Order By: (("numeric"((pg_catalog.sum((sum(COALESCE(catalog_returns.cr_return_amount, 0::numeric))))), 983048) / "numeric"((pg_catalog.sum((sum(COALESCE(catalog_sales.cs_net_paid, 0::numeric))))), 983048)))
+                                                                           ->  Sort  (cost=0.00..151411.51 rows=2696 width=28)
+                                                                                 Sort Key: (("numeric"((pg_catalog.sum((sum(COALESCE(catalog_returns.cr_return_amount, 0::numeric))))), 983048) / "numeric"((pg_catalog.sum((sum(COALESCE(catalog_sales.cs_net_paid, 0::numeric))))), 983048)))
+                                                                                 ->  WindowAgg  (cost=0.00..151394.84 rows=2696 width=28)
+                                                                                       Order By: (("numeric"(((pg_catalog.sum((sum(COALESCE(catalog_returns.cr_return_quantity, 0))))))::numeric, 983048) / "numeric"(((pg_catalog.sum((sum(COALESCE(catalog_sales.cs_quantity, 0))))))::numeric, 983048)))
+                                                                                       ->  Gather Motion 3:1  (slice7; segments: 3)  (cost=0.00..151394.68 rows=8088 width=20)
+                                                                                             Merge Key: (("numeric"(((pg_catalog.sum((sum(COALESCE(catalog_returns.cr_return_quantity, 0))))))::numeric, 983048) / "numeric"(((pg_catalog.sum((sum(COALESCE(catalog_sales.cs_quantity, 0))))))::numeric, 983048)))
+                                                                                             ->  Result  (cost=0.00..151394.08 rows=2696 width=20)
+                                                                                                   ->  Sort  (cost=0.00..151394.08 rows=2696 width=20)
+                                                                                                         Sort Key: (("numeric"(((pg_catalog.sum((sum(COALESCE(catalog_returns.cr_return_quantity, 0))))))::numeric, 983048) / "numeric"(((pg_catalog.sum((sum(COALESCE(catalog_sales.cs_quantity, 0))))))::numeric, 983048)))
+                                                                                                         ->  Result  (cost=0.00..151390.60 rows=2696 width=20)
+                                                                                                               ->  HashAggregate  (cost=0.00..151390.54 rows=2696 width=36)
+                                                                                                                     Group Key: catalog_sales.cs_item_sk
+                                                                                                                     ->  Redistribute Motion 3:3  (slice6; segments: 3)  (cost=0.00..151390.15 rows=2696 width=36)
+                                                                                                                           Hash Key: catalog_sales.cs_item_sk
+                                                                                                                           ->  Result  (cost=0.00..151389.85 rows=2696 width=36)
+                                                                                                                                 ->  HashAggregate  (cost=0.00..151389.85 rows=2696 width=36)
+                                                                                                                                       Group Key: catalog_sales.cs_item_sk
+                                                                                                                                       ->  Hash Join  (cost=0.00..151389.46 rows=2696 width=22)
+                                                                                                                                             Hash Cond: ((catalog_sales.cs_order_number = catalog_returns.cr_order_number) AND (catalog_sales.cs_item_sk = catalog_returns.cr_item_sk))
+                                                                                                                                             ->  Hash Join  (cost=0.00..140538.17 rows=5698885 width=21)
+                                                                                                                                                   Hash Cond: (catalog_sales.cs_sold_date_sk = date_dim_1.d_date_sk)
+                                                                                                                                                   ->  Dynamic Table Scan on catalog_sales (dynamic scan id: 3)  (cost=0.00..104009.12 rows=188734894 width=30)
+                                                                                                                                                         Filter: ((cs_net_profit > 1::numeric) AND (cs_net_paid > 0::numeric) AND (cs_quantity > 0))
+                                                                                                                                                   ->  Hash  (cost=100.00..100.00 rows=34 width=4)
+                                                                                                                                                         ->  Partition Selector for catalog_sales (dynamic scan id: 3)  (cost=10.00..100.00 rows=34 width=4)
+                                                                                                                                                               ->  Broadcast Motion 3:3  (slice5; segments: 3)  (cost=0.00..434.56 rows=56 width=4)
+                                                                                                                                                                     ->  Table Scan on date_dim date_dim_1  (cost=0.00..434.56 rows=19 width=4)
+                                                                                                                                                                           Filter: ((d_year = 2000) AND (d_moy = 12))
+                                                                                                                                             ->  Hash  (cost=8456.91..8456.91 rows=502964 width=21)
+                                                                                                                                                   ->  Sequence  (cost=0.00..8456.91 rows=502964 width=21)
+                                                                                                                                                         ->  Partition Selector for catalog_returns (dynamic scan id: 4)  (cost=10.00..100.00 rows=34 width=4)
+                                                                                                                                                               Partitions selected: 80 (out of 80)
+                                                                                                                                                         ->  Dynamic Table Scan on catalog_returns (dynamic scan id: 4)  (cost=0.00..8456.91 rows=502964 width=21)
+                                                                                                                                                               Filter: (cr_return_amount > 10000::numeric)
+                                                         ->  Result  (cost=0.00..243531.45 rows=59544 width=36)
+                                                               ->  Result  (cost=0.00..243525.02 rows=59544 width=28)
+                                                                     Filter: (((rank() OVER (?)) <= 10) OR ((rank() OVER (?)) <= 10))
+                                                                     ->  WindowAgg  (cost=0.00..243506.21 rows=95270 width=28)
+                                                                           Order By: (("numeric"((pg_catalog.sum((sum(COALESCE(store_returns.sr_return_amt, 0::numeric))))), 983048) / "numeric"((pg_catalog.sum((sum(COALESCE(store_sales.ss_net_paid, 0::numeric))))), 983048)))
+                                                                           ->  Sort  (cost=0.00..243498.21 rows=95270 width=28)
+                                                                                 Sort Key: (("numeric"((pg_catalog.sum((sum(COALESCE(store_returns.sr_return_amt, 0::numeric))))), 983048) / "numeric"((pg_catalog.sum((sum(COALESCE(store_sales.ss_net_paid, 0::numeric))))), 983048)))
+                                                                                 ->  WindowAgg  (cost=0.00..242675.80 rows=95270 width=28)
+                                                                                       Order By: (("numeric"(((pg_catalog.sum((sum(COALESCE(store_returns.sr_return_quantity, 0))))))::numeric, 983048) / "numeric"(((pg_catalog.sum((sum(COALESCE(store_sales.ss_quantity, 0))))))::numeric, 983048)))
+                                                                                       ->  Gather Motion 3:1  (slice10; segments: 3)  (cost=0.00..242670.08 rows=285809 width=20)
+                                                                                             Merge Key: (("numeric"(((pg_catalog.sum((sum(COALESCE(store_returns.sr_return_quantity, 0))))))::numeric, 983048) / "numeric"(((pg_catalog.sum((sum(COALESCE(store_sales.ss_quantity, 0))))))::numeric, 983048)))
+                                                                                             ->  Result  (cost=0.00..242648.78 rows=95270 width=20)
+                                                                                                   ->  Sort  (cost=0.00..242648.78 rows=95270 width=20)
+                                                                                                         Sort Key: (("numeric"(((pg_catalog.sum((sum(COALESCE(store_returns.sr_return_quantity, 0))))))::numeric, 983048) / "numeric"(((pg_catalog.sum((sum(COALESCE(store_sales.ss_quantity, 0))))))::numeric, 983048)))
+                                                                                                         ->  Result  (cost=0.00..242470.09 rows=95270 width=20)
+                                                                                                               ->  HashAggregate  (cost=0.00..242468.19 rows=95270 width=36)
+                                                                                                                     Group Key: store_sales.ss_item_sk
+                                                                                                                     ->  Redistribute Motion 3:3  (slice9; segments: 3)  (cost=0.00..242454.45 rows=95270 width=36)
+                                                                                                                           Hash Key: store_sales.ss_item_sk
+                                                                                                                           ->  Result  (cost=0.00..242443.71 rows=95270 width=36)
+                                                                                                                                 ->  HashAggregate  (cost=0.00..242443.71 rows=95270 width=36)
+                                                                                                                                       Group Key: store_sales.ss_item_sk
+                                                                                                                                       ->  Hash Join  (cost=0.00..242409.29 rows=249458 width=23)
+                                                                                                                                             Hash Cond: ((store_sales.ss_ticket_number = store_returns.sr_ticket_number) AND (store_sales.ss_item_sk = store_returns.sr_item_sk))
+                                                                                                                                             ->  Hash Join  (cost=0.00..224285.14 rows=7326438 width=22)
+                                                                                                                                                   Hash Cond: (store_sales.ss_sold_date_sk = date_dim_2.d_date_sk)
+                                                                                                                                                   ->  Dynamic Table Scan on store_sales (dynamic scan id: 5)  (cost=0.00..177625.83 rows=240782809 width=32)
+                                                                                                                                                         Filter: ((ss_net_profit > 1::numeric) AND (ss_net_paid > 0::numeric) AND (ss_quantity > 0))
+                                                                                                                                                   ->  Hash  (cost=100.00..100.00 rows=34 width=4)
+                                                                                                                                                         ->  Partition Selector for store_sales (dynamic scan id: 5)  (cost=10.00..100.00 rows=34 width=4)
+                                                                                                                                                               ->  Broadcast Motion 3:3  (slice8; segments: 3)  (cost=0.00..434.56 rows=56 width=4)
+                                                                                                                                                                     ->  Table Scan on date_dim date_dim_2  (cost=0.00..434.56 rows=19 width=4)
+                                                                                                                                                                           Filter: ((d_year = 2000) AND (d_moy = 12))
+                                                                                                                                             ->  Hash  (cost=15004.76..15004.76 rows=671606 width=21)
+                                                                                                                                                   ->  Sequence  (cost=0.00..15004.76 rows=671606 width=21)
+                                                                                                                                                         ->  Partition Selector for store_returns (dynamic scan id: 6)  (cost=10.00..100.00 rows=34 width=4)
+                                                                                                                                                               Partitions selected: 80 (out of 80)
+                                                                                                                                                         ->  Dynamic Table Scan on store_returns (dynamic scan id: 6)  (cost=0.00..15004.76 rows=671606 width=21)
+                                                                                                                                                               Filter: (sr_return_amt > 10000::numeric)
+ Planning time: 1201.557 ms
+ Optimizer: PQO version 3.8.0
+(136 rows)
+
+-- end query 1 in stream 0 using template query49.tpl

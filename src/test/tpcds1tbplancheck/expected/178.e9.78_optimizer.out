@@ -1,0 +1,165 @@
+-- start query 1 in stream 0 using template query78.tpl
+explain
+with ws as
+  (select d_year AS ws_sold_year, ws_item_sk,
+    ws_bill_customer_sk ws_customer_sk,
+    sum(ws_quantity) ws_qty,
+    sum(ws_wholesale_cost) ws_wc,
+    sum(ws_sales_price) ws_sp
+   from web_sales
+   left join web_returns on wr_order_number=ws_order_number and ws_item_sk=wr_item_sk
+   join date_dim on ws_sold_date_sk = d_date_sk
+   where wr_order_number is null
+   group by d_year, ws_item_sk, ws_bill_customer_sk
+   ),
+cs as
+  (select d_year AS cs_sold_year, cs_item_sk,
+    cs_bill_customer_sk cs_customer_sk,
+    sum(cs_quantity) cs_qty,
+    sum(cs_wholesale_cost) cs_wc,
+    sum(cs_sales_price) cs_sp
+   from catalog_sales
+   left join catalog_returns on cr_order_number=cs_order_number and cs_item_sk=cr_item_sk
+   join date_dim on cs_sold_date_sk = d_date_sk
+   where cr_order_number is null
+   group by d_year, cs_item_sk, cs_bill_customer_sk
+   ),
+ss as
+  (select d_year AS ss_sold_year, ss_item_sk,
+    ss_customer_sk,
+    sum(ss_quantity) ss_qty,
+    sum(ss_wholesale_cost) ss_wc,
+    sum(ss_sales_price) ss_sp
+   from store_sales
+   left join store_returns on sr_ticket_number=ss_ticket_number and ss_item_sk=sr_item_sk
+   join date_dim on ss_sold_date_sk = d_date_sk
+   where sr_ticket_number is null
+   group by d_year, ss_item_sk, ss_customer_sk
+   )
+ select 
+ss_sold_year, ss_item_sk, ss_customer_sk,
+round(ss_qty/(coalesce(ws_qty+cs_qty,1)),2) ratio,
+ss_qty store_qty, ss_wc store_wholesale_cost, ss_sp store_sales_price,
+coalesce(ws_qty,0)+coalesce(cs_qty,0) other_chan_qty,
+coalesce(ws_wc,0)+coalesce(cs_wc,0) other_chan_wholesale_cost,
+coalesce(ws_sp,0)+coalesce(cs_sp,0) other_chan_sales_price
+from ss
+left join ws on (ws_sold_year=ss_sold_year and ws_item_sk=ss_item_sk and ws_customer_sk=ss_customer_sk)
+left join cs on (cs_sold_year=ss_sold_year and cs_item_sk=cs_item_sk and cs_customer_sk=ss_customer_sk)
+where coalesce(ws_qty,0)>0 and coalesce(cs_qty, 0)>0 and ss_sold_year=2000
+order by 
+  ss_sold_year, ss_item_sk, ss_customer_sk,
+  ss_qty desc, ss_wc desc, ss_sp desc,
+  other_chan_qty,
+  other_chan_wholesale_cost,
+  other_chan_sales_price,
+  round(ss_qty/(coalesce(ws_qty+cs_qty,1)),2)
+limit 100;
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                          QUERY PLAN                                                                                                                                                                                                                                                                                                                                                                                                                                                                           
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Sort  (cost=0.00..7106010.29 rows=34 width=68)
+   Sort Key: date_dim.d_year, store_sales.ss_item_sk, store_sales.ss_customer_sk, (pg_catalog.sum((sum(store_sales.ss_quantity)))), (pg_catalog.sum((sum(store_sales.ss_wholesale_cost)))), (pg_catalog.sum((sum(store_sales.ss_sales_price)))), ((COALESCE((pg_catalog.sum((sum(web_sales.ws_quantity)))), 0::bigint) + COALESCE((pg_catalog.sum((sum(catalog_sales.cs_quantity)))), 0::bigint))), ((COALESCE((pg_catalog.sum((sum(web_sales.ws_wholesale_cost)))), 0::numeric) + COALESCE((pg_catalog.sum((sum(catalog_sales.cs_wholesale_cost)))), 0::numeric))), ((COALESCE((pg_catalog.sum((sum(web_sales.ws_sales_price)))), 0::numeric) + COALESCE((pg_catalog.sum((sum(catalog_sales.cs_sales_price)))), 0::numeric))), (round((((pg_catalog.sum((sum(store_sales.ss_quantity)))) / COALESCE(((pg_catalog.sum((sum(web_sales.ws_quantity)))) + (pg_catalog.sum((sum(catalog_sales.cs_quantity))))), 1::bigint)))::numeric, 2))
+   ->  Limit  (cost=0.00..7106010.03 rows=34 width=68)
+         ->  Gather Motion 3:1  (slice10; segments: 3)  (cost=0.00..7106010.03 rows=100 width=68)
+               Merge Key: date_dim.d_year, store_sales.ss_item_sk, store_sales.ss_customer_sk, (pg_catalog.sum((sum(store_sales.ss_quantity)))), (pg_catalog.sum((sum(store_sales.ss_wholesale_cost)))), (pg_catalog.sum((sum(store_sales.ss_sales_price)))), ((COALESCE((pg_catalog.sum((sum(web_sales.ws_quantity)))), 0::bigint) + COALESCE((pg_catalog.sum((sum(catalog_sales.cs_quantity)))), 0::bigint))), ((COALESCE((pg_catalog.sum((sum(web_sales.ws_wholesale_cost)))), 0::numeric) + COALESCE((pg_catalog.sum((sum(catalog_sales.cs_wholesale_cost)))), 0::numeric))), ((COALESCE((pg_catalog.sum((sum(web_sales.ws_sales_price)))), 0::numeric) + COALESCE((pg_catalog.sum((sum(catalog_sales.cs_sales_price)))), 0::numeric))), (round((((pg_catalog.sum((sum(store_sales.ss_quantity)))) / COALESCE(((pg_catalog.sum((sum(web_sales.ws_quantity)))) + (pg_catalog.sum((sum(catalog_sales.cs_quantity))))), 1::bigint)))::numeric, 2))
+               ->  Limit  (cost=0.00..7106010.00 rows=34 width=68)
+                     ->  Sort  (cost=0.00..7106010.00 rows=317711999 width=68)
+                           Sort Key: date_dim.d_year, store_sales.ss_item_sk, store_sales.ss_customer_sk, (pg_catalog.sum((sum(store_sales.ss_quantity)))), (pg_catalog.sum((sum(store_sales.ss_wholesale_cost)))), (pg_catalog.sum((sum(store_sales.ss_sales_price)))), ((COALESCE((pg_catalog.sum((sum(web_sales.ws_quantity)))), 0::bigint) + COALESCE((pg_catalog.sum((sum(catalog_sales.cs_quantity)))), 0::bigint))), ((COALESCE((pg_catalog.sum((sum(web_sales.ws_wholesale_cost)))), 0::numeric) + COALESCE((pg_catalog.sum((sum(catalog_sales.cs_wholesale_cost)))), 0::numeric))), ((COALESCE((pg_catalog.sum((sum(web_sales.ws_sales_price)))), 0::numeric) + COALESCE((pg_catalog.sum((sum(catalog_sales.cs_sales_price)))), 0::numeric))), (round((((pg_catalog.sum((sum(store_sales.ss_quantity)))) / COALESCE(((pg_catalog.sum((sum(web_sales.ws_quantity)))) + (pg_catalog.sum((sum(catalog_sales.cs_quantity))))), 1::bigint)))::numeric, 2))
+                           ->  Result  (cost=0.00..3646308.48 rows=317711999 width=68)
+                                 ->  Result  (cost=0.00..3624704.06 rows=317711999 width=84)
+                                       Filter: (COALESCE((pg_catalog.sum((sum(catalog_sales.cs_quantity)))), 0::bigint) > 0)
+                                       ->  Hash Left Join  (cost=0.00..3598572.25 rows=794279996 width=84)
+                                             Hash Cond: ((date_dim.d_year = date_dim_2.d_year) AND (store_sales.ss_customer_sk = catalog_sales.cs_bill_customer_sk))
+                                             ->  Redistribute Motion 3:3  (slice6; segments: 3)  (cost=0.00..2484742.98 rows=74388222 width=60)
+                                                   Hash Key: date_dim.d_year, store_sales.ss_customer_sk
+                                                   ->  Result  (cost=0.00..2470772.88 rows=74388222 width=60)
+                                                         Filter: (COALESCE((pg_catalog.sum((sum(web_sales.ws_quantity)))), 0::bigint) > 0)
+                                                         ->  Hash Left Join  (cost=0.00..2464654.45 rows=185970555 width=60)
+                                                               Hash Cond: ((date_dim.d_year = date_dim_1.d_year) AND (store_sales.ss_item_sk = web_sales.ws_item_sk) AND (store_sales.ss_customer_sk = web_sales.ws_bill_customer_sk))
+                                                               ->  HashAggregate  (cost=0.00..1566837.83 rows=185970555 width=36)
+                                                                     Group Key: date_dim.d_year, store_sales.ss_item_sk, store_sales.ss_customer_sk
+                                                                     ->  Redistribute Motion 3:3  (slice2; segments: 3)  (cost=0.00..1493883.07 rows=185970555 width=36)
+                                                                           Hash Key: date_dim.d_year, store_sales.ss_item_sk, store_sales.ss_customer_sk
+                                                                           ->  Result  (cost=0.00..1472927.91 rows=185970555 width=36)
+                                                                                 ->  HashAggregate  (cost=0.00..1472927.91 rows=185970555 width=36)
+                                                                                       Group Key: date_dim.d_year, store_sales.ss_item_sk, store_sales.ss_customer_sk
+                                                                                       ->  Hash Join  (cost=0.00..1399973.15 rows=185970555 width=28)
+                                                                                             Hash Cond: (store_sales.ss_sold_date_sk = date_dim.d_date_sk)
+                                                                                             ->  Result  (cost=0.00..1204551.95 rows=926174046 width=28)
+                                                                                                   Filter: (store_returns.sr_ticket_number IS NULL)
+                                                                                                   ->  Hash Left Join  (cost=0.00..1172968.06 rows=959996672 width=36)
+                                                                                                         Hash Cond: ((store_sales.ss_ticket_number = store_returns.sr_ticket_number) AND (store_sales.ss_item_sk = store_returns.sr_item_sk))
+                                                                                                         ->  Dynamic Table Scan on store_sales (dynamic scan id: 5)  (cost=0.00..68542.76 rows=959996672 width=36)
+                                                                                                         ->  Hash  (cost=6080.60..6080.60 rows=96000000 width=12)
+                                                                                                               ->  Sequence  (cost=0.00..6080.60 rows=96000000 width=12)
+                                                                                                                     ->  Partition Selector for store_returns (dynamic scan id: 6)  (cost=10.00..100.00 rows=34 width=4)
+                                                                                                                           Partitions selected: 80 (out of 80)
+                                                                                                                     ->  Dynamic Table Scan on store_returns (dynamic scan id: 6)  (cost=0.00..6080.60 rows=96000000 width=12)
+                                                                                             ->  Hash  (cost=100.00..100.00 rows=34 width=4)
+                                                                                                   ->  Partition Selector for store_sales (dynamic scan id: 5)  (cost=10.00..100.00 rows=34 width=4)
+                                                                                                         ->  Broadcast Motion 3:3  (slice1; segments: 3)  (cost=0.00..433.81 rows=366 width=8)
+                                                                                                               ->  Table Scan on date_dim  (cost=0.00..433.76 rows=122 width=8)
+                                                                                                                     Filter: (d_year = 2000)
+                                                               ->  Hash  (cost=562236.41..562236.41 rows=45408069 width=36)
+                                                                     ->  HashAggregate  (cost=0.00..562236.41 rows=45408069 width=36)
+                                                                           Group Key: date_dim_1.d_year, web_sales.ws_item_sk, web_sales.ws_bill_customer_sk
+                                                                           ->  Redistribute Motion 3:3  (slice5; segments: 3)  (cost=0.00..544423.18 rows=45408069 width=36)
+                                                                                 Hash Key: date_dim_1.d_year, web_sales.ws_item_sk, web_sales.ws_bill_customer_sk
+                                                                                 ->  Result  (cost=0.00..539306.60 rows=45408069 width=36)
+                                                                                       ->  HashAggregate  (cost=0.00..539306.60 rows=45408069 width=36)
+                                                                                             Group Key: date_dim_1.d_year, web_sales.ws_item_sk, web_sales.ws_bill_customer_sk
+                                                                                             ->  Hash Join  (cost=0.00..521493.38 rows=45408069 width=26)
+                                                                                                   Hash Cond: (date_dim_1.d_date_sk = web_sales.ws_sold_date_sk)
+                                                                                                   ->  Table Scan on date_dim date_dim_1  (cost=0.00..433.76 rows=122 width=8)
+                                                                                                         Filter: (d_year = 2000)
+                                                                                                   ->  Hash  (cost=341037.63..341037.63 rows=226017793 width=26)
+                                                                                                         ->  Redistribute Motion 3:3  (slice4; segments: 3)  (cost=0.00..341037.63 rows=226017793 width=26)
+                                                                                                               Hash Key: web_sales.ws_sold_date_sk
+                                                                                                               ->  Result  (cost=0.00..322644.30 rows=226017793 width=26)
+                                                                                                                     Filter: (web_returns.wr_order_number IS NULL)
+                                                                                                                     ->  Hash Left Join  (cost=0.00..314748.30 rows=240000000 width=30)
+                                                                                                                           Hash Cond: ((web_sales.ws_order_number = web_returns.wr_order_number) AND (web_sales.ws_item_sk = web_returns.wr_item_sk))
+                                                                                                                           ->  Redistribute Motion 3:3  (slice3; segments: 3)  (cost=0.00..65867.00 rows=240000000 width=30)
+                                                                                                                                 Hash Key: web_sales.ws_order_number, web_sales.ws_item_sk
+                                                                                                                                 ->  Sequence  (cost=0.00..22739.00 rows=240000000 width=30)
+                                                                                                                                       ->  Partition Selector for web_sales (dynamic scan id: 1)  (cost=10.00..100.00 rows=34 width=4)
+                                                                                                                                             Partitions selected: 80 (out of 80)
+                                                                                                                                       ->  Dynamic Table Scan on web_sales (dynamic scan id: 1)  (cost=0.00..22739.00 rows=240000000 width=30)
+                                                                                                                           ->  Hash  (cost=2120.54..2120.54 rows=23999168 width=8)
+                                                                                                                                 ->  Sequence  (cost=0.00..2120.54 rows=23999168 width=8)
+                                                                                                                                       ->  Partition Selector for web_returns (dynamic scan id: 2)  (cost=10.00..100.00 rows=34 width=4)
+                                                                                                                                             Partitions selected: 80 (out of 80)
+                                                                                                                                       ->  Dynamic Table Scan on web_returns (dynamic scan id: 2)  (cost=0.00..2120.54 rows=23999168 width=8)
+                                             ->  Hash  (cost=740509.50..740509.50 rows=65207022 width=32)
+                                                   ->  Redistribute Motion 3:3  (slice9; segments: 3)  (cost=0.00..740509.50 rows=65207022 width=32)
+                                                         Hash Key: date_dim_2.d_year, catalog_sales.cs_bill_customer_sk
+                                                         ->  Result  (cost=0.00..733978.37 rows=65207022 width=32)
+                                                               ->  HashAggregate  (cost=0.00..733978.37 rows=65207022 width=32)
+                                                                     Group Key: date_dim_2.d_year, catalog_sales.cs_item_sk, catalog_sales.cs_bill_customer_sk
+                                                                     ->  Redistribute Motion 3:3  (slice8; segments: 3)  (cost=0.00..708632.13 rows=65207022 width=36)
+                                                                           Hash Key: date_dim_2.d_year, catalog_sales.cs_item_sk, catalog_sales.cs_bill_customer_sk
+                                                                           ->  Result  (cost=0.00..701284.61 rows=65207022 width=36)
+                                                                                 ->  HashAggregate  (cost=0.00..701284.61 rows=65207022 width=36)
+                                                                                       Group Key: date_dim_2.d_year, catalog_sales.cs_item_sk, catalog_sales.cs_bill_customer_sk
+                                                                                       ->  Hash Join  (cost=0.00..675704.41 rows=65207022 width=26)
+                                                                                             Hash Cond: (catalog_sales.cs_sold_date_sk = date_dim_2.d_date_sk)
+                                                                                             ->  Result  (cost=0.00..607279.95 rows=327244646 width=26)
+                                                                                                   Filter: (catalog_returns.cr_order_number IS NULL)
+                                                                                                   ->  Hash Left Join  (cost=0.00..591488.17 rows=479993344 width=34)
+                                                                                                         Hash Cond: ((catalog_sales.cs_order_number = catalog_returns.cr_order_number) AND (catalog_sales.cs_item_sk = catalog_returns.cr_item_sk))
+                                                                                                         ->  Dynamic Table Scan on catalog_sales (dynamic scan id: 3)  (cost=0.00..46102.37 rows=479993344 width=34)
+                                                                                                         ->  Hash  (cost=3994.93..3994.93 rows=47998998 width=12)
+                                                                                                               ->  Sequence  (cost=0.00..3994.93 rows=47998998 width=12)
+                                                                                                                     ->  Partition Selector for catalog_returns (dynamic scan id: 4)  (cost=10.00..100.00 rows=34 width=4)
+                                                                                                                           Partitions selected: 80 (out of 80)
+                                                                                                                     ->  Dynamic Table Scan on catalog_returns (dynamic scan id: 4)  (cost=0.00..3994.93 rows=47998998 width=12)
+                                                                                             ->  Hash  (cost=100.00..100.00 rows=34 width=4)
+                                                                                                   ->  Partition Selector for catalog_sales (dynamic scan id: 3)  (cost=10.00..100.00 rows=34 width=4)
+                                                                                                         ->  Broadcast Motion 3:3  (slice7; segments: 3)  (cost=0.00..433.81 rows=366 width=8)
+                                                                                                               ->  Table Scan on date_dim date_dim_2  (cost=0.00..433.76 rows=122 width=8)
+                                                                                                                     Filter: (d_year = 2000)
+ Planning time: 928.008 ms
+ Optimizer: PQO version 3.8.0
+(103 rows)
+
+-- end query 1 in stream 0 using template query78.tpl

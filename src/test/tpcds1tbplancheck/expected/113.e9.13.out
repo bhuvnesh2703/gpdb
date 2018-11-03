@@ -1,0 +1,418 @@
+-- start query 1 in stream 0 using template query13.tpl
+explain
+select avg(ss_quantity)
+       ,avg(ss_ext_sales_price)
+       ,avg(ss_ext_wholesale_cost)
+       ,sum(ss_ext_wholesale_cost)
+ from store_sales
+     ,store
+     ,customer_demographics
+     ,household_demographics
+     ,customer_address
+     ,date_dim
+ where s_store_sk = ss_store_sk
+ and  ss_sold_date_sk = d_date_sk and d_year = 2001
+ and((ss_hdemo_sk=hd_demo_sk
+  and cd_demo_sk = ss_cdemo_sk
+  and cd_marital_status = 'M'
+  and cd_education_status = '4 yr Degree'
+  and ss_sales_price between 100.00 and 150.00
+  and hd_dep_count = 3   
+     )or
+     (ss_hdemo_sk=hd_demo_sk
+  and cd_demo_sk = ss_cdemo_sk
+  and cd_marital_status = 'D'
+  and cd_education_status = 'Primary'
+  and ss_sales_price between 50.00 and 100.00   
+  and hd_dep_count = 1
+     ) or 
+     (ss_hdemo_sk=hd_demo_sk
+  and cd_demo_sk = ss_cdemo_sk
+  and cd_marital_status = 'U'
+  and cd_education_status = 'Advanced Degree'
+  and ss_sales_price between 150.00 and 200.00 
+  and hd_dep_count = 1  
+     ))
+ and((ss_addr_sk = ca_address_sk
+  and ca_country = 'United States'
+  and ca_state in ('KY', 'GA', 'NM')
+  and ss_net_profit between 100 and 200  
+     ) or
+     (ss_addr_sk = ca_address_sk
+  and ca_country = 'United States'
+  and ca_state in ('MT', 'OR', 'IN')
+  and ss_net_profit between 150 and 300  
+     ) or
+     (ss_addr_sk = ca_address_sk
+  and ca_country = 'United States'
+  and ca_state in ('WI', 'MO', 'WV')
+  and ss_net_profit between 50 and 250  
+     ))
+;
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    QUERY PLAN                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Aggregate  (cost=127328416.12..127328416.13 rows=1 width=128)
+   ->  Gather Motion 3:1  (slice6; segments: 3)  (cost=127328416.04..127328416.09 rows=1 width=128)
+         ->  Aggregate  (cost=127328416.04..127328416.05 rows=1 width=128)
+               ->  Hash Join  (cost=240325.89..127328414.20 rows=62 width=16)
+                     Hash Cond: (store_sales_1_prt_outliers.ss_store_sk = store.s_store_sk)
+                     ->  Redistribute Motion 3:3  (slice5; segments: 3)  (cost=240271.34..127328357.11 rows=63 width=20)
+                           Hash Key: store_sales_1_prt_outliers.ss_store_sk
+                           ->  Hash Join  (cost=240271.34..127328353.36 rows=63 width=20)
+                                 Hash Cond: (store_sales_1_prt_outliers.ss_cdemo_sk = customer_demographics.cd_demo_sk)
+                                 Join Filter: (((customer_demographics.cd_marital_status = 'M'::bpchar) AND ((customer_demographics.cd_education_status)::text = '4 yr Degree'::text) AND (store_sales_1_prt_outliers.ss_sales_price >= 100.00) AND (store_sales_1_prt_outliers.ss_sales_price <= 150.00) AND (household_demographics.hd_dep_count = 3)) OR ((customer_demographics.cd_marital_status = 'D'::bpchar) AND ((customer_demographics.cd_education_status)::text = 'Primary'::text) AND (store_sales_1_prt_outliers.ss_sales_price >= 50.00) AND (store_sales_1_prt_outliers.ss_sales_price <= 100.00) AND (household_demographics.hd_dep_count = 1)) OR ((customer_demographics.cd_marital_status = 'U'::bpchar) AND ((customer_demographics.cd_education_status)::text = 'Advanced Degree'::text) AND (store_sales_1_prt_outliers.ss_sales_price >= 150.00) AND (store_sales_1_prt_outliers.ss_sales_price <= 200.00) AND (household_demographics.hd_dep_count = 1)))
+                                 ->  Redistribute Motion 3:3  (slice4; segments: 3)  (cost=185839.12..127273796.55 rows=6013 width=34)
+                                       Hash Key: store_sales_1_prt_outliers.ss_cdemo_sk
+                                       ->  Hash Join  (cost=185839.12..127273435.80 rows=6013 width=34)
+                                             Hash Cond: (store_sales_1_prt_outliers.ss_addr_sk = customer_address.ca_address_sk)
+                                             Join Filter: ((((customer_address.ca_state)::text = ANY ('{KY,GA,NM}'::text[])) AND (store_sales_1_prt_outliers.ss_net_profit >= 100::numeric) AND (store_sales_1_prt_outliers.ss_net_profit <= 200::numeric)) OR (((customer_address.ca_state)::text = ANY ('{MT,OR,IN}'::text[])) AND (store_sales_1_prt_outliers.ss_net_profit >= 150::numeric) AND (store_sales_1_prt_outliers.ss_net_profit <= 300::numeric)) OR (((customer_address.ca_state)::text = ANY ('{WI,MO,WV}'::text[])) AND (store_sales_1_prt_outliers.ss_net_profit >= 50::numeric) AND (store_sales_1_prt_outliers.ss_net_profit <= 250::numeric)))
+                                             ->  Redistribute Motion 3:3  (slice3; segments: 3)  (cost=1606.64..127086734.68 rows=80394 width=44)
+                                                   Hash Key: store_sales_1_prt_outliers.ss_addr_sk
+                                                   ->  Hash Join  (cost=1606.64..127081911.06 rows=80394 width=44)
+                                                         Hash Cond: (store_sales_1_prt_outliers.ss_hdemo_sk = household_demographics.hd_demo_sk)
+                                                         ->  Hash Join  (cost=1297.42..127073496.05 rows=303680 width=44)
+                                                               Hash Cond: (store_sales_1_prt_outliers.ss_sold_date_sk = date_dim.d_date_sk)
+                                                               ->  Append  (cost=0.00..125924290.84 rows=60735862 width=48)
+                                                                     ->  Result  (cost=0.00..5456645.00 rows=1068843 width=48)
+                                                                           One-Time Filter: PartSelected
+                                                                           ->  Append-only Columnar Scan on store_sales_1_prt_outliers  (cost=0.00..5456645.00 rows=1068843 width=48)
+                                                                                 Filter: ((((ss_sales_price >= 100.00) AND (ss_sales_price <= 150.00)) OR ((ss_sales_price >= 50.00) AND (ss_sales_price <= 100.00)) OR ((ss_sales_price >= 150.00) AND (ss_sales_price <= 200.00))) AND (((ss_net_profit >= 100::numeric) AND (ss_net_profit <= 200::numeric)) OR ((ss_net_profit >= 150::numeric) AND (ss_net_profit <= 300::numeric)) OR ((ss_net_profit >= 50::numeric) AND (ss_net_profit <= 250::numeric))))
+                                                                     ->  Result  (cost=0.00..1030207.00 rows=499710 width=48)
+                                                                           One-Time Filter: PartSelected
+                                                                           ->  Append-only Columnar Scan on store_sales_1_prt_2  (cost=0.00..1030207.00 rows=499710 width=48)
+                                                                                 Filter: ((((ss_sales_price >= 100.00) AND (ss_sales_price <= 150.00)) OR ((ss_sales_price >= 50.00) AND (ss_sales_price <= 100.00)) OR ((ss_sales_price >= 150.00) AND (ss_sales_price <= 200.00))) AND (((ss_net_profit >= 100::numeric) AND (ss_net_profit <= 200::numeric)) OR ((ss_net_profit >= 150::numeric) AND (ss_net_profit <= 300::numeric)) OR ((ss_net_profit >= 50::numeric) AND (ss_net_profit <= 250::numeric))))
+                                                                     ->  Result  (cost=0.00..1067083.00 rows=540443 width=48)
+                                                                           One-Time Filter: PartSelected
+                                                                           ->  Append-only Columnar Scan on store_sales_1_prt_3  (cost=0.00..1067083.00 rows=540443 width=48)
+                                                                                 Filter: ((((ss_sales_price >= 100.00) AND (ss_sales_price <= 150.00)) OR ((ss_sales_price >= 50.00) AND (ss_sales_price <= 100.00)) OR ((ss_sales_price >= 150.00) AND (ss_sales_price <= 200.00))) AND (((ss_net_profit >= 100::numeric) AND (ss_net_profit <= 200::numeric)) OR ((ss_net_profit >= 150::numeric) AND (ss_net_profit <= 300::numeric)) OR ((ss_net_profit >= 50::numeric) AND (ss_net_profit <= 250::numeric))))
+                                                                     ->  Result  (cost=0.00..1029529.00 rows=503065 width=48)
+                                                                           One-Time Filter: PartSelected
+                                                                           ->  Append-only Columnar Scan on store_sales_1_prt_4  (cost=0.00..1029529.00 rows=503065 width=48)
+                                                                                 Filter: ((((ss_sales_price >= 100.00) AND (ss_sales_price <= 150.00)) OR ((ss_sales_price >= 50.00) AND (ss_sales_price <= 100.00)) OR ((ss_sales_price >= 150.00) AND (ss_sales_price <= 200.00))) AND (((ss_net_profit >= 100::numeric) AND (ss_net_profit <= 200::numeric)) OR ((ss_net_profit >= 150::numeric) AND (ss_net_profit <= 300::numeric)) OR ((ss_net_profit >= 50::numeric) AND (ss_net_profit <= 250::numeric))))
+                                                                     ->  Result  (cost=0.00..1067607.00 rows=556332 width=48)
+                                                                           One-Time Filter: PartSelected
+                                                                           ->  Append-only Columnar Scan on store_sales_1_prt_5  (cost=0.00..1067607.00 rows=556332 width=48)
+                                                                                 Filter: ((((ss_sales_price >= 100.00) AND (ss_sales_price <= 150.00)) OR ((ss_sales_price >= 50.00) AND (ss_sales_price <= 100.00)) OR ((ss_sales_price >= 150.00) AND (ss_sales_price <= 200.00))) AND (((ss_net_profit >= 100::numeric) AND (ss_net_profit <= 200::numeric)) OR ((ss_net_profit >= 150::numeric) AND (ss_net_profit <= 300::numeric)) OR ((ss_net_profit >= 50::numeric) AND (ss_net_profit <= 250::numeric))))
+                                                                     ->  Result  (cost=0.00..1067739.00 rows=528221 width=48)
+                                                                           One-Time Filter: PartSelected
+                                                                           ->  Append-only Columnar Scan on store_sales_1_prt_6  (cost=0.00..1067739.00 rows=528221 width=48)
+                                                                                 Filter: ((((ss_sales_price >= 100.00) AND (ss_sales_price <= 150.00)) OR ((ss_sales_price >= 50.00) AND (ss_sales_price <= 100.00)) OR ((ss_sales_price >= 150.00) AND (ss_sales_price <= 200.00))) AND (((ss_net_profit >= 100::numeric) AND (ss_net_profit <= 200::numeric)) OR ((ss_net_profit >= 150::numeric) AND (ss_net_profit <= 300::numeric)) OR ((ss_net_profit >= 50::numeric) AND (ss_net_profit <= 250::numeric))))
+                                                                     ->  Result  (cost=0.00..1067844.00 rows=536686 width=48)
+                                                                           One-Time Filter: PartSelected
+                                                                           ->  Append-only Columnar Scan on store_sales_1_prt_7  (cost=0.00..1067844.00 rows=536686 width=48)
+                                                                                 Filter: ((((ss_sales_price >= 100.00) AND (ss_sales_price <= 150.00)) OR ((ss_sales_price >= 50.00) AND (ss_sales_price <= 100.00)) OR ((ss_sales_price >= 150.00) AND (ss_sales_price <= 200.00))) AND (((ss_net_profit >= 100::numeric) AND (ss_net_profit <= 200::numeric)) OR ((ss_net_profit >= 150::numeric) AND (ss_net_profit <= 300::numeric)) OR ((ss_net_profit >= 50::numeric) AND (ss_net_profit <= 250::numeric))))
+                                                                     ->  Result  (cost=0.00..1066585.00 rows=524551 width=48)
+                                                                           One-Time Filter: PartSelected
+                                                                           ->  Append-only Columnar Scan on store_sales_1_prt_8  (cost=0.00..1066585.00 rows=524551 width=48)
+                                                                                 Filter: ((((ss_sales_price >= 100.00) AND (ss_sales_price <= 150.00)) OR ((ss_sales_price >= 50.00) AND (ss_sales_price <= 100.00)) OR ((ss_sales_price >= 150.00) AND (ss_sales_price <= 200.00))) AND (((ss_net_profit >= 100::numeric) AND (ss_net_profit <= 200::numeric)) OR ((ss_net_profit >= 150::numeric) AND (ss_net_profit <= 300::numeric)) OR ((ss_net_profit >= 50::numeric) AND (ss_net_profit <= 250::numeric))))
+                                                                     ->  Result  (cost=0.00..1554372.00 rows=745467 width=48)
+                                                                           One-Time Filter: PartSelected
+                                                                           ->  Append-only Columnar Scan on store_sales_1_prt_9  (cost=0.00..1554372.00 rows=745467 width=48)
+                                                                                 Filter: ((((ss_sales_price >= 100.00) AND (ss_sales_price <= 150.00)) OR ((ss_sales_price >= 50.00) AND (ss_sales_price <= 100.00)) OR ((ss_sales_price >= 150.00) AND (ss_sales_price <= 200.00))) AND (((ss_net_profit >= 100::numeric) AND (ss_net_profit <= 200::numeric)) OR ((ss_net_profit >= 150::numeric) AND (ss_net_profit <= 300::numeric)) OR ((ss_net_profit >= 50::numeric) AND (ss_net_profit <= 250::numeric))))
+                                                                     ->  Result  (cost=0.00..2429532.00 rows=1188202 width=48)
+                                                                           One-Time Filter: PartSelected
+                                                                           ->  Append-only Columnar Scan on store_sales_1_prt_10  (cost=0.00..2429532.00 rows=1188202 width=48)
+                                                                                 Filter: ((((ss_sales_price >= 100.00) AND (ss_sales_price <= 150.00)) OR ((ss_sales_price >= 50.00) AND (ss_sales_price <= 100.00)) OR ((ss_sales_price >= 150.00) AND (ss_sales_price <= 200.00))) AND (((ss_net_profit >= 100::numeric) AND (ss_net_profit <= 200::numeric)) OR ((ss_net_profit >= 150::numeric) AND (ss_net_profit <= 300::numeric)) OR ((ss_net_profit >= 50::numeric) AND (ss_net_profit <= 250::numeric))))
+                                                                     ->  Result  (cost=0.00..2432079.00 rows=1212891 width=48)
+                                                                           One-Time Filter: PartSelected
+                                                                           ->  Append-only Columnar Scan on store_sales_1_prt_11  (cost=0.00..2432079.00 rows=1212891 width=48)
+                                                                                 Filter: ((((ss_sales_price >= 100.00) AND (ss_sales_price <= 150.00)) OR ((ss_sales_price >= 50.00) AND (ss_sales_price <= 100.00)) OR ((ss_sales_price >= 150.00) AND (ss_sales_price <= 200.00))) AND (((ss_net_profit >= 100::numeric) AND (ss_net_profit <= 200::numeric)) OR ((ss_net_profit >= 150::numeric) AND (ss_net_profit <= 300::numeric)) OR ((ss_net_profit >= 50::numeric) AND (ss_net_profit <= 250::numeric))))
+                                                                     ->  Result  (cost=0.00..2519960.00 rows=1235399 width=48)
+                                                                           One-Time Filter: PartSelected
+                                                                           ->  Append-only Columnar Scan on store_sales_1_prt_12  (cost=0.00..2519960.00 rows=1235399 width=48)
+                                                                                 Filter: ((((ss_sales_price >= 100.00) AND (ss_sales_price <= 150.00)) OR ((ss_sales_price >= 50.00) AND (ss_sales_price <= 100.00)) OR ((ss_sales_price >= 150.00) AND (ss_sales_price <= 200.00))) AND (((ss_net_profit >= 100::numeric) AND (ss_net_profit <= 200::numeric)) OR ((ss_net_profit >= 150::numeric) AND (ss_net_profit <= 300::numeric)) OR ((ss_net_profit >= 50::numeric) AND (ss_net_profit <= 250::numeric))))
+                                                                     ->  Result  (cost=0.00..3681134.00 rows=1758338 width=48)
+                                                                           One-Time Filter: PartSelected
+                                                                           ->  Append-only Columnar Scan on store_sales_1_prt_13  (cost=0.00..3681134.00 rows=1758338 width=48)
+                                                                                 Filter: ((((ss_sales_price >= 100.00) AND (ss_sales_price <= 150.00)) OR ((ss_sales_price >= 50.00) AND (ss_sales_price <= 100.00)) OR ((ss_sales_price >= 150.00) AND (ss_sales_price <= 200.00))) AND (((ss_net_profit >= 100::numeric) AND (ss_net_profit <= 200::numeric)) OR ((ss_net_profit >= 150::numeric) AND (ss_net_profit <= 300::numeric)) OR ((ss_net_profit >= 50::numeric) AND (ss_net_profit <= 250::numeric))))
+                                                                     ->  Result  (cost=0.00..3684113.00 rows=1793168 width=48)
+                                                                           One-Time Filter: PartSelected
+                                                                           ->  Append-only Columnar Scan on store_sales_1_prt_14  (cost=0.00..3684113.00 rows=1793168 width=48)
+                                                                                 Filter: ((((ss_sales_price >= 100.00) AND (ss_sales_price <= 150.00)) OR ((ss_sales_price >= 50.00) AND (ss_sales_price <= 100.00)) OR ((ss_sales_price >= 150.00) AND (ss_sales_price <= 200.00))) AND (((ss_net_profit >= 100::numeric) AND (ss_net_profit <= 200::numeric)) OR ((ss_net_profit >= 150::numeric) AND (ss_net_profit <= 300::numeric)) OR ((ss_net_profit >= 50::numeric) AND (ss_net_profit <= 250::numeric))))
+                                                                     ->  Result  (cost=0.00..1386063.00 rows=665976 width=48)
+                                                                           One-Time Filter: PartSelected
+                                                                           ->  Append-only Columnar Scan on store_sales_1_prt_15  (cost=0.00..1386063.00 rows=665976 width=48)
+                                                                                 Filter: ((((ss_sales_price >= 100.00) AND (ss_sales_price <= 150.00)) OR ((ss_sales_price >= 50.00) AND (ss_sales_price <= 100.00)) OR ((ss_sales_price >= 150.00) AND (ss_sales_price <= 200.00))) AND (((ss_net_profit >= 100::numeric) AND (ss_net_profit <= 200::numeric)) OR ((ss_net_profit >= 150::numeric) AND (ss_net_profit <= 300::numeric)) OR ((ss_net_profit >= 50::numeric) AND (ss_net_profit <= 250::numeric))))
+                                                                     ->  Result  (cost=0.00..1067919.00 rows=518997 width=48)
+                                                                           One-Time Filter: PartSelected
+                                                                           ->  Append-only Columnar Scan on store_sales_1_prt_16  (cost=0.00..1067919.00 rows=518997 width=48)
+                                                                                 Filter: ((((ss_sales_price >= 100.00) AND (ss_sales_price <= 150.00)) OR ((ss_sales_price >= 50.00) AND (ss_sales_price <= 100.00)) OR ((ss_sales_price >= 150.00) AND (ss_sales_price <= 200.00))) AND (((ss_net_profit >= 100::numeric) AND (ss_net_profit <= 200::numeric)) OR ((ss_net_profit >= 150::numeric) AND (ss_net_profit <= 300::numeric)) OR ((ss_net_profit >= 50::numeric) AND (ss_net_profit <= 250::numeric))))
+                                                                     ->  Result  (cost=0.00..1030561.00 rows=502782 width=48)
+                                                                           One-Time Filter: PartSelected
+                                                                           ->  Append-only Columnar Scan on store_sales_1_prt_17  (cost=0.00..1030561.00 rows=502782 width=48)
+                                                                                 Filter: ((((ss_sales_price >= 100.00) AND (ss_sales_price <= 150.00)) OR ((ss_sales_price >= 50.00) AND (ss_sales_price <= 100.00)) OR ((ss_sales_price >= 150.00) AND (ss_sales_price <= 200.00))) AND (((ss_net_profit >= 100::numeric) AND (ss_net_profit <= 200::numeric)) OR ((ss_net_profit >= 150::numeric) AND (ss_net_profit <= 300::numeric)) OR ((ss_net_profit >= 50::numeric) AND (ss_net_profit <= 250::numeric))))
+                                                                     ->  Result  (cost=0.00..1068275.00 rows=527973 width=48)
+                                                                           One-Time Filter: PartSelected
+                                                                           ->  Append-only Columnar Scan on store_sales_1_prt_18  (cost=0.00..1068275.00 rows=527973 width=48)
+                                                                                 Filter: ((((ss_sales_price >= 100.00) AND (ss_sales_price <= 150.00)) OR ((ss_sales_price >= 50.00) AND (ss_sales_price <= 100.00)) OR ((ss_sales_price >= 150.00) AND (ss_sales_price <= 200.00))) AND (((ss_net_profit >= 100::numeric) AND (ss_net_profit <= 200::numeric)) OR ((ss_net_profit >= 150::numeric) AND (ss_net_profit <= 300::numeric)) OR ((ss_net_profit >= 50::numeric) AND (ss_net_profit <= 250::numeric))))
+                                                                     ->  Result  (cost=0.00..1066896.00 rows=532331 width=48)
+                                                                           One-Time Filter: PartSelected
+                                                                           ->  Append-only Columnar Scan on store_sales_1_prt_19  (cost=0.00..1066896.00 rows=532331 width=48)
+                                                                                 Filter: ((((ss_sales_price >= 100.00) AND (ss_sales_price <= 150.00)) OR ((ss_sales_price >= 50.00) AND (ss_sales_price <= 100.00)) OR ((ss_sales_price >= 150.00) AND (ss_sales_price <= 200.00))) AND (((ss_net_profit >= 100::numeric) AND (ss_net_profit <= 200::numeric)) OR ((ss_net_profit >= 150::numeric) AND (ss_net_profit <= 300::numeric)) OR ((ss_net_profit >= 50::numeric) AND (ss_net_profit <= 250::numeric))))
+                                                                     ->  Result  (cost=0.00..1068739.00 rows=515362 width=48)
+                                                                           One-Time Filter: PartSelected
+                                                                           ->  Append-only Columnar Scan on store_sales_1_prt_20  (cost=0.00..1068739.00 rows=515362 width=48)
+                                                                                 Filter: ((((ss_sales_price >= 100.00) AND (ss_sales_price <= 150.00)) OR ((ss_sales_price >= 50.00) AND (ss_sales_price <= 100.00)) OR ((ss_sales_price >= 150.00) AND (ss_sales_price <= 200.00))) AND (((ss_net_profit >= 100::numeric) AND (ss_net_profit <= 200::numeric)) OR ((ss_net_profit >= 150::numeric) AND (ss_net_profit <= 300::numeric)) OR ((ss_net_profit >= 50::numeric) AND (ss_net_profit <= 250::numeric))))
+                                                                     ->  Result  (cost=0.00..1067008.00 rows=520658 width=48)
+                                                                           One-Time Filter: PartSelected
+                                                                           ->  Append-only Columnar Scan on store_sales_1_prt_21  (cost=0.00..1067008.00 rows=520658 width=48)
+                                                                                 Filter: ((((ss_sales_price >= 100.00) AND (ss_sales_price <= 150.00)) OR ((ss_sales_price >= 50.00) AND (ss_sales_price <= 100.00)) OR ((ss_sales_price >= 150.00) AND (ss_sales_price <= 200.00))) AND (((ss_net_profit >= 100::numeric) AND (ss_net_profit <= 200::numeric)) OR ((ss_net_profit >= 150::numeric) AND (ss_net_profit <= 300::numeric)) OR ((ss_net_profit >= 50::numeric) AND (ss_net_profit <= 250::numeric))))
+                                                                     ->  Result  (cost=0.00..1505473.00 rows=745299 width=48)
+                                                                           One-Time Filter: PartSelected
+                                                                           ->  Append-only Columnar Scan on store_sales_1_prt_22  (cost=0.00..1505473.00 rows=745299 width=48)
+                                                                                 Filter: ((((ss_sales_price >= 100.00) AND (ss_sales_price <= 150.00)) OR ((ss_sales_price >= 50.00) AND (ss_sales_price <= 100.00)) OR ((ss_sales_price >= 150.00) AND (ss_sales_price <= 200.00))) AND (((ss_net_profit >= 100::numeric) AND (ss_net_profit <= 200::numeric)) OR ((ss_net_profit >= 150::numeric) AND (ss_net_profit <= 300::numeric)) OR ((ss_net_profit >= 50::numeric) AND (ss_net_profit <= 250::numeric))))
+                                                                     ->  Result  (cost=0.00..2431465.00 rows=1209224 width=48)
+                                                                           One-Time Filter: PartSelected
+                                                                           ->  Append-only Columnar Scan on store_sales_1_prt_23  (cost=0.00..2431465.00 rows=1209224 width=48)
+                                                                                 Filter: ((((ss_sales_price >= 100.00) AND (ss_sales_price <= 150.00)) OR ((ss_sales_price >= 50.00) AND (ss_sales_price <= 100.00)) OR ((ss_sales_price >= 150.00) AND (ss_sales_price <= 200.00))) AND (((ss_net_profit >= 100::numeric) AND (ss_net_profit <= 200::numeric)) OR ((ss_net_profit >= 150::numeric) AND (ss_net_profit <= 300::numeric)) OR ((ss_net_profit >= 50::numeric) AND (ss_net_profit <= 250::numeric))))
+                                                                     ->  Result  (cost=0.00..2430502.00 rows=1217595 width=48)
+                                                                           One-Time Filter: PartSelected
+                                                                           ->  Append-only Columnar Scan on store_sales_1_prt_24  (cost=0.00..2430502.00 rows=1217595 width=48)
+                                                                                 Filter: ((((ss_sales_price >= 100.00) AND (ss_sales_price <= 150.00)) OR ((ss_sales_price >= 50.00) AND (ss_sales_price <= 100.00)) OR ((ss_sales_price >= 150.00) AND (ss_sales_price <= 200.00))) AND (((ss_net_profit >= 100::numeric) AND (ss_net_profit <= 200::numeric)) OR ((ss_net_profit >= 150::numeric) AND (ss_net_profit <= 300::numeric)) OR ((ss_net_profit >= 50::numeric) AND (ss_net_profit <= 250::numeric))))
+                                                                     ->  Result  (cost=0.00..2473858.00 rows=1185015 width=48)
+                                                                           One-Time Filter: PartSelected
+                                                                           ->  Append-only Columnar Scan on store_sales_1_prt_25  (cost=0.00..2473858.00 rows=1185015 width=48)
+                                                                                 Filter: ((((ss_sales_price >= 100.00) AND (ss_sales_price <= 150.00)) OR ((ss_sales_price >= 50.00) AND (ss_sales_price <= 100.00)) OR ((ss_sales_price >= 150.00) AND (ss_sales_price <= 200.00))) AND (((ss_net_profit >= 100::numeric) AND (ss_net_profit <= 200::numeric)) OR ((ss_net_profit >= 150::numeric) AND (ss_net_profit <= 300::numeric)) OR ((ss_net_profit >= 50::numeric) AND (ss_net_profit <= 250::numeric))))
+                                                                     ->  Result  (cost=0.00..3684384.00 rows=1766076 width=48)
+                                                                           One-Time Filter: PartSelected
+                                                                           ->  Append-only Columnar Scan on store_sales_1_prt_26  (cost=0.00..3684384.00 rows=1766076 width=48)
+                                                                                 Filter: ((((ss_sales_price >= 100.00) AND (ss_sales_price <= 150.00)) OR ((ss_sales_price >= 50.00) AND (ss_sales_price <= 100.00)) OR ((ss_sales_price >= 150.00) AND (ss_sales_price <= 200.00))) AND (((ss_net_profit >= 100::numeric) AND (ss_net_profit <= 200::numeric)) OR ((ss_net_profit >= 150::numeric) AND (ss_net_profit <= 300::numeric)) OR ((ss_net_profit >= 50::numeric) AND (ss_net_profit <= 250::numeric))))
+                                                                     ->  Result  (cost=0.00..3682016.00 rows=1850785 width=48)
+                                                                           One-Time Filter: PartSelected
+                                                                           ->  Append-only Columnar Scan on store_sales_1_prt_27  (cost=0.00..3682016.00 rows=1850785 width=48)
+                                                                                 Filter: ((((ss_sales_price >= 100.00) AND (ss_sales_price <= 150.00)) OR ((ss_sales_price >= 50.00) AND (ss_sales_price <= 100.00)) OR ((ss_sales_price >= 150.00) AND (ss_sales_price <= 200.00))) AND (((ss_net_profit >= 100::numeric) AND (ss_net_profit <= 200::numeric)) OR ((ss_net_profit >= 150::numeric) AND (ss_net_profit <= 300::numeric)) OR ((ss_net_profit >= 50::numeric) AND (ss_net_profit <= 250::numeric))))
+                                                                     ->  Result  (cost=0.00..1478675.00 rows=732463 width=48)
+                                                                           One-Time Filter: PartSelected
+                                                                           ->  Append-only Columnar Scan on store_sales_1_prt_28  (cost=0.00..1478675.00 rows=732463 width=48)
+                                                                                 Filter: ((((ss_sales_price >= 100.00) AND (ss_sales_price <= 150.00)) OR ((ss_sales_price >= 50.00) AND (ss_sales_price <= 100.00)) OR ((ss_sales_price >= 150.00) AND (ss_sales_price <= 200.00))) AND (((ss_net_profit >= 100::numeric) AND (ss_net_profit <= 200::numeric)) OR ((ss_net_profit >= 150::numeric) AND (ss_net_profit <= 300::numeric)) OR ((ss_net_profit >= 50::numeric) AND (ss_net_profit <= 250::numeric))))
+                                                                     ->  Result  (cost=0.00..1066138.00 rows=511786 width=48)
+                                                                           One-Time Filter: PartSelected
+                                                                           ->  Append-only Columnar Scan on store_sales_1_prt_29  (cost=0.00..1066138.00 rows=511786 width=48)
+                                                                                 Filter: ((((ss_sales_price >= 100.00) AND (ss_sales_price <= 150.00)) OR ((ss_sales_price >= 50.00) AND (ss_sales_price <= 100.00)) OR ((ss_sales_price >= 150.00) AND (ss_sales_price <= 200.00))) AND (((ss_net_profit >= 100::numeric) AND (ss_net_profit <= 200::numeric)) OR ((ss_net_profit >= 150::numeric) AND (ss_net_profit <= 300::numeric)) OR ((ss_net_profit >= 50::numeric) AND (ss_net_profit <= 250::numeric))))
+                                                                     ->  Result  (cost=0.00..1067001.00 rows=535844 width=48)
+                                                                           One-Time Filter: PartSelected
+                                                                           ->  Append-only Columnar Scan on store_sales_1_prt_30  (cost=0.00..1067001.00 rows=535844 width=48)
+                                                                                 Filter: ((((ss_sales_price >= 100.00) AND (ss_sales_price <= 150.00)) OR ((ss_sales_price >= 50.00) AND (ss_sales_price <= 100.00)) OR ((ss_sales_price >= 150.00) AND (ss_sales_price <= 200.00))) AND (((ss_net_profit >= 100::numeric) AND (ss_net_profit <= 200::numeric)) OR ((ss_net_profit >= 150::numeric) AND (ss_net_profit <= 300::numeric)) OR ((ss_net_profit >= 50::numeric) AND (ss_net_profit <= 250::numeric))))
+                                                                     ->  Result  (cost=0.00..1066448.00 rows=530908 width=48)
+                                                                           One-Time Filter: PartSelected
+                                                                           ->  Append-only Columnar Scan on store_sales_1_prt_31  (cost=0.00..1066448.00 rows=530908 width=48)
+                                                                                 Filter: ((((ss_sales_price >= 100.00) AND (ss_sales_price <= 150.00)) OR ((ss_sales_price >= 50.00) AND (ss_sales_price <= 100.00)) OR ((ss_sales_price >= 150.00) AND (ss_sales_price <= 200.00))) AND (((ss_net_profit >= 100::numeric) AND (ss_net_profit <= 200::numeric)) OR ((ss_net_profit >= 150::numeric) AND (ss_net_profit <= 300::numeric)) OR ((ss_net_profit >= 50::numeric) AND (ss_net_profit <= 250::numeric))))
+                                                                     ->  Result  (cost=0.00..1066148.00 rows=541428 width=48)
+                                                                           One-Time Filter: PartSelected
+                                                                           ->  Append-only Columnar Scan on store_sales_1_prt_32  (cost=0.00..1066148.00 rows=541428 width=48)
+                                                                                 Filter: ((((ss_sales_price >= 100.00) AND (ss_sales_price <= 150.00)) OR ((ss_sales_price >= 50.00) AND (ss_sales_price <= 100.00)) OR ((ss_sales_price >= 150.00) AND (ss_sales_price <= 200.00))) AND (((ss_net_profit >= 100::numeric) AND (ss_net_profit <= 200::numeric)) OR ((ss_net_profit >= 150::numeric) AND (ss_net_profit <= 300::numeric)) OR ((ss_net_profit >= 50::numeric) AND (ss_net_profit <= 250::numeric))))
+                                                                     ->  Result  (cost=0.00..1066629.00 rows=538081 width=48)
+                                                                           One-Time Filter: PartSelected
+                                                                           ->  Append-only Columnar Scan on store_sales_1_prt_33  (cost=0.00..1066629.00 rows=538081 width=48)
+                                                                                 Filter: ((((ss_sales_price >= 100.00) AND (ss_sales_price <= 150.00)) OR ((ss_sales_price >= 50.00) AND (ss_sales_price <= 100.00)) OR ((ss_sales_price >= 150.00) AND (ss_sales_price <= 200.00))) AND (((ss_net_profit >= 100::numeric) AND (ss_net_profit <= 200::numeric)) OR ((ss_net_profit >= 150::numeric) AND (ss_net_profit <= 300::numeric)) OR ((ss_net_profit >= 50::numeric) AND (ss_net_profit <= 250::numeric))))
+                                                                     ->  Result  (cost=0.00..1064733.00 rows=529758 width=48)
+                                                                           One-Time Filter: PartSelected
+                                                                           ->  Append-only Columnar Scan on store_sales_1_prt_34  (cost=0.00..1064733.00 rows=529758 width=48)
+                                                                                 Filter: ((((ss_sales_price >= 100.00) AND (ss_sales_price <= 150.00)) OR ((ss_sales_price >= 50.00) AND (ss_sales_price <= 100.00)) OR ((ss_sales_price >= 150.00) AND (ss_sales_price <= 200.00))) AND (((ss_net_profit >= 100::numeric) AND (ss_net_profit <= 200::numeric)) OR ((ss_net_profit >= 150::numeric) AND (ss_net_profit <= 300::numeric)) OR ((ss_net_profit >= 50::numeric) AND (ss_net_profit <= 250::numeric))))
+                                                                     ->  Result  (cost=0.00..1453574.00 rows=708097 width=48)
+                                                                           One-Time Filter: PartSelected
+                                                                           ->  Append-only Columnar Scan on store_sales_1_prt_35  (cost=0.00..1453574.00 rows=708097 width=48)
+                                                                                 Filter: ((((ss_sales_price >= 100.00) AND (ss_sales_price <= 150.00)) OR ((ss_sales_price >= 50.00) AND (ss_sales_price <= 100.00)) OR ((ss_sales_price >= 150.00) AND (ss_sales_price <= 200.00))) AND (((ss_net_profit >= 100::numeric) AND (ss_net_profit <= 200::numeric)) OR ((ss_net_profit >= 150::numeric) AND (ss_net_profit <= 300::numeric)) OR ((ss_net_profit >= 50::numeric) AND (ss_net_profit <= 250::numeric))))
+                                                                     ->  Result  (cost=0.00..2427015.00 rows=1205079 width=48)
+                                                                           One-Time Filter: PartSelected
+                                                                           ->  Append-only Columnar Scan on store_sales_1_prt_36  (cost=0.00..2427015.00 rows=1205079 width=48)
+                                                                                 Filter: ((((ss_sales_price >= 100.00) AND (ss_sales_price <= 150.00)) OR ((ss_sales_price >= 50.00) AND (ss_sales_price <= 100.00)) OR ((ss_sales_price >= 150.00) AND (ss_sales_price <= 200.00))) AND (((ss_net_profit >= 100::numeric) AND (ss_net_profit <= 200::numeric)) OR ((ss_net_profit >= 150::numeric) AND (ss_net_profit <= 300::numeric)) OR ((ss_net_profit >= 50::numeric) AND (ss_net_profit <= 250::numeric))))
+                                                                     ->  Result  (cost=0.00..2424953.00 rows=1224592 width=48)
+                                                                           One-Time Filter: PartSelected
+                                                                           ->  Append-only Columnar Scan on store_sales_1_prt_37  (cost=0.00..2424953.00 rows=1224592 width=48)
+                                                                                 Filter: ((((ss_sales_price >= 100.00) AND (ss_sales_price <= 150.00)) OR ((ss_sales_price >= 50.00) AND (ss_sales_price <= 100.00)) OR ((ss_sales_price >= 150.00) AND (ss_sales_price <= 200.00))) AND (((ss_net_profit >= 100::numeric) AND (ss_net_profit <= 200::numeric)) OR ((ss_net_profit >= 150::numeric) AND (ss_net_profit <= 300::numeric)) OR ((ss_net_profit >= 50::numeric) AND (ss_net_profit <= 250::numeric))))
+                                                                     ->  Result  (cost=0.00..2426391.00 rows=1159501 width=48)
+                                                                           One-Time Filter: PartSelected
+                                                                           ->  Append-only Columnar Scan on store_sales_1_prt_38  (cost=0.00..2426391.00 rows=1159501 width=48)
+                                                                                 Filter: ((((ss_sales_price >= 100.00) AND (ss_sales_price <= 150.00)) OR ((ss_sales_price >= 50.00) AND (ss_sales_price <= 100.00)) OR ((ss_sales_price >= 150.00) AND (ss_sales_price <= 200.00))) AND (((ss_net_profit >= 100::numeric) AND (ss_net_profit <= 200::numeric)) OR ((ss_net_profit >= 150::numeric) AND (ss_net_profit <= 300::numeric)) OR ((ss_net_profit >= 50::numeric) AND (ss_net_profit <= 250::numeric))))
+                                                                     ->  Result  (cost=0.00..3675999.16 rows=1838038 width=48)
+                                                                           One-Time Filter: PartSelected
+                                                                           ->  Append-only Columnar Scan on store_sales_1_prt_39  (cost=0.00..3675999.16 rows=1838038 width=48)
+                                                                                 Filter: ((((ss_sales_price >= 100.00) AND (ss_sales_price <= 150.00)) OR ((ss_sales_price >= 50.00) AND (ss_sales_price <= 100.00)) OR ((ss_sales_price >= 150.00) AND (ss_sales_price <= 200.00))) AND (((ss_net_profit >= 100::numeric) AND (ss_net_profit <= 200::numeric)) OR ((ss_net_profit >= 150::numeric) AND (ss_net_profit <= 300::numeric)) OR ((ss_net_profit >= 50::numeric) AND (ss_net_profit <= 250::numeric))))
+                                                                     ->  Result  (cost=0.00..3676036.16 rows=1833919 width=48)
+                                                                           One-Time Filter: PartSelected
+                                                                           ->  Append-only Columnar Scan on store_sales_1_prt_40  (cost=0.00..3676036.16 rows=1833919 width=48)
+                                                                                 Filter: ((((ss_sales_price >= 100.00) AND (ss_sales_price <= 150.00)) OR ((ss_sales_price >= 50.00) AND (ss_sales_price <= 100.00)) OR ((ss_sales_price >= 150.00) AND (ss_sales_price <= 200.00))) AND (((ss_net_profit >= 100::numeric) AND (ss_net_profit <= 200::numeric)) OR ((ss_net_profit >= 150::numeric) AND (ss_net_profit <= 300::numeric)) OR ((ss_net_profit >= 50::numeric) AND (ss_net_profit <= 250::numeric))))
+                                                                     ->  Result  (cost=0.00..1533420.00 rows=787526 width=48)
+                                                                           One-Time Filter: PartSelected
+                                                                           ->  Append-only Columnar Scan on store_sales_1_prt_41  (cost=0.00..1533420.00 rows=787526 width=48)
+                                                                                 Filter: ((((ss_sales_price >= 100.00) AND (ss_sales_price <= 150.00)) OR ((ss_sales_price >= 50.00) AND (ss_sales_price <= 100.00)) OR ((ss_sales_price >= 150.00) AND (ss_sales_price <= 200.00))) AND (((ss_net_profit >= 100::numeric) AND (ss_net_profit <= 200::numeric)) OR ((ss_net_profit >= 150::numeric) AND (ss_net_profit <= 300::numeric)) OR ((ss_net_profit >= 50::numeric) AND (ss_net_profit <= 250::numeric))))
+                                                                     ->  Result  (cost=0.00..1068178.00 rows=534910 width=48)
+                                                                           One-Time Filter: PartSelected
+                                                                           ->  Append-only Columnar Scan on store_sales_1_prt_42  (cost=0.00..1068178.00 rows=534910 width=48)
+                                                                                 Filter: ((((ss_sales_price >= 100.00) AND (ss_sales_price <= 150.00)) OR ((ss_sales_price >= 50.00) AND (ss_sales_price <= 100.00)) OR ((ss_sales_price >= 150.00) AND (ss_sales_price <= 200.00))) AND (((ss_net_profit >= 100::numeric) AND (ss_net_profit <= 200::numeric)) OR ((ss_net_profit >= 150::numeric) AND (ss_net_profit <= 300::numeric)) OR ((ss_net_profit >= 50::numeric) AND (ss_net_profit <= 250::numeric))))
+                                                                     ->  Result  (cost=0.00..1030235.00 rows=521919 width=48)
+                                                                           One-Time Filter: PartSelected
+                                                                           ->  Append-only Columnar Scan on store_sales_1_prt_43  (cost=0.00..1030235.00 rows=521919 width=48)
+                                                                                 Filter: ((((ss_sales_price >= 100.00) AND (ss_sales_price <= 150.00)) OR ((ss_sales_price >= 50.00) AND (ss_sales_price <= 100.00)) OR ((ss_sales_price >= 150.00) AND (ss_sales_price <= 200.00))) AND (((ss_net_profit >= 100::numeric) AND (ss_net_profit <= 200::numeric)) OR ((ss_net_profit >= 150::numeric) AND (ss_net_profit <= 300::numeric)) OR ((ss_net_profit >= 50::numeric) AND (ss_net_profit <= 250::numeric))))
+                                                                     ->  Result  (cost=0.00..1067060.00 rows=532029 width=48)
+                                                                           One-Time Filter: PartSelected
+                                                                           ->  Append-only Columnar Scan on store_sales_1_prt_44  (cost=0.00..1067060.00 rows=532029 width=48)
+                                                                                 Filter: ((((ss_sales_price >= 100.00) AND (ss_sales_price <= 150.00)) OR ((ss_sales_price >= 50.00) AND (ss_sales_price <= 100.00)) OR ((ss_sales_price >= 150.00) AND (ss_sales_price <= 200.00))) AND (((ss_net_profit >= 100::numeric) AND (ss_net_profit <= 200::numeric)) OR ((ss_net_profit >= 150::numeric) AND (ss_net_profit <= 300::numeric)) OR ((ss_net_profit >= 50::numeric) AND (ss_net_profit <= 250::numeric))))
+                                                                     ->  Result  (cost=0.00..1067407.00 rows=523702 width=48)
+                                                                           One-Time Filter: PartSelected
+                                                                           ->  Append-only Columnar Scan on store_sales_1_prt_45  (cost=0.00..1067407.00 rows=523702 width=48)
+                                                                                 Filter: ((((ss_sales_price >= 100.00) AND (ss_sales_price <= 150.00)) OR ((ss_sales_price >= 50.00) AND (ss_sales_price <= 100.00)) OR ((ss_sales_price >= 150.00) AND (ss_sales_price <= 200.00))) AND (((ss_net_profit >= 100::numeric) AND (ss_net_profit <= 200::numeric)) OR ((ss_net_profit >= 150::numeric) AND (ss_net_profit <= 300::numeric)) OR ((ss_net_profit >= 50::numeric) AND (ss_net_profit <= 250::numeric))))
+                                                                     ->  Result  (cost=0.00..1068387.00 rows=545818 width=48)
+                                                                           One-Time Filter: PartSelected
+                                                                           ->  Append-only Columnar Scan on store_sales_1_prt_46  (cost=0.00..1068387.00 rows=545818 width=48)
+                                                                                 Filter: ((((ss_sales_price >= 100.00) AND (ss_sales_price <= 150.00)) OR ((ss_sales_price >= 50.00) AND (ss_sales_price <= 100.00)) OR ((ss_sales_price >= 150.00) AND (ss_sales_price <= 200.00))) AND (((ss_net_profit >= 100::numeric) AND (ss_net_profit <= 200::numeric)) OR ((ss_net_profit >= 150::numeric) AND (ss_net_profit <= 300::numeric)) OR ((ss_net_profit >= 50::numeric) AND (ss_net_profit <= 250::numeric))))
+                                                                     ->  Result  (cost=0.00..1066112.00 rows=515918 width=48)
+                                                                           One-Time Filter: PartSelected
+                                                                           ->  Append-only Columnar Scan on store_sales_1_prt_47  (cost=0.00..1066112.00 rows=515918 width=48)
+                                                                                 Filter: ((((ss_sales_price >= 100.00) AND (ss_sales_price <= 150.00)) OR ((ss_sales_price >= 50.00) AND (ss_sales_price <= 100.00)) OR ((ss_sales_price >= 150.00) AND (ss_sales_price <= 200.00))) AND (((ss_net_profit >= 100::numeric) AND (ss_net_profit <= 200::numeric)) OR ((ss_net_profit >= 150::numeric) AND (ss_net_profit <= 300::numeric)) OR ((ss_net_profit >= 50::numeric) AND (ss_net_profit <= 250::numeric))))
+                                                                     ->  Result  (cost=0.00..1360499.00 rows=671708 width=48)
+                                                                           One-Time Filter: PartSelected
+                                                                           ->  Append-only Columnar Scan on store_sales_1_prt_48  (cost=0.00..1360499.00 rows=671708 width=48)
+                                                                                 Filter: ((((ss_sales_price >= 100.00) AND (ss_sales_price <= 150.00)) OR ((ss_sales_price >= 50.00) AND (ss_sales_price <= 100.00)) OR ((ss_sales_price >= 150.00) AND (ss_sales_price <= 200.00))) AND (((ss_net_profit >= 100::numeric) AND (ss_net_profit <= 200::numeric)) OR ((ss_net_profit >= 150::numeric) AND (ss_net_profit <= 300::numeric)) OR ((ss_net_profit >= 50::numeric) AND (ss_net_profit <= 250::numeric))))
+                                                                     ->  Result  (cost=0.00..2432976.00 rows=1244353 width=48)
+                                                                           One-Time Filter: PartSelected
+                                                                           ->  Append-only Columnar Scan on store_sales_1_prt_49  (cost=0.00..2432976.00 rows=1244353 width=48)
+                                                                                 Filter: ((((ss_sales_price >= 100.00) AND (ss_sales_price <= 150.00)) OR ((ss_sales_price >= 50.00) AND (ss_sales_price <= 100.00)) OR ((ss_sales_price >= 150.00) AND (ss_sales_price <= 200.00))) AND (((ss_net_profit >= 100::numeric) AND (ss_net_profit <= 200::numeric)) OR ((ss_net_profit >= 150::numeric) AND (ss_net_profit <= 300::numeric)) OR ((ss_net_profit >= 50::numeric) AND (ss_net_profit <= 250::numeric))))
+                                                                     ->  Result  (cost=0.00..2431728.00 rows=1230362 width=48)
+                                                                           One-Time Filter: PartSelected
+                                                                           ->  Append-only Columnar Scan on store_sales_1_prt_50  (cost=0.00..2431728.00 rows=1230362 width=48)
+                                                                                 Filter: ((((ss_sales_price >= 100.00) AND (ss_sales_price <= 150.00)) OR ((ss_sales_price >= 50.00) AND (ss_sales_price <= 100.00)) OR ((ss_sales_price >= 150.00) AND (ss_sales_price <= 200.00))) AND (((ss_net_profit >= 100::numeric) AND (ss_net_profit <= 200::numeric)) OR ((ss_net_profit >= 150::numeric) AND (ss_net_profit <= 300::numeric)) OR ((ss_net_profit >= 50::numeric) AND (ss_net_profit <= 250::numeric))))
+                                                                     ->  Result  (cost=0.00..2431817.00 rows=1150483 width=48)
+                                                                           One-Time Filter: PartSelected
+                                                                           ->  Append-only Columnar Scan on store_sales_1_prt_51  (cost=0.00..2431817.00 rows=1150483 width=48)
+                                                                                 Filter: ((((ss_sales_price >= 100.00) AND (ss_sales_price <= 150.00)) OR ((ss_sales_price >= 50.00) AND (ss_sales_price <= 100.00)) OR ((ss_sales_price >= 150.00) AND (ss_sales_price <= 200.00))) AND (((ss_net_profit >= 100::numeric) AND (ss_net_profit <= 200::numeric)) OR ((ss_net_profit >= 150::numeric) AND (ss_net_profit <= 300::numeric)) OR ((ss_net_profit >= 50::numeric) AND (ss_net_profit <= 250::numeric))))
+                                                                     ->  Result  (cost=0.00..3589486.00 rows=1751983 width=48)
+                                                                           One-Time Filter: PartSelected
+                                                                           ->  Append-only Columnar Scan on store_sales_1_prt_52  (cost=0.00..3589486.00 rows=1751983 width=48)
+                                                                                 Filter: ((((ss_sales_price >= 100.00) AND (ss_sales_price <= 150.00)) OR ((ss_sales_price >= 50.00) AND (ss_sales_price <= 100.00)) OR ((ss_sales_price >= 150.00) AND (ss_sales_price <= 200.00))) AND (((ss_net_profit >= 100::numeric) AND (ss_net_profit <= 200::numeric)) OR ((ss_net_profit >= 150::numeric) AND (ss_net_profit <= 300::numeric)) OR ((ss_net_profit >= 50::numeric) AND (ss_net_profit <= 250::numeric))))
+                                                                     ->  Result  (cost=0.00..3683748.84 rows=1899332 width=48)
+                                                                           One-Time Filter: PartSelected
+                                                                           ->  Append-only Columnar Scan on store_sales_1_prt_53  (cost=0.00..3683748.84 rows=1899332 width=48)
+                                                                                 Filter: ((((ss_sales_price >= 100.00) AND (ss_sales_price <= 150.00)) OR ((ss_sales_price >= 50.00) AND (ss_sales_price <= 100.00)) OR ((ss_sales_price >= 150.00) AND (ss_sales_price <= 200.00))) AND (((ss_net_profit >= 100::numeric) AND (ss_net_profit <= 200::numeric)) OR ((ss_net_profit >= 150::numeric) AND (ss_net_profit <= 300::numeric)) OR ((ss_net_profit >= 50::numeric) AND (ss_net_profit <= 250::numeric))))
+                                                                     ->  Result  (cost=0.00..1762215.00 rows=831706 width=48)
+                                                                           One-Time Filter: PartSelected
+                                                                           ->  Append-only Columnar Scan on store_sales_1_prt_54  (cost=0.00..1762215.00 rows=831706 width=48)
+                                                                                 Filter: ((((ss_sales_price >= 100.00) AND (ss_sales_price <= 150.00)) OR ((ss_sales_price >= 50.00) AND (ss_sales_price <= 100.00)) OR ((ss_sales_price >= 150.00) AND (ss_sales_price <= 200.00))) AND (((ss_net_profit >= 100::numeric) AND (ss_net_profit <= 200::numeric)) OR ((ss_net_profit >= 150::numeric) AND (ss_net_profit <= 300::numeric)) OR ((ss_net_profit >= 50::numeric) AND (ss_net_profit <= 250::numeric))))
+                                                                     ->  Result  (cost=0.00..1068893.00 rows=537293 width=48)
+                                                                           One-Time Filter: PartSelected
+                                                                           ->  Append-only Columnar Scan on store_sales_1_prt_55  (cost=0.00..1068893.00 rows=537293 width=48)
+                                                                                 Filter: ((((ss_sales_price >= 100.00) AND (ss_sales_price <= 150.00)) OR ((ss_sales_price >= 50.00) AND (ss_sales_price <= 100.00)) OR ((ss_sales_price >= 150.00) AND (ss_sales_price <= 200.00))) AND (((ss_net_profit >= 100::numeric) AND (ss_net_profit <= 200::numeric)) OR ((ss_net_profit >= 150::numeric) AND (ss_net_profit <= 300::numeric)) OR ((ss_net_profit >= 50::numeric) AND (ss_net_profit <= 250::numeric))))
+                                                                     ->  Result  (cost=0.00..1029760.00 rows=518787 width=48)
+                                                                           One-Time Filter: PartSelected
+                                                                           ->  Append-only Columnar Scan on store_sales_1_prt_56  (cost=0.00..1029760.00 rows=518787 width=48)
+                                                                                 Filter: ((((ss_sales_price >= 100.00) AND (ss_sales_price <= 150.00)) OR ((ss_sales_price >= 50.00) AND (ss_sales_price <= 100.00)) OR ((ss_sales_price >= 150.00) AND (ss_sales_price <= 200.00))) AND (((ss_net_profit >= 100::numeric) AND (ss_net_profit <= 200::numeric)) OR ((ss_net_profit >= 150::numeric) AND (ss_net_profit <= 300::numeric)) OR ((ss_net_profit >= 50::numeric) AND (ss_net_profit <= 250::numeric))))
+                                                                     ->  Result  (cost=0.00..1068144.00 rows=543415 width=48)
+                                                                           One-Time Filter: PartSelected
+                                                                           ->  Append-only Columnar Scan on store_sales_1_prt_57  (cost=0.00..1068144.00 rows=543415 width=48)
+                                                                                 Filter: ((((ss_sales_price >= 100.00) AND (ss_sales_price <= 150.00)) OR ((ss_sales_price >= 50.00) AND (ss_sales_price <= 100.00)) OR ((ss_sales_price >= 150.00) AND (ss_sales_price <= 200.00))) AND (((ss_net_profit >= 100::numeric) AND (ss_net_profit <= 200::numeric)) OR ((ss_net_profit >= 150::numeric) AND (ss_net_profit <= 300::numeric)) OR ((ss_net_profit >= 50::numeric) AND (ss_net_profit <= 250::numeric))))
+                                                                     ->  Result  (cost=0.00..1067067.00 rows=522483 width=48)
+                                                                           One-Time Filter: PartSelected
+                                                                           ->  Append-only Columnar Scan on store_sales_1_prt_58  (cost=0.00..1067067.00 rows=522483 width=48)
+                                                                                 Filter: ((((ss_sales_price >= 100.00) AND (ss_sales_price <= 150.00)) OR ((ss_sales_price >= 50.00) AND (ss_sales_price <= 100.00)) OR ((ss_sales_price >= 150.00) AND (ss_sales_price <= 200.00))) AND (((ss_net_profit >= 100::numeric) AND (ss_net_profit <= 200::numeric)) OR ((ss_net_profit >= 150::numeric) AND (ss_net_profit <= 300::numeric)) OR ((ss_net_profit >= 50::numeric) AND (ss_net_profit <= 250::numeric))))
+                                                                     ->  Result  (cost=0.00..1068236.00 rows=534227 width=48)
+                                                                           One-Time Filter: PartSelected
+                                                                           ->  Append-only Columnar Scan on store_sales_1_prt_59  (cost=0.00..1068236.00 rows=534227 width=48)
+                                                                                 Filter: ((((ss_sales_price >= 100.00) AND (ss_sales_price <= 150.00)) OR ((ss_sales_price >= 50.00) AND (ss_sales_price <= 100.00)) OR ((ss_sales_price >= 150.00) AND (ss_sales_price <= 200.00))) AND (((ss_net_profit >= 100::numeric) AND (ss_net_profit <= 200::numeric)) OR ((ss_net_profit >= 150::numeric) AND (ss_net_profit <= 300::numeric)) OR ((ss_net_profit >= 50::numeric) AND (ss_net_profit <= 250::numeric))))
+                                                                     ->  Result  (cost=0.00..1067904.00 rows=529263 width=48)
+                                                                           One-Time Filter: PartSelected
+                                                                           ->  Append-only Columnar Scan on store_sales_1_prt_60  (cost=0.00..1067904.00 rows=529263 width=48)
+                                                                                 Filter: ((((ss_sales_price >= 100.00) AND (ss_sales_price <= 150.00)) OR ((ss_sales_price >= 50.00) AND (ss_sales_price <= 100.00)) OR ((ss_sales_price >= 150.00) AND (ss_sales_price <= 200.00))) AND (((ss_net_profit >= 100::numeric) AND (ss_net_profit <= 200::numeric)) OR ((ss_net_profit >= 150::numeric) AND (ss_net_profit <= 300::numeric)) OR ((ss_net_profit >= 50::numeric) AND (ss_net_profit <= 250::numeric))))
+                                                                     ->  Result  (cost=0.00..1310784.00 rows=633576 width=48)
+                                                                           One-Time Filter: PartSelected
+                                                                           ->  Append-only Columnar Scan on store_sales_1_prt_61  (cost=0.00..1310784.00 rows=633576 width=48)
+                                                                                 Filter: ((((ss_sales_price >= 100.00) AND (ss_sales_price <= 150.00)) OR ((ss_sales_price >= 50.00) AND (ss_sales_price <= 100.00)) OR ((ss_sales_price >= 150.00) AND (ss_sales_price <= 200.00))) AND (((ss_net_profit >= 100::numeric) AND (ss_net_profit <= 200::numeric)) OR ((ss_net_profit >= 150::numeric) AND (ss_net_profit <= 300::numeric)) OR ((ss_net_profit >= 50::numeric) AND (ss_net_profit <= 250::numeric))))
+                                                                     ->  Result  (cost=0.00..2430280.00 rows=1233920 width=48)
+                                                                           One-Time Filter: PartSelected
+                                                                           ->  Append-only Columnar Scan on store_sales_1_prt_62  (cost=0.00..2430280.00 rows=1233920 width=48)
+                                                                                 Filter: ((((ss_sales_price >= 100.00) AND (ss_sales_price <= 150.00)) OR ((ss_sales_price >= 50.00) AND (ss_sales_price <= 100.00)) OR ((ss_sales_price >= 150.00) AND (ss_sales_price <= 200.00))) AND (((ss_net_profit >= 100::numeric) AND (ss_net_profit <= 200::numeric)) OR ((ss_net_profit >= 150::numeric) AND (ss_net_profit <= 300::numeric)) OR ((ss_net_profit >= 50::numeric) AND (ss_net_profit <= 250::numeric))))
+                                                                     ->  Result  (cost=0.00..2431761.00 rows=1208514 width=48)
+                                                                           One-Time Filter: PartSelected
+                                                                           ->  Append-only Columnar Scan on store_sales_1_prt_63  (cost=0.00..2431761.00 rows=1208514 width=48)
+                                                                                 Filter: ((((ss_sales_price >= 100.00) AND (ss_sales_price <= 150.00)) OR ((ss_sales_price >= 50.00) AND (ss_sales_price <= 100.00)) OR ((ss_sales_price >= 150.00) AND (ss_sales_price <= 200.00))) AND (((ss_net_profit >= 100::numeric) AND (ss_net_profit <= 200::numeric)) OR ((ss_net_profit >= 150::numeric) AND (ss_net_profit <= 300::numeric)) OR ((ss_net_profit >= 50::numeric) AND (ss_net_profit <= 250::numeric))))
+                                                                     ->  Result  (cost=0.00..2431667.00 rows=1238043 width=48)
+                                                                           One-Time Filter: PartSelected
+                                                                           ->  Append-only Columnar Scan on store_sales_1_prt_64  (cost=0.00..2431667.00 rows=1238043 width=48)
+                                                                                 Filter: ((((ss_sales_price >= 100.00) AND (ss_sales_price <= 150.00)) OR ((ss_sales_price >= 50.00) AND (ss_sales_price <= 100.00)) OR ((ss_sales_price >= 150.00) AND (ss_sales_price <= 200.00))) AND (((ss_net_profit >= 100::numeric) AND (ss_net_profit <= 200::numeric)) OR ((ss_net_profit >= 150::numeric) AND (ss_net_profit <= 300::numeric)) OR ((ss_net_profit >= 50::numeric) AND (ss_net_profit <= 250::numeric))))
+                                                                     ->  Result  (cost=0.00..3547041.84 rows=1754486 width=48)
+                                                                           One-Time Filter: PartSelected
+                                                                           ->  Append-only Columnar Scan on store_sales_1_prt_65  (cost=0.00..3547041.84 rows=1754486 width=48)
+                                                                                 Filter: ((((ss_sales_price >= 100.00) AND (ss_sales_price <= 150.00)) OR ((ss_sales_price >= 50.00) AND (ss_sales_price <= 100.00)) OR ((ss_sales_price >= 150.00) AND (ss_sales_price <= 200.00))) AND (((ss_net_profit >= 100::numeric) AND (ss_net_profit <= 200::numeric)) OR ((ss_net_profit >= 150::numeric) AND (ss_net_profit <= 300::numeric)) OR ((ss_net_profit >= 50::numeric) AND (ss_net_profit <= 250::numeric))))
+                                                                     ->  Result  (cost=0.00..3680596.84 rows=1908171 width=48)
+                                                                           One-Time Filter: PartSelected
+                                                                           ->  Append-only Columnar Scan on store_sales_1_prt_66  (cost=0.00..3680596.84 rows=1908171 width=48)
+                                                                                 Filter: ((((ss_sales_price >= 100.00) AND (ss_sales_price <= 150.00)) OR ((ss_sales_price >= 50.00) AND (ss_sales_price <= 100.00)) OR ((ss_sales_price >= 150.00) AND (ss_sales_price <= 200.00))) AND (((ss_net_profit >= 100::numeric) AND (ss_net_profit <= 200::numeric)) OR ((ss_net_profit >= 150::numeric) AND (ss_net_profit <= 300::numeric)) OR ((ss_net_profit >= 50::numeric) AND (ss_net_profit <= 250::numeric))))
+                                                                     ->  Result  (cost=0.00..1051546.00 rows=493080 width=48)
+                                                                           One-Time Filter: PartSelected
+                                                                           ->  Append-only Columnar Scan on store_sales_1_prt_67  (cost=0.00..1051546.00 rows=493080 width=48)
+                                                                                 Filter: ((((ss_sales_price >= 100.00) AND (ss_sales_price <= 150.00)) OR ((ss_sales_price >= 50.00) AND (ss_sales_price <= 100.00)) OR ((ss_sales_price >= 150.00) AND (ss_sales_price <= 200.00))) AND (((ss_net_profit >= 100::numeric) AND (ss_net_profit <= 200::numeric)) OR ((ss_net_profit >= 150::numeric) AND (ss_net_profit <= 300::numeric)) OR ((ss_net_profit >= 50::numeric) AND (ss_net_profit <= 250::numeric))))
+                                                                     ->  Result  (cost=0.00..1.00 rows=1 width=80)
+                                                                           One-Time Filter: PartSelected
+                                                                           ->  Append-only Columnar Scan on store_sales_1_prt_68  (cost=0.00..1.00 rows=1 width=80)
+                                                                                 Filter: ((((ss_sales_price >= 100.00) AND (ss_sales_price <= 150.00)) OR ((ss_sales_price >= 50.00) AND (ss_sales_price <= 100.00)) OR ((ss_sales_price >= 150.00) AND (ss_sales_price <= 200.00))) AND (((ss_net_profit >= 100::numeric) AND (ss_net_profit <= 200::numeric)) OR ((ss_net_profit >= 150::numeric) AND (ss_net_profit <= 300::numeric)) OR ((ss_net_profit >= 50::numeric) AND (ss_net_profit <= 250::numeric))))
+                                                                     ->  Result  (cost=0.00..1.00 rows=1 width=80)
+                                                                           One-Time Filter: PartSelected
+                                                                           ->  Append-only Columnar Scan on store_sales_1_prt_69  (cost=0.00..1.00 rows=1 width=80)
+                                                                                 Filter: ((((ss_sales_price >= 100.00) AND (ss_sales_price <= 150.00)) OR ((ss_sales_price >= 50.00) AND (ss_sales_price <= 100.00)) OR ((ss_sales_price >= 150.00) AND (ss_sales_price <= 200.00))) AND (((ss_net_profit >= 100::numeric) AND (ss_net_profit <= 200::numeric)) OR ((ss_net_profit >= 150::numeric) AND (ss_net_profit <= 300::numeric)) OR ((ss_net_profit >= 50::numeric) AND (ss_net_profit <= 250::numeric))))
+                                                                     ->  Result  (cost=0.00..1.00 rows=1 width=80)
+                                                                           One-Time Filter: PartSelected
+                                                                           ->  Append-only Columnar Scan on store_sales_1_prt_70  (cost=0.00..1.00 rows=1 width=80)
+                                                                                 Filter: ((((ss_sales_price >= 100.00) AND (ss_sales_price <= 150.00)) OR ((ss_sales_price >= 50.00) AND (ss_sales_price <= 100.00)) OR ((ss_sales_price >= 150.00) AND (ss_sales_price <= 200.00))) AND (((ss_net_profit >= 100::numeric) AND (ss_net_profit <= 200::numeric)) OR ((ss_net_profit >= 150::numeric) AND (ss_net_profit <= 300::numeric)) OR ((ss_net_profit >= 50::numeric) AND (ss_net_profit <= 250::numeric))))
+                                                                     ->  Result  (cost=0.00..1.00 rows=1 width=80)
+                                                                           One-Time Filter: PartSelected
+                                                                           ->  Append-only Columnar Scan on store_sales_1_prt_71  (cost=0.00..1.00 rows=1 width=80)
+                                                                                 Filter: ((((ss_sales_price >= 100.00) AND (ss_sales_price <= 150.00)) OR ((ss_sales_price >= 50.00) AND (ss_sales_price <= 100.00)) OR ((ss_sales_price >= 150.00) AND (ss_sales_price <= 200.00))) AND (((ss_net_profit >= 100::numeric) AND (ss_net_profit <= 200::numeric)) OR ((ss_net_profit >= 150::numeric) AND (ss_net_profit <= 300::numeric)) OR ((ss_net_profit >= 50::numeric) AND (ss_net_profit <= 250::numeric))))
+                                                                     ->  Result  (cost=0.00..1.00 rows=1 width=80)
+                                                                           One-Time Filter: PartSelected
+                                                                           ->  Append-only Columnar Scan on store_sales_1_prt_72  (cost=0.00..1.00 rows=1 width=80)
+                                                                                 Filter: ((((ss_sales_price >= 100.00) AND (ss_sales_price <= 150.00)) OR ((ss_sales_price >= 50.00) AND (ss_sales_price <= 100.00)) OR ((ss_sales_price >= 150.00) AND (ss_sales_price <= 200.00))) AND (((ss_net_profit >= 100::numeric) AND (ss_net_profit <= 200::numeric)) OR ((ss_net_profit >= 150::numeric) AND (ss_net_profit <= 300::numeric)) OR ((ss_net_profit >= 50::numeric) AND (ss_net_profit <= 250::numeric))))
+                                                                     ->  Result  (cost=0.00..1.00 rows=1 width=80)
+                                                                           One-Time Filter: PartSelected
+                                                                           ->  Append-only Columnar Scan on store_sales_1_prt_73  (cost=0.00..1.00 rows=1 width=80)
+                                                                                 Filter: ((((ss_sales_price >= 100.00) AND (ss_sales_price <= 150.00)) OR ((ss_sales_price >= 50.00) AND (ss_sales_price <= 100.00)) OR ((ss_sales_price >= 150.00) AND (ss_sales_price <= 200.00))) AND (((ss_net_profit >= 100::numeric) AND (ss_net_profit <= 200::numeric)) OR ((ss_net_profit >= 150::numeric) AND (ss_net_profit <= 300::numeric)) OR ((ss_net_profit >= 50::numeric) AND (ss_net_profit <= 250::numeric))))
+                                                                     ->  Result  (cost=0.00..1.00 rows=1 width=80)
+                                                                           One-Time Filter: PartSelected
+                                                                           ->  Append-only Columnar Scan on store_sales_1_prt_74  (cost=0.00..1.00 rows=1 width=80)
+                                                                                 Filter: ((((ss_sales_price >= 100.00) AND (ss_sales_price <= 150.00)) OR ((ss_sales_price >= 50.00) AND (ss_sales_price <= 100.00)) OR ((ss_sales_price >= 150.00) AND (ss_sales_price <= 200.00))) AND (((ss_net_profit >= 100::numeric) AND (ss_net_profit <= 200::numeric)) OR ((ss_net_profit >= 150::numeric) AND (ss_net_profit <= 300::numeric)) OR ((ss_net_profit >= 50::numeric) AND (ss_net_profit <= 250::numeric))))
+                                                                     ->  Result  (cost=0.00..1.00 rows=1 width=80)
+                                                                           One-Time Filter: PartSelected
+                                                                           ->  Append-only Columnar Scan on store_sales_1_prt_75  (cost=0.00..1.00 rows=1 width=80)
+                                                                                 Filter: ((((ss_sales_price >= 100.00) AND (ss_sales_price <= 150.00)) OR ((ss_sales_price >= 50.00) AND (ss_sales_price <= 100.00)) OR ((ss_sales_price >= 150.00) AND (ss_sales_price <= 200.00))) AND (((ss_net_profit >= 100::numeric) AND (ss_net_profit <= 200::numeric)) OR ((ss_net_profit >= 150::numeric) AND (ss_net_profit <= 300::numeric)) OR ((ss_net_profit >= 50::numeric) AND (ss_net_profit <= 250::numeric))))
+                                                                     ->  Result  (cost=0.00..1.00 rows=1 width=80)
+                                                                           One-Time Filter: PartSelected
+                                                                           ->  Append-only Columnar Scan on store_sales_1_prt_76  (cost=0.00..1.00 rows=1 width=80)
+                                                                                 Filter: ((((ss_sales_price >= 100.00) AND (ss_sales_price <= 150.00)) OR ((ss_sales_price >= 50.00) AND (ss_sales_price <= 100.00)) OR ((ss_sales_price >= 150.00) AND (ss_sales_price <= 200.00))) AND (((ss_net_profit >= 100::numeric) AND (ss_net_profit <= 200::numeric)) OR ((ss_net_profit >= 150::numeric) AND (ss_net_profit <= 300::numeric)) OR ((ss_net_profit >= 50::numeric) AND (ss_net_profit <= 250::numeric))))
+                                                                     ->  Result  (cost=0.00..1.00 rows=1 width=80)
+                                                                           One-Time Filter: PartSelected
+                                                                           ->  Append-only Columnar Scan on store_sales_1_prt_77  (cost=0.00..1.00 rows=1 width=80)
+                                                                                 Filter: ((((ss_sales_price >= 100.00) AND (ss_sales_price <= 150.00)) OR ((ss_sales_price >= 50.00) AND (ss_sales_price <= 100.00)) OR ((ss_sales_price >= 150.00) AND (ss_sales_price <= 200.00))) AND (((ss_net_profit >= 100::numeric) AND (ss_net_profit <= 200::numeric)) OR ((ss_net_profit >= 150::numeric) AND (ss_net_profit <= 300::numeric)) OR ((ss_net_profit >= 50::numeric) AND (ss_net_profit <= 250::numeric))))
+                                                                     ->  Result  (cost=0.00..1.00 rows=1 width=80)
+                                                                           One-Time Filter: PartSelected
+                                                                           ->  Append-only Columnar Scan on store_sales_1_prt_78  (cost=0.00..1.00 rows=1 width=80)
+                                                                                 Filter: ((((ss_sales_price >= 100.00) AND (ss_sales_price <= 150.00)) OR ((ss_sales_price >= 50.00) AND (ss_sales_price <= 100.00)) OR ((ss_sales_price >= 150.00) AND (ss_sales_price <= 200.00))) AND (((ss_net_profit >= 100::numeric) AND (ss_net_profit <= 200::numeric)) OR ((ss_net_profit >= 150::numeric) AND (ss_net_profit <= 300::numeric)) OR ((ss_net_profit >= 50::numeric) AND (ss_net_profit <= 250::numeric))))
+                                                                     ->  Result  (cost=0.00..1.00 rows=1 width=80)
+                                                                           One-Time Filter: PartSelected
+                                                                           ->  Append-only Columnar Scan on store_sales_1_prt_79  (cost=0.00..1.00 rows=1 width=80)
+                                                                                 Filter: ((((ss_sales_price >= 100.00) AND (ss_sales_price <= 150.00)) OR ((ss_sales_price >= 50.00) AND (ss_sales_price <= 100.00)) OR ((ss_sales_price >= 150.00) AND (ss_sales_price <= 200.00))) AND (((ss_net_profit >= 100::numeric) AND (ss_net_profit <= 200::numeric)) OR ((ss_net_profit >= 150::numeric) AND (ss_net_profit <= 300::numeric)) OR ((ss_net_profit >= 50::numeric) AND (ss_net_profit <= 250::numeric))))
+                                                                     ->  Result  (cost=0.00..1.00 rows=1 width=80)
+                                                                           One-Time Filter: PartSelected
+                                                                           ->  Append-only Columnar Scan on store_sales_1_prt_80  (cost=0.00..1.00 rows=1 width=80)
+                                                                                 Filter: ((((ss_sales_price >= 100.00) AND (ss_sales_price <= 150.00)) OR ((ss_sales_price >= 50.00) AND (ss_sales_price <= 100.00)) OR ((ss_sales_price >= 150.00) AND (ss_sales_price <= 200.00))) AND (((ss_net_profit >= 100::numeric) AND (ss_net_profit <= 200::numeric)) OR ((ss_net_profit >= 150::numeric) AND (ss_net_profit <= 300::numeric)) OR ((ss_net_profit >= 50::numeric) AND (ss_net_profit <= 250::numeric))))
+                                                               ->  Hash  (cost=1283.72..1283.72 rows=366 width=4)
+                                                                     ->  Partition Selector for store_sales (dynamic scan id: 1)  (cost=0.00..1283.72 rows=366 width=4)
+                                                                           Filter: date_dim.d_date_sk
+                                                                           ->  Broadcast Motion 3:3  (slice1; segments: 3)  (cost=0.00..1283.72 rows=366 width=4)
+                                                                                 ->  Seq Scan on date_dim  (cost=0.00..1269.11 rows=122 width=4)
+                                                                                       Filter: (d_year = 2001)
+                                                         ->  Hash  (cost=236.05..236.05 rows=1952 width=8)
+                                                               ->  Broadcast Motion 3:3  (slice2; segments: 3)  (cost=0.00..236.05 rows=1952 width=8)
+                                                                     ->  Seq Scan on household_demographics  (cost=0.00..158.00 rows=651 width=8)
+                                                                           Filter: ((hd_dep_count = 3) OR (hd_dep_count = 1) OR (hd_dep_count = 1))
+                                             ->  Hash  (cost=168412.76..168412.76 rows=421860 width=7)
+                                                   ->  Seq Scan on customer_address  (cost=0.00..168412.76 rows=421860 width=7)
+                                                         Filter: (((ca_country)::text = 'United States'::text) AND (((ca_state)::text = ANY ('{KY,GA,NM}'::text[])) OR ((ca_state)::text = ANY ('{MT,OR,IN}'::text[])) OR ((ca_state)::text = ANY ('{WI,MO,WV}'::text[]))))
+                                 ->  Hash  (cost=52432.50..52432.50 rows=53326 width=16)
+                                       ->  Seq Scan on customer_demographics  (cost=0.00..52432.50 rows=53326 width=16)
+                                             Filter: (((cd_marital_status = 'M'::bpchar) AND ((cd_education_status)::text = '4 yr Degree'::text)) OR ((cd_marital_status = 'D'::bpchar) AND ((cd_education_status)::text = 'Primary'::text)) OR ((cd_marital_status = 'U'::bpchar) AND ((cd_education_status)::text = 'Advanced Degree'::text)))
+                     ->  Hash  (cost=42.02..42.02 rows=334 width=4)
+                           ->  Seq Scan on store  (cost=0.00..42.02 rows=334 width=4)
+ Planning time: 46.372 ms
+ Optimizer: legacy query optimizer
+(362 rows)
+
+-- end query 1 in stream 0 using template query13.tpl

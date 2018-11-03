@@ -1,0 +1,103 @@
+-- start query 1 in stream 0 using template query48.tpl
+explain
+select sum (ss_quantity)
+ from store_sales, store, customer_demographics, customer_address, date_dim
+ where s_store_sk = ss_store_sk
+ and  ss_sold_date_sk = d_date_sk and d_year = 1998
+ and  
+ (
+  (
+   cd_demo_sk = ss_cdemo_sk
+   and 
+   cd_marital_status = 'M'
+   and 
+   cd_education_status = '4 yr Degree'
+   and 
+   ss_sales_price between 100.00 and 150.00  
+   )
+ or
+  (
+  cd_demo_sk = ss_cdemo_sk
+   and 
+   cd_marital_status = 'M'
+   and 
+   cd_education_status = '4 yr Degree'
+   and 
+   ss_sales_price between 50.00 and 100.00   
+  )
+ or 
+ (
+  cd_demo_sk = ss_cdemo_sk
+  and 
+   cd_marital_status = 'M'
+   and 
+   cd_education_status = '4 yr Degree'
+   and 
+   ss_sales_price between 150.00 and 200.00  
+ )
+ )
+ and
+ (
+  (
+  ss_addr_sk = ca_address_sk
+  and
+  ca_country = 'United States'
+  and
+  ca_state in ('KY', 'GA', 'NM')
+  and ss_net_profit between 0 and 2000  
+  )
+ or
+  (ss_addr_sk = ca_address_sk
+  and
+  ca_country = 'United States'
+  and
+  ca_state in ('MT', 'OR', 'IN')
+  and ss_net_profit between 150 and 3000 
+  )
+ or
+  (ss_addr_sk = ca_address_sk
+  and
+  ca_country = 'United States'
+  and
+  ca_state in ('WI', 'MO', 'WV')
+  and ss_net_profit between 50 and 25000 
+  )
+ )
+;
+                                                                                                                                                                                                                                                                              QUERY PLAN                                                                                                                                                                                                                                                                              
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Aggregate  (cost=0.00..238339.32 rows=1 width=8)
+   ->  Gather Motion 3:1  (slice5; segments: 3)  (cost=0.00..238339.32 rows=1 width=8)
+         ->  Aggregate  (cost=0.00..238339.32 rows=1 width=8)
+               ->  Hash Join  (cost=0.00..238339.29 rows=57085 width=4)
+                     Hash Cond: (store_sales.ss_store_sk = store.s_store_sk)
+                     ->  Hash Join  (cost=0.00..237896.98 rows=57085 width=8)
+                           Hash Cond: (store_sales.ss_sold_date_sk = date_dim.d_date_sk)
+                           ->  Hash Join  (cost=0.00..237410.03 rows=284294 width=12)
+                                 Hash Cond: (store_sales.ss_cdemo_sk = customer_demographics.cd_demo_sk)
+                                 ->  Hash Join  (cost=0.00..235889.21 rows=5362116 width=16)
+                                       Hash Cond: (store_sales.ss_addr_sk = customer_address.ca_address_sk)
+                                       Join Filter: ((((customer_address.ca_state)::text = ANY ('{KY,GA,NM}'::text[])) AND (store_sales.ss_net_profit >= 0::numeric) AND (store_sales.ss_net_profit <= 2000::numeric)) OR (((customer_address.ca_state)::text = ANY ('{MT,OR,IN}'::text[])) AND (store_sales.ss_net_profit >= 150::numeric) AND (store_sales.ss_net_profit <= 3000::numeric)) OR (((customer_address.ca_state)::text = ANY ('{WI,MO,WV}'::text[])) AND (store_sales.ss_net_profit >= 50::numeric) AND (store_sales.ss_net_profit <= 25000::numeric)))
+                                       ->  Dynamic Table Scan on store_sales (dynamic scan id: 1)  (cost=0.00..146220.39 rows=243781060 width=32)
+                                             Filter: ((((ss_sales_price >= 100.00) AND (ss_sales_price <= 150.00)) OR ((ss_sales_price >= 50.00) AND (ss_sales_price <= 100.00)) OR ((ss_sales_price >= 150.00) AND (ss_sales_price <= 200.00))) AND (((ss_net_profit >= 0::numeric) AND (ss_net_profit <= 2000::numeric)) OR ((ss_net_profit >= 150::numeric) AND (ss_net_profit <= 3000::numeric)) OR ((ss_net_profit >= 50::numeric) AND (ss_net_profit <= 25000::numeric))))
+                                       ->  Hash  (cost=729.19..729.19 rows=114311 width=7)
+                                             ->  Broadcast Motion 3:3  (slice1; segments: 3)  (cost=0.00..729.19 rows=114311 width=7)
+                                                   ->  Table Scan on customer_address  (cost=0.00..714.86 rows=38104 width=7)
+                                                         Filter: (((ca_country)::text = 'United States'::text) AND (((ca_state)::text = ANY ('{KY,GA,NM}'::text[])) OR ((ca_state)::text = ANY ('{MT,OR,IN}'::text[])) OR ((ca_state)::text = ANY ('{WI,MO,WV}'::text[]))))
+                                 ->  Hash  (cost=506.08..506.08 rows=97564 width=4)
+                                       ->  Broadcast Motion 3:3  (slice2; segments: 3)  (cost=0.00..506.08 rows=97564 width=4)
+                                             ->  Table Scan on customer_demographics  (cost=0.00..499.10 rows=32522 width=4)
+                                                   Filter: ((cd_marital_status = 'M'::bpchar) AND ((cd_education_status)::text = '4 yr Degree'::text))
+                           ->  Hash  (cost=100.00..100.00 rows=34 width=4)
+                                 ->  Partition Selector for store_sales (dynamic scan id: 1)  (cost=10.00..100.00 rows=34 width=4)
+                                       ->  Broadcast Motion 3:3  (slice3; segments: 3)  (cost=0.00..433.78 rows=366 width=4)
+                                             ->  Table Scan on date_dim  (cost=0.00..433.76 rows=122 width=4)
+                                                   Filter: (d_year = 1998)
+                     ->  Hash  (cost=431.13..431.13 rows=1002 width=4)
+                           ->  Broadcast Motion 3:3  (slice4; segments: 3)  (cost=0.00..431.13 rows=1002 width=4)
+                                 ->  Table Scan on store  (cost=0.00..431.05 rows=334 width=4)
+ Planning time: 1138.567 ms
+ Optimizer: PQO version 3.8.0
+(32 rows)
+
+-- end query 1 in stream 0 using template query48.tpl

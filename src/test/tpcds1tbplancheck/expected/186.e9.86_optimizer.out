@@ -1,0 +1,92 @@
+-- start query 1 in stream 0 using template query86.tpl
+explain
+select  * from (
+  select 
+    sum(ws_net_paid) as total_sum
+   ,i_category
+   ,i_class
+   ,grouping(i_category)+grouping(i_class) as lochierarchy
+   ,rank() over (
+ 	partition by grouping(i_category)+grouping(i_class),
+ 	case when grouping(i_class) = 0 then i_category end 
+ 	order by sum(ws_net_paid) desc) as rank_within_parent
+ from
+    web_sales
+   ,date_dim       d1
+   ,item
+ where
+    d1.d_month_seq between 1212 and 1212+11
+ and d1.d_date_sk = ws_sold_date_sk
+ and i_item_sk  = ws_item_sk
+ group by rollup(i_category,i_class)
+) Sub
+ order by
+   lochierarchy desc,
+   case when lochierarchy = 0 then i_category end,
+   rank_within_parent
+ limit 100;
+                                                                                                               QUERY PLAN                                                                                                                
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Result  (cost=0.00..96334.81 rows=34 width=40)
+   ->  Limit  (cost=0.00..96334.81 rows=34 width=40)
+         ->  Gather Motion 3:1  (slice8; segments: 3)  (cost=0.00..96334.81 rows=100 width=48)
+               Merge Key: (("outer".att_4 + "outer".att_5)), (CASE WHEN ((("outer".att_4 + "outer".att_5)) = 0) THEN share0_ref2.i_category ELSE NULL::character varying END), (rank() OVER (?))
+               ->  Limit  (cost=0.00..96334.79 rows=34 width=48)
+                     ->  Sort  (cost=0.00..96334.79 rows=211 width=48)
+                           Sort Key: (("outer".att_4 + "outer".att_5)), (CASE WHEN ((("outer".att_4 + "outer".att_5)) = 0) THEN share0_ref2.i_category ELSE NULL::character varying END), (rank() OVER (?))
+                           ->  Result  (cost=0.00..96334.35 rows=211 width=48)
+                                 ->  WindowAgg  (cost=0.00..96334.34 rows=211 width=38)
+                                       Partition By: (("outer".att_4 + "outer".att_5)), (CASE WHEN ("outer".att_5 = 0) THEN share0_ref2.i_category ELSE NULL::character varying END)
+                                       Order By: (pg_catalog.sum((sum(share0_ref2.ws_net_paid))))
+                                       ->  Sort  (cost=0.00..96334.33 rows=211 width=38)
+                                             Sort Key: (("outer".att_4 + "outer".att_5)), (CASE WHEN ("outer".att_5 = 0) THEN share0_ref2.i_category ELSE NULL::character varying END), (pg_catalog.sum((sum(share0_ref2.ws_net_paid))))
+                                             ->  Redistribute Motion 3:3  (slice7; segments: 3)  (cost=0.00..96333.98 rows=211 width=38)
+                                                   Hash Key: (("outer".att_4 + "outer".att_5)), (CASE WHEN ("outer".att_5 = 0) THEN share0_ref2.i_category ELSE NULL::character varying END)
+                                                   ->  Result  (cost=0.00..96333.95 rows=211 width=38)
+                                                         ->  Result  (cost=0.00..96333.95 rows=211 width=38)
+                                                               ->  Sequence  (cost=0.00..96333.95 rows=211 width=38)
+                                                                     ->  Shared Scan (share slice:id 7:0)  (cost=0.00..86365.53 rows=46994826 width=1)
+                                                                           ->  Materialize  (cost=0.00..86365.53 rows=46994826 width=1)
+                                                                                 ->  Hash Join  (cost=0.00..86318.54 rows=46994826 width=19)
+                                                                                       Hash Cond: (web_sales.ws_item_sk = item.i_item_sk)
+                                                                                       ->  Hash Join  (cost=0.00..74068.47 rows=46994826 width=9)
+                                                                                             Hash Cond: (web_sales.ws_sold_date_sk = date_dim.d_date_sk)
+                                                                                             ->  Dynamic Table Scan on web_sales (dynamic scan id: 1)  (cost=0.00..22739.00 rows=240000000 width=13)
+                                                                                             ->  Hash  (cost=100.00..100.00 rows=34 width=4)
+                                                                                                   ->  Partition Selector for web_sales (dynamic scan id: 1)  (cost=10.00..100.00 rows=34 width=4)
+                                                                                                         ->  Broadcast Motion 3:3  (slice5; segments: 3)  (cost=0.00..433.78 rows=356 width=4)
+                                                                                                               ->  Table Scan on date_dim  (cost=0.00..433.76 rows=119 width=4)
+                                                                                                                     Filter: ((d_month_seq >= 1212) AND (d_month_seq <= 1223))
+                                                                                       ->  Hash  (cost=547.44..547.44 rows=299247 width=18)
+                                                                                             ->  Broadcast Motion 3:3  (slice6; segments: 3)  (cost=0.00..547.44 rows=299247 width=18)
+                                                                                                   ->  Table Scan on item  (cost=0.00..447.68 rows=99749 width=18)
+                                                                     ->  Append  (cost=0.00..9968.41 rows=211 width=38)
+                                                                           ->  Result  (cost=0.00..6011.98 rows=207 width=38)
+                                                                                 ->  HashAggregate  (cost=0.00..6011.97 rows=207 width=22)
+                                                                                       Group Key: share0_ref2.i_category, share0_ref2.i_class
+                                                                                       ->  Redistribute Motion 3:3  (slice1; segments: 3)  (cost=0.00..6011.91 rows=207 width=22)
+                                                                                             Hash Key: share0_ref2.i_category, share0_ref2.i_class
+                                                                                             ->  Result  (cost=0.00..6011.90 rows=207 width=22)
+                                                                                                   ->  HashAggregate  (cost=0.00..6011.90 rows=207 width=22)
+                                                                                                         Group Key: share0_ref2.i_category, share0_ref2.i_class
+                                                                                                         ->  Shared Scan (share slice:id 1:0)  (cost=0.00..1291.76 rows=18797931 width=19)
+                                                                           ->  Result  (cost=0.00..3288.38 rows=4 width=38)
+                                                                                 ->  HashAggregate  (cost=0.00..3288.38 rows=4 width=14)
+                                                                                       Group Key: share0_ref3.i_category
+                                                                                       ->  Redistribute Motion 3:3  (slice2; segments: 3)  (cost=0.00..3288.38 rows=4 width=14)
+                                                                                             Hash Key: share0_ref3.i_category
+                                                                                             ->  Result  (cost=0.00..3288.38 rows=4 width=14)
+                                                                                                   ->  HashAggregate  (cost=0.00..3288.38 rows=4 width=14)
+                                                                                                         Group Key: share0_ref3.i_category
+                                                                                                         ->  Shared Scan (share slice:id 2:0)  (cost=0.00..929.33 rows=18797931 width=11)
+                                                                           ->  Result  (cost=0.00..668.04 rows=1 width=40)
+                                                                                 ->  Redistribute Motion 1:3  (slice4)  (cost=0.00..668.04 rows=1 width=8)
+                                                                                       ->  Aggregate  (cost=0.00..668.04 rows=1 width=8)
+                                                                                             ->  Gather Motion 3:1  (slice3; segments: 3)  (cost=0.00..668.04 rows=1 width=8)
+                                                                                                   ->  Aggregate  (cost=0.00..668.04 rows=1 width=8)
+                                                                                                         ->  Shared Scan (share slice:id 3:0)  (cost=0.00..657.52 rows=18797931 width=5)
+ Planning time: 289.337 ms
+ Optimizer: PQO version 3.8.0
+(60 rows)
+
+-- end query 1 in stream 0 using template query86.tpl

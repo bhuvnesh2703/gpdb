@@ -1,0 +1,76 @@
+-- start query 1 in stream 0 using template query63.tpl
+explain
+select  * 
+from (select i_manager_id
+             ,sum(ss_sales_price) sum_sales
+             ,avg(sum(ss_sales_price)) over (partition by i_manager_id) avg_monthly_sales
+      from item
+          ,store_sales
+          ,date_dim
+          ,store
+      where ss_item_sk = i_item_sk
+        and ss_sold_date_sk = d_date_sk
+        and ss_store_sk = s_store_sk
+        and d_month_seq in (1212,1212+1,1212+2,1212+3,1212+4,1212+5,1212+6,1212+7,1212+8,1212+9,1212+10,1212+11)
+        and ((    i_category in ('Books','Children','Electronics')
+              and i_class in ('personal','portable','refernece','self-help')
+              and i_brand in ('scholaramalgamalg #14','scholaramalgamalg #7',
+		                  'exportiunivamalg #9','scholaramalgamalg #9'))
+           or(    i_category in ('Women','Music','Men')
+              and i_class in ('accessories','classical','fragrances','pants')
+              and i_brand in ('amalgimporto #1','edu packscholar #1','exportiimporto #1',
+		                 'importoamalg #1')))
+group by i_manager_id, d_moy) tmp1
+where case when avg_monthly_sales > 0 then abs (sum_sales - avg_monthly_sales) / avg_monthly_sales else null end > 0.1
+order by i_manager_id
+        ,avg_monthly_sales
+        ,sum_sales
+limit 100;
+                                                                                                                                                                                                                                                                                                                                        QUERY PLAN                                                                                                                                                                                                                                                                                                                                         
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=0.00..279381.40 rows=4 width=20)
+   ->  Gather Motion 3:1  (slice6; segments: 3)  (cost=0.00..279381.40 rows=11 width=20)
+         Merge Key: item.i_manager_id, (avg((pg_catalog.sum((sum(store_sales.ss_sales_price))))) OVER (?)), (pg_catalog.sum((sum(store_sales.ss_sales_price))))
+         ->  Sort  (cost=0.00..279381.40 rows=4 width=20)
+               Sort Key: item.i_manager_id, (avg((pg_catalog.sum((sum(store_sales.ss_sales_price))))) OVER (?)), (pg_catalog.sum((sum(store_sales.ss_sales_price))))
+               ->  Result  (cost=0.00..279381.40 rows=4 width=20)
+                     Filter: (CASE WHEN ((avg((pg_catalog.sum((sum(store_sales.ss_sales_price))))) OVER (?)) > 0::numeric) THEN (abs(((pg_catalog.sum((sum(store_sales.ss_sales_price)))) - (avg((pg_catalog.sum((sum(store_sales.ss_sales_price))))) OVER (?)))) / (avg((pg_catalog.sum((sum(store_sales.ss_sales_price))))) OVER (?))) ELSE NULL::numeric END > 0.1)
+                     ->  WindowAgg  (cost=0.00..279381.40 rows=9 width=20)
+                           Partition By: item.i_manager_id
+                           ->  Sort  (cost=0.00..279381.40 rows=9 width=12)
+                                 Sort Key: item.i_manager_id
+                                 ->  Redistribute Motion 3:3  (slice5; segments: 3)  (cost=0.00..279381.40 rows=9 width=12)
+                                       Hash Key: item.i_manager_id
+                                       ->  Result  (cost=0.00..279381.40 rows=9 width=12)
+                                             ->  HashAggregate  (cost=0.00..279381.40 rows=9 width=12)
+                                                   Group Key: item.i_manager_id, date_dim.d_moy
+                                                   ->  Redistribute Motion 3:3  (slice4; segments: 3)  (cost=0.00..279381.39 rows=9 width=16)
+                                                         Hash Key: item.i_manager_id, date_dim.d_moy
+                                                         ->  Result  (cost=0.00..279381.39 rows=9 width=16)
+                                                               ->  HashAggregate  (cost=0.00..279381.39 rows=9 width=16)
+                                                                     Group Key: item.i_manager_id, date_dim.d_moy
+                                                                     ->  Hash Join  (cost=0.00..279380.81 rows=2345 width=14)
+                                                                           Hash Cond: (store_sales.ss_store_sk = store.s_store_sk)
+                                                                           ->  Redistribute Motion 3:3  (slice3; segments: 3)  (cost=0.00..278949.14 rows=2345 width=18)
+                                                                                 Hash Key: store_sales.ss_store_sk
+                                                                                 ->  Hash Join  (cost=0.00..278949.01 rows=2345 width=18)
+                                                                                       Hash Cond: (store_sales.ss_sold_date_sk = date_dim.d_date_sk)
+                                                                                       ->  Hash Join  (cost=0.00..278512.66 rows=12410 width=18)
+                                                                                             Hash Cond: (store_sales.ss_item_sk = item.i_item_sk)
+                                                                                             ->  Dynamic Table Scan on store_sales (dynamic scan id: 1)  (cost=0.00..68542.76 rows=959996672 width=18)
+                                                                                             ->  Hash  (cost=457.52..457.52 rows=4 width=8)
+                                                                                                   ->  Broadcast Motion 3:3  (slice1; segments: 3)  (cost=0.00..457.52 rows=4 width=8)
+                                                                                                         ->  Table Scan on item  (cost=0.00..457.52 rows=2 width=8)
+                                                                                                               Filter: ((((i_category)::text = ANY ('{Books,Children,Electronics}'::text[])) AND ((i_class)::text = ANY ('{personal,portable,refernece,self-help}'::text[])) AND ((i_brand)::text = ANY ('{"scholaramalgamalg #14","scholaramalgamalg #7","exportiunivamalg #9","scholaramalgamalg #9"}'::text[]))) OR (((i_category)::text = ANY ('{Women,Music,Men}'::text[])) AND ((i_class)::text = ANY ('{accessories,classical,fragrances,pants}'::text[])) AND ((i_brand)::text = ANY ('{"amalgimporto #1","edu packscholar #1","exportiimporto #1","importoamalg #1"}'::text[]))))
+                                                                                       ->  Hash  (cost=100.00..100.00 rows=34 width=4)
+                                                                                             ->  Partition Selector for store_sales (dynamic scan id: 1)  (cost=10.00..100.00 rows=34 width=4)
+                                                                                                   ->  Broadcast Motion 3:3  (slice2; segments: 3)  (cost=0.00..433.81 rows=344 width=8)
+                                                                                                         ->  Table Scan on date_dim  (cost=0.00..433.76 rows=115 width=8)
+                                                                                                               Filter: (d_month_seq = ANY ('{1212,1213,1214,1215,1216,1217,1218,1219,1220,1221,1222,1223}'::integer[]))
+                                                                           ->  Hash  (cost=431.05..431.05 rows=334 width=4)
+                                                                                 ->  Table Scan on store  (cost=0.00..431.05 rows=334 width=4)
+ Planning time: 470.060 ms
+ Optimizer: PQO version 3.8.0
+(43 rows)
+
+-- end query 1 in stream 0 using template query63.tpl

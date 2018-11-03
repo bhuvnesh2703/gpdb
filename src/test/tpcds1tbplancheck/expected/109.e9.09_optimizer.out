@@ -1,0 +1,242 @@
+-- start query 1 in stream 0 using template query9.tpl
+explain
+select case when (select count(*) 
+                  from store_sales 
+                  where ss_quantity between 1 and 20) > 48409437
+            then (select avg(ss_ext_discount_amt) 
+                  from store_sales 
+                  where ss_quantity between 1 and 20) 
+            else (select avg(ss_net_profit)
+                  from store_sales
+                  where ss_quantity between 1 and 20) end bucket1 ,
+       case when (select count(*)
+                  from store_sales
+                  where ss_quantity between 21 and 40) > 24804257
+            then (select avg(ss_ext_discount_amt)
+                  from store_sales
+                  where ss_quantity between 21 and 40) 
+            else (select avg(ss_net_profit)
+                  from store_sales
+                  where ss_quantity between 21 and 40) end bucket2,
+       case when (select count(*)
+                  from store_sales
+                  where ss_quantity between 41 and 60) > 128048939
+            then (select avg(ss_ext_discount_amt)
+                  from store_sales
+                  where ss_quantity between 41 and 60)
+            else (select avg(ss_net_profit)
+                  from store_sales
+                  where ss_quantity between 41 and 60) end bucket3,
+       case when (select count(*)
+                  from store_sales
+                  where ss_quantity between 61 and 80) > 56503968
+            then (select avg(ss_ext_discount_amt)
+                  from store_sales
+                  where ss_quantity between 61 and 80)
+            else (select avg(ss_net_profit)
+                  from store_sales
+                  where ss_quantity between 61 and 80) end bucket4,
+       case when (select count(*)
+                  from store_sales
+                  where ss_quantity between 81 and 100) > 43571537
+            then (select avg(ss_ext_discount_amt)
+                  from store_sales
+                  where ss_quantity between 81 and 100)
+            else (select avg(ss_net_profit)
+                  from store_sales
+                  where ss_quantity between 81 and 100) end bucket5
+from reason
+where r_reason_sk = 1
+;
+                                                                                                                              QUERY PLAN                                                                                                                              
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Result  (cost=0.00..159977582077220948247790792088854767495680475791360.00 rows=1 width=40)
+   ->  Result  (cost=0.00..159977582077220948247790792088854767495680475791360.00 rows=10923 width=120)
+         ->  Gather Motion 3:1  (slice31; segments: 3)  (cost=0.00..159977582077220948247790792088854767495680475791360.00 rows=32768 width=120)
+               ->  Nested Loop Left Join  (cost=0.00..159977582077220948247790792088854767495680475791360.00 rows=10923 width=120)
+                     Join Filter: true
+                     ->  Nested Loop Left Join  (cost=0.00..156228107497286082273233195399272233882500464640.00 rows=5462 width=112)
+                           Join Filter: true
+                           ->  Nested Loop Left Join  (cost=0.00..152566511227818439719954292382101790900879360.00 rows=2731 width=104)
+                                 Join Filter: true
+                                 ->  Nested Loop Left Join  (cost=0.00..148990733620916445039017863654396280176640.00 rows=1366 width=96)
+                                       Join Filter: true
+                                       ->  Nested Loop Left Join  (cost=0.00..145498763301676215858415882474996367360.00 rows=683 width=88)
+                                             Join Filter: true
+                                             ->  Nested Loop Left Join  (cost=0.00..142088636036793179549234260229488640.00 rows=342 width=80)
+                                                   Join Filter: true
+                                                   ->  Nested Loop Left Join  (cost=0.00..138758433629680839403549082255360.00 rows=171 width=72)
+                                                         Join Filter: true
+                                                         ->  Nested Loop Left Join  (cost=0.00..135506282841485194730028400640.00 rows=86 width=64)
+                                                               Join Filter: true
+                                                               ->  Nested Loop Left Join  (cost=0.00..132330354337387885478543360.00 rows=43 width=56)
+                                                                     Join Filter: true
+                                                                     ->  Nested Loop Left Join  (cost=0.00..129228861657605356912640.00 rows=22 width=48)
+                                                                           Join Filter: true
+                                                                           ->  Nested Loop Left Join  (cost=0.00..126200060212505100288.00 rows=11 width=40)
+                                                                                 Join Filter: true
+                                                                                 ->  Nested Loop Left Join  (cost=0.00..123242246301154672.00 rows=6 width=32)
+                                                                                       Join Filter: true
+                                                                                       ->  Nested Loop Left Join  (cost=0.00..120353756041931.34 rows=3 width=24)
+                                                                                             Join Filter: true
+                                                                                             ->  Nested Loop Left Join  (cost=0.00..117532836748.43 rows=2 width=16)
+                                                                                                   Join Filter: true
+                                                                                                   ->  Nested Loop Left Join  (cost=0.00..114658322.74 rows=1 width=8)
+                                                                                                         Join Filter: true
+                                                                                                         ->  Table Scan on reason  (cost=0.00..431.00 rows=1 width=1)
+                                                                                                               Filter: (r_reason_sk = 1)
+                                                                                                         ->  Materialize  (cost=0.00..111109.02 rows=1 width=8)
+                                                                                                               ->  Broadcast Motion 1:3  (slice30)  (cost=0.00..111109.02 rows=3 width=8)
+                                                                                                                     ->  Aggregate  (cost=0.00..111109.02 rows=1 width=8)
+                                                                                                                           ->  Gather Motion 3:1  (slice29; segments: 3)  (cost=0.00..111109.02 rows=1 width=8)
+                                                                                                                                 ->  Aggregate  (cost=0.00..111109.02 rows=1 width=8)
+                                                                                                                                       ->  Sequence  (cost=0.00..111109.02 rows=182607687 width=4)
+                                                                                                                                             ->  Partition Selector for store_sales (dynamic scan id: 1)  (cost=10.00..100.00 rows=34 width=4)
+                                                                                                                                                   Partitions selected: 80 (out of 80)
+                                                                                                                                             ->  Dynamic Table Scan on store_sales store_sales_14 (dynamic scan id: 1)  (cost=0.00..111109.02 rows=182607687 width=4)
+                                                                                                                                                   Filter: ((ss_quantity >= 1) AND (ss_quantity <= 20))
+                                                                                                   ->  Materialize  (cost=0.00..119407.14 rows=1 width=8)
+                                                                                                         ->  Broadcast Motion 1:3  (slice28)  (cost=0.00..119407.14 rows=3 width=8)
+                                                                                                               ->  Aggregate  (cost=0.00..119407.14 rows=1 width=8)
+                                                                                                                     ->  Gather Motion 3:1  (slice27; segments: 3)  (cost=0.00..119407.14 rows=1 width=8)
+                                                                                                                           ->  Aggregate  (cost=0.00..119407.14 rows=1 width=8)
+                                                                                                                                 ->  Sequence  (cost=0.00..119345.79 rows=182607687 width=7)
+                                                                                                                                       ->  Partition Selector for store_sales (dynamic scan id: 2)  (cost=10.00..100.00 rows=34 width=4)
+                                                                                                                                             Partitions selected: 80 (out of 80)
+                                                                                                                                       ->  Dynamic Table Scan on store_sales store_sales_13 (dynamic scan id: 2)  (cost=0.00..119345.79 rows=182607687 width=7)
+                                                                                                                                             Filter: ((ss_quantity >= 1) AND (ss_quantity <= 20))
+                                                                                             ->  Materialize  (cost=0.00..127705.27 rows=1 width=8)
+                                                                                                   ->  Broadcast Motion 1:3  (slice26)  (cost=0.00..127705.27 rows=3 width=8)
+                                                                                                         ->  Aggregate  (cost=0.00..127705.27 rows=1 width=8)
+                                                                                                               ->  Gather Motion 3:1  (slice25; segments: 3)  (cost=0.00..127705.27 rows=1 width=8)
+                                                                                                                     ->  Aggregate  (cost=0.00..127705.27 rows=1 width=8)
+                                                                                                                           ->  Sequence  (cost=0.00..127582.56 rows=182607687 width=10)
+                                                                                                                                 ->  Partition Selector for store_sales (dynamic scan id: 3)  (cost=10.00..100.00 rows=34 width=4)
+                                                                                                                                       Partitions selected: 80 (out of 80)
+                                                                                                                                 ->  Dynamic Table Scan on store_sales store_sales_12 (dynamic scan id: 3)  (cost=0.00..127582.56 rows=182607687 width=10)
+                                                                                                                                       Filter: ((ss_quantity >= 1) AND (ss_quantity <= 20))
+                                                                                       ->  Materialize  (cost=0.00..111109.02 rows=1 width=8)
+                                                                                             ->  Broadcast Motion 1:3  (slice24)  (cost=0.00..111109.02 rows=3 width=8)
+                                                                                                   ->  Aggregate  (cost=0.00..111109.02 rows=1 width=8)
+                                                                                                         ->  Gather Motion 3:1  (slice23; segments: 3)  (cost=0.00..111109.02 rows=1 width=8)
+                                                                                                               ->  Aggregate  (cost=0.00..111109.02 rows=1 width=8)
+                                                                                                                     ->  Sequence  (cost=0.00..111109.02 rows=183388165 width=4)
+                                                                                                                           ->  Partition Selector for store_sales (dynamic scan id: 4)  (cost=10.00..100.00 rows=34 width=4)
+                                                                                                                                 Partitions selected: 80 (out of 80)
+                                                                                                                           ->  Dynamic Table Scan on store_sales store_sales_11 (dynamic scan id: 4)  (cost=0.00..111109.02 rows=183388165 width=4)
+                                                                                                                                 Filter: ((ss_quantity >= 21) AND (ss_quantity <= 40))
+                                                                                 ->  Materialize  (cost=0.00..119407.41 rows=1 width=8)
+                                                                                       ->  Broadcast Motion 1:3  (slice22)  (cost=0.00..119407.41 rows=3 width=8)
+                                                                                             ->  Aggregate  (cost=0.00..119407.41 rows=1 width=8)
+                                                                                                   ->  Gather Motion 3:1  (slice21; segments: 3)  (cost=0.00..119407.41 rows=1 width=8)
+                                                                                                         ->  Aggregate  (cost=0.00..119407.41 rows=1 width=8)
+                                                                                                               ->  Sequence  (cost=0.00..119345.79 rows=183388165 width=7)
+                                                                                                                     ->  Partition Selector for store_sales (dynamic scan id: 5)  (cost=10.00..100.00 rows=34 width=4)
+                                                                                                                           Partitions selected: 80 (out of 80)
+                                                                                                                     ->  Dynamic Table Scan on store_sales store_sales_10 (dynamic scan id: 5)  (cost=0.00..119345.79 rows=183388165 width=7)
+                                                                                                                           Filter: ((ss_quantity >= 21) AND (ss_quantity <= 40))
+                                                                           ->  Materialize  (cost=0.00..127705.80 rows=1 width=8)
+                                                                                 ->  Broadcast Motion 1:3  (slice20)  (cost=0.00..127705.80 rows=3 width=8)
+                                                                                       ->  Aggregate  (cost=0.00..127705.80 rows=1 width=8)
+                                                                                             ->  Gather Motion 3:1  (slice19; segments: 3)  (cost=0.00..127705.80 rows=1 width=8)
+                                                                                                   ->  Aggregate  (cost=0.00..127705.80 rows=1 width=8)
+                                                                                                         ->  Sequence  (cost=0.00..127582.56 rows=183388165 width=10)
+                                                                                                               ->  Partition Selector for store_sales (dynamic scan id: 6)  (cost=10.00..100.00 rows=34 width=4)
+                                                                                                                     Partitions selected: 80 (out of 80)
+                                                                                                               ->  Dynamic Table Scan on store_sales store_sales_9 (dynamic scan id: 6)  (cost=0.00..127582.56 rows=183388165 width=10)
+                                                                                                                     Filter: ((ss_quantity >= 21) AND (ss_quantity <= 40))
+                                                                     ->  Materialize  (cost=0.00..111109.02 rows=1 width=8)
+                                                                           ->  Broadcast Motion 1:3  (slice18)  (cost=0.00..111109.02 rows=3 width=8)
+                                                                                 ->  Aggregate  (cost=0.00..111109.02 rows=1 width=8)
+                                                                                       ->  Gather Motion 3:1  (slice17; segments: 3)  (cost=0.00..111109.02 rows=1 width=8)
+                                                                                             ->  Aggregate  (cost=0.00..111109.02 rows=1 width=8)
+                                                                                                   ->  Sequence  (cost=0.00..111109.02 rows=183440005 width=4)
+                                                                                                         ->  Partition Selector for store_sales (dynamic scan id: 7)  (cost=10.00..100.00 rows=34 width=4)
+                                                                                                               Partitions selected: 80 (out of 80)
+                                                                                                         ->  Dynamic Table Scan on store_sales store_sales_8 (dynamic scan id: 7)  (cost=0.00..111109.02 rows=183440005 width=4)
+                                                                                                               Filter: ((ss_quantity >= 41) AND (ss_quantity <= 60))
+                                                               ->  Materialize  (cost=0.00..119407.42 rows=1 width=8)
+                                                                     ->  Broadcast Motion 1:3  (slice16)  (cost=0.00..119407.42 rows=3 width=8)
+                                                                           ->  Aggregate  (cost=0.00..119407.42 rows=1 width=8)
+                                                                                 ->  Gather Motion 3:1  (slice15; segments: 3)  (cost=0.00..119407.42 rows=1 width=8)
+                                                                                       ->  Aggregate  (cost=0.00..119407.42 rows=1 width=8)
+                                                                                             ->  Sequence  (cost=0.00..119345.79 rows=183440005 width=7)
+                                                                                                   ->  Partition Selector for store_sales (dynamic scan id: 8)  (cost=10.00..100.00 rows=34 width=4)
+                                                                                                         Partitions selected: 80 (out of 80)
+                                                                                                   ->  Dynamic Table Scan on store_sales store_sales_7 (dynamic scan id: 8)  (cost=0.00..119345.79 rows=183440005 width=7)
+                                                                                                         Filter: ((ss_quantity >= 41) AND (ss_quantity <= 60))
+                                                         ->  Materialize  (cost=0.00..127705.83 rows=1 width=8)
+                                                               ->  Broadcast Motion 1:3  (slice14)  (cost=0.00..127705.83 rows=3 width=8)
+                                                                     ->  Aggregate  (cost=0.00..127705.83 rows=1 width=8)
+                                                                           ->  Gather Motion 3:1  (slice13; segments: 3)  (cost=0.00..127705.83 rows=1 width=8)
+                                                                                 ->  Aggregate  (cost=0.00..127705.83 rows=1 width=8)
+                                                                                       ->  Sequence  (cost=0.00..127582.56 rows=183440005 width=10)
+                                                                                             ->  Partition Selector for store_sales (dynamic scan id: 9)  (cost=10.00..100.00 rows=34 width=4)
+                                                                                                   Partitions selected: 80 (out of 80)
+                                                                                             ->  Dynamic Table Scan on store_sales store_sales_6 (dynamic scan id: 9)  (cost=0.00..127582.56 rows=183440005 width=10)
+                                                                                                   Filter: ((ss_quantity >= 41) AND (ss_quantity <= 60))
+                                                   ->  Materialize  (cost=0.00..111109.02 rows=1 width=8)
+                                                         ->  Broadcast Motion 1:3  (slice12)  (cost=0.00..111109.02 rows=3 width=8)
+                                                               ->  Aggregate  (cost=0.00..111109.02 rows=1 width=8)
+                                                                     ->  Gather Motion 3:1  (slice11; segments: 3)  (cost=0.00..111109.02 rows=1 width=8)
+                                                                           ->  Aggregate  (cost=0.00..111109.02 rows=1 width=8)
+                                                                                 ->  Sequence  (cost=0.00..111109.02 rows=183203845 width=4)
+                                                                                       ->  Partition Selector for store_sales (dynamic scan id: 10)  (cost=10.00..100.00 rows=34 width=4)
+                                                                                             Partitions selected: 80 (out of 80)
+                                                                                       ->  Dynamic Table Scan on store_sales store_sales_5 (dynamic scan id: 10)  (cost=0.00..111109.02 rows=183203845 width=4)
+                                                                                             Filter: ((ss_quantity >= 61) AND (ss_quantity <= 80))
+                                             ->  Materialize  (cost=0.00..119407.34 rows=1 width=8)
+                                                   ->  Broadcast Motion 1:3  (slice10)  (cost=0.00..119407.34 rows=3 width=8)
+                                                         ->  Aggregate  (cost=0.00..119407.34 rows=1 width=8)
+                                                               ->  Gather Motion 3:1  (slice9; segments: 3)  (cost=0.00..119407.34 rows=1 width=8)
+                                                                     ->  Aggregate  (cost=0.00..119407.34 rows=1 width=8)
+                                                                           ->  Sequence  (cost=0.00..119345.79 rows=183203845 width=7)
+                                                                                 ->  Partition Selector for store_sales (dynamic scan id: 11)  (cost=10.00..100.00 rows=34 width=4)
+                                                                                       Partitions selected: 80 (out of 80)
+                                                                                 ->  Dynamic Table Scan on store_sales store_sales_4 (dynamic scan id: 11)  (cost=0.00..119345.79 rows=183203845 width=7)
+                                                                                       Filter: ((ss_quantity >= 61) AND (ss_quantity <= 80))
+                                       ->  Materialize  (cost=0.00..127705.67 rows=1 width=8)
+                                             ->  Broadcast Motion 1:3  (slice8)  (cost=0.00..127705.67 rows=3 width=8)
+                                                   ->  Aggregate  (cost=0.00..127705.67 rows=1 width=8)
+                                                         ->  Gather Motion 3:1  (slice7; segments: 3)  (cost=0.00..127705.67 rows=1 width=8)
+                                                               ->  Aggregate  (cost=0.00..127705.67 rows=1 width=8)
+                                                                     ->  Sequence  (cost=0.00..127582.56 rows=183203845 width=10)
+                                                                           ->  Partition Selector for store_sales (dynamic scan id: 12)  (cost=10.00..100.00 rows=34 width=4)
+                                                                                 Partitions selected: 80 (out of 80)
+                                                                           ->  Dynamic Table Scan on store_sales store_sales_3 (dynamic scan id: 12)  (cost=0.00..127582.56 rows=183203845 width=10)
+                                                                                 Filter: ((ss_quantity >= 61) AND (ss_quantity <= 80))
+                                 ->  Materialize  (cost=0.00..111109.02 rows=1 width=8)
+                                       ->  Broadcast Motion 1:3  (slice6)  (cost=0.00..111109.02 rows=3 width=8)
+                                             ->  Aggregate  (cost=0.00..111109.02 rows=1 width=8)
+                                                   ->  Gather Motion 3:1  (slice5; segments: 3)  (cost=0.00..111109.02 rows=1 width=8)
+                                                         ->  Aggregate  (cost=0.00..111109.02 rows=1 width=8)
+                                                               ->  Sequence  (cost=0.00..111109.02 rows=183364165 width=4)
+                                                                     ->  Partition Selector for store_sales (dynamic scan id: 13)  (cost=10.00..100.00 rows=34 width=4)
+                                                                           Partitions selected: 80 (out of 80)
+                                                                     ->  Dynamic Table Scan on store_sales store_sales_2 (dynamic scan id: 13)  (cost=0.00..111109.02 rows=183364165 width=4)
+                                                                           Filter: ((ss_quantity >= 81) AND (ss_quantity <= 100))
+                           ->  Materialize  (cost=0.00..119407.40 rows=1 width=8)
+                                 ->  Broadcast Motion 1:3  (slice4)  (cost=0.00..119407.40 rows=3 width=8)
+                                       ->  Aggregate  (cost=0.00..119407.40 rows=1 width=8)
+                                             ->  Gather Motion 3:1  (slice3; segments: 3)  (cost=0.00..119407.40 rows=1 width=8)
+                                                   ->  Aggregate  (cost=0.00..119407.40 rows=1 width=8)
+                                                         ->  Sequence  (cost=0.00..119345.79 rows=183364165 width=7)
+                                                               ->  Partition Selector for store_sales (dynamic scan id: 14)  (cost=10.00..100.00 rows=34 width=4)
+                                                                     Partitions selected: 80 (out of 80)
+                                                               ->  Dynamic Table Scan on store_sales store_sales_1 (dynamic scan id: 14)  (cost=0.00..119345.79 rows=183364165 width=7)
+                                                                     Filter: ((ss_quantity >= 81) AND (ss_quantity <= 100))
+                     ->  Materialize  (cost=0.00..127705.78 rows=1 width=8)
+                           ->  Broadcast Motion 1:3  (slice2)  (cost=0.00..127705.78 rows=3 width=8)
+                                 ->  Aggregate  (cost=0.00..127705.78 rows=1 width=8)
+                                       ->  Gather Motion 3:1  (slice1; segments: 3)  (cost=0.00..127705.78 rows=1 width=8)
+                                             ->  Aggregate  (cost=0.00..127705.78 rows=1 width=8)
+                                                   ->  Sequence  (cost=0.00..127582.56 rows=183364165 width=10)
+                                                         ->  Partition Selector for store_sales (dynamic scan id: 15)  (cost=10.00..100.00 rows=34 width=4)
+                                                               Partitions selected: 80 (out of 80)
+                                                         ->  Dynamic Table Scan on store_sales (dynamic scan id: 15)  (cost=0.00..127582.56 rows=183364165 width=10)
+                                                               Filter: ((ss_quantity >= 81) AND (ss_quantity <= 100))
+ Planning time: 355.623 ms
+ Optimizer: PQO version 3.8.0
+(187 rows)
+
+-- end query 1 in stream 0 using template query9.tpl

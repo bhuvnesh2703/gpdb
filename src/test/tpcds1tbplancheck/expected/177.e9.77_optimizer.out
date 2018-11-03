@@ -1,0 +1,265 @@
+-- start query 1 in stream 0 using template query77.tpl
+explain
+with ss as
+ (select s_store_sk,
+         sum(ss_ext_sales_price) as sales,
+         sum(ss_net_profit) as profit
+ from store_sales,
+      date_dim,
+      store
+ where ss_sold_date_sk = d_date_sk
+       and d_date between cast('1998-08-04' as date) 
+                  and (cast('1998-08-04' as date) +  30 ) 
+       and ss_store_sk = s_store_sk
+ group by s_store_sk)
+ ,
+ sr as
+ (select s_store_sk,
+         sum(sr_return_amt) as returns,
+         sum(sr_net_loss) as profit_loss
+ from store_returns,
+      date_dim,
+      store
+ where sr_returned_date_sk = d_date_sk
+       and d_date between cast('1998-08-04' as date)
+                  and (cast('1998-08-04' as date) +  30 )
+       and sr_store_sk = s_store_sk
+ group by s_store_sk), 
+ cs as
+ (select cs_call_center_sk,
+        sum(cs_ext_sales_price) as sales,
+        sum(cs_net_profit) as profit
+ from catalog_sales,
+      date_dim
+ where cs_sold_date_sk = d_date_sk
+       and d_date between cast('1998-08-04' as date)
+                  and (cast('1998-08-04' as date) +  30 )
+ group by cs_call_center_sk 
+ ), 
+ cr as
+ (select
+        sum(cr_return_amount) as returns,
+        sum(cr_net_loss) as profit_loss
+ from catalog_returns,
+      date_dim
+ where cr_returned_date_sk = d_date_sk
+       and d_date between cast('1998-08-04' as date)
+                  and (cast('1998-08-04' as date) +  30 )
+ ), 
+ ws as
+ ( select wp_web_page_sk,
+        sum(ws_ext_sales_price) as sales,
+        sum(ws_net_profit) as profit
+ from web_sales,
+      date_dim,
+      web_page
+ where ws_sold_date_sk = d_date_sk
+       and d_date between cast('1998-08-04' as date)
+                  and (cast('1998-08-04' as date) +  30 )
+       and ws_web_page_sk = wp_web_page_sk
+ group by wp_web_page_sk), 
+ wr as
+ (select wp_web_page_sk,
+        sum(wr_return_amt) as returns,
+        sum(wr_net_loss) as profit_loss
+ from web_returns,
+      date_dim,
+      web_page
+ where wr_returned_date_sk = d_date_sk
+       and d_date between cast('1998-08-04' as date)
+                  and (cast('1998-08-04' as date) +  30 )
+       and wr_web_page_sk = wp_web_page_sk
+ group by wp_web_page_sk)
+  select  channel
+        , id
+        , sum(sales) as sales
+        , sum(returns) as returns
+        , sum(profit) as profit
+ from 
+ (select 'store channel' as channel
+        , ss.s_store_sk as id
+        , sales
+        , coalesce(returns, 0) as returns
+        , (profit - coalesce(profit_loss,0)) as profit
+ from   ss left join sr
+        on  ss.s_store_sk = sr.s_store_sk
+ union all
+ select 'catalog channel' as channel
+        , cs_call_center_sk as id
+        , sales
+        , returns
+        , (profit - profit_loss) as profit
+ from  cs
+       , cr
+ union all
+ select 'web channel' as channel
+        , ws.wp_web_page_sk as id
+        , sales
+        , coalesce(returns, 0) returns
+        , (profit - coalesce(profit_loss,0)) as profit
+ from   ws left join wr
+        on  ws.wp_web_page_sk = wr.wp_web_page_sk
+ ) x
+ group by rollup (channel, id)
+ order by channel
+         ,id
+ limit 100;
+                                                                                                    QUERY PLAN                                                                                                     
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Sort  (cost=0.00..172064117.20 rows=34 width=36)
+   Sort Key: share6_ref2.channel, share6_ref2.s_store_sk
+   ->  Limit  (cost=0.00..172064117.06 rows=34 width=36)
+         ->  Gather Motion 3:1  (slice21; segments: 3)  (cost=0.00..172064117.06 rows=100 width=36)
+               Merge Key: share6_ref2.channel, share6_ref2.s_store_sk
+               ->  Limit  (cost=0.00..172064117.05 rows=34 width=36)
+                     ->  Sort  (cost=0.00..172064117.05 rows=2259 width=36)
+                           Sort Key: share6_ref2.channel, share6_ref2.s_store_sk
+                           ->  Sequence  (cost=0.00..172064111.91 rows=2259 width=36)
+                                 ->  Shared Scan (share slice:id 21:6)  (cost=0.00..172062817.29 rows=2258 width=1)
+                                       ->  Materialize  (cost=0.00..172062817.29 rows=2258 width=1)
+                                             ->  Append  (cost=0.00..172062817.28 rows=2258 width=36)
+                                                   ->  Result  (cost=0.00..319188.98 rows=329 width=36)
+                                                         ->  Hash Left Join  (cost=0.00..319188.97 rows=329 width=36)
+                                                               Hash Cond: (store.s_store_sk = store_1.s_store_sk)
+                                                               ->  HashAggregate  (cost=0.00..290675.49 rows=168 width=20)
+                                                                     Group Key: store.s_store_sk
+                                                                     ->  Redistribute Motion 3:3  (slice6; segments: 3)  (cost=0.00..290675.47 rows=168 width=20)
+                                                                           Hash Key: store.s_store_sk
+                                                                           ->  Result  (cost=0.00..290675.46 rows=168 width=20)
+                                                                                 ->  HashAggregate  (cost=0.00..290675.46 rows=168 width=20)
+                                                                                       Group Key: store.s_store_sk
+                                                                                       ->  Hash Join  (cost=0.00..288557.01 rows=16569795 width=16)
+                                                                                             Hash Cond: (store_sales.ss_store_sk = store.s_store_sk)
+                                                                                             ->  Hash Join  (cost=0.00..284156.49 rows=16569795 width=16)
+                                                                                                   Hash Cond: (store_sales.ss_sold_date_sk = date_dim.d_date_sk)
+                                                                                                   ->  Dynamic Table Scan on store_sales (dynamic scan id: 1)  (cost=0.00..68542.76 rows=959996672 width=20)
+                                                                                                   ->  Hash  (cost=100.00..100.00 rows=34 width=4)
+                                                                                                         ->  Partition Selector for store_sales (dynamic scan id: 1)  (cost=10.00..100.00 rows=34 width=4)
+                                                                                                               ->  Broadcast Motion 3:3  (slice4; segments: 3)  (cost=0.00..433.76 rows=32 width=4)
+                                                                                                                     ->  Table Scan on date_dim  (cost=0.00..433.76 rows=11 width=4)
+                                                                                                                           Filter: ((d_date >= '08-04-1998'::date) AND (d_date <= '09-03-1998'::date))
+                                                                                             ->  Hash  (cost=431.13..431.13 rows=1002 width=4)
+                                                                                                   ->  Broadcast Motion 3:3  (slice5; segments: 3)  (cost=0.00..431.13 rows=1002 width=4)
+                                                                                                         ->  Table Scan on store  (cost=0.00..431.05 rows=334 width=4)
+                                                               ->  Hash  (cost=28513.31..28513.31 rows=168 width=20)
+                                                                     ->  HashAggregate  (cost=0.00..28513.31 rows=168 width=20)
+                                                                           Group Key: store_1.s_store_sk
+                                                                           ->  Redistribute Motion 3:3  (slice9; segments: 3)  (cost=0.00..28513.29 rows=168 width=20)
+                                                                                 Hash Key: store_1.s_store_sk
+                                                                                 ->  Result  (cost=0.00..28513.28 rows=168 width=20)
+                                                                                       ->  HashAggregate  (cost=0.00..28513.28 rows=168 width=20)
+                                                                                             Group Key: store_1.s_store_sk
+                                                                                             ->  Hash Join  (cost=0.00..28320.22 rows=1510049 width=14)
+                                                                                                   Hash Cond: (store_returns.sr_store_sk = store_1.s_store_sk)
+                                                                                                   ->  Hash Join  (cost=0.00..27539.59 rows=1510049 width=14)
+                                                                                                         Hash Cond: (store_returns.sr_returned_date_sk = date_dim_1.d_date_sk)
+                                                                                                         ->  Dynamic Table Scan on store_returns (dynamic scan id: 2)  (cost=0.00..6080.60 rows=96000000 width=18)
+                                                                                                         ->  Hash  (cost=100.00..100.00 rows=34 width=4)
+                                                                                                               ->  Partition Selector for store_returns (dynamic scan id: 2)  (cost=10.00..100.00 rows=34 width=4)
+                                                                                                                     ->  Broadcast Motion 3:3  (slice7; segments: 3)  (cost=0.00..433.76 rows=32 width=4)
+                                                                                                                           ->  Table Scan on date_dim date_dim_1  (cost=0.00..433.76 rows=11 width=4)
+                                                                                                                                 Filter: ((d_date >= '08-04-1998'::date) AND (d_date <= '09-03-1998'::date))
+                                                                                                   ->  Hash  (cost=431.13..431.13 rows=1002 width=4)
+                                                                                                         ->  Broadcast Motion 3:3  (slice8; segments: 3)  (cost=0.00..431.13 rows=1002 width=4)
+                                                                                                               ->  Table Scan on store store_1  (cost=0.00..431.05 rows=334 width=4)
+                                                   ->  Result  (cost=0.00..171657467.11 rows=15 width=36)
+                                                         ->  Nested Loop  (cost=0.00..171657467.11 rows=15 width=36)
+                                                               Join Filter: true
+                                                               ->  HashAggregate  (cost=0.00..152744.82 rows=15 width=20)
+                                                                     Group Key: catalog_sales.cs_call_center_sk
+                                                                     ->  Redistribute Motion 3:3  (slice14; segments: 3)  (cost=0.00..152744.82 rows=15 width=20)
+                                                                           Hash Key: catalog_sales.cs_call_center_sk
+                                                                           ->  Result  (cost=0.00..152744.82 rows=15 width=20)
+                                                                                 ->  HashAggregate  (cost=0.00..152744.82 rows=15 width=20)
+                                                                                       Group Key: catalog_sales.cs_call_center_sk
+                                                                                       ->  Hash Join  (cost=0.00..151693.69 rows=8221535 width=14)
+                                                                                             Hash Cond: (catalog_sales.cs_sold_date_sk = date_dim_3.d_date_sk)
+                                                                                             ->  Dynamic Table Scan on catalog_sales (dynamic scan id: 3)  (cost=0.00..46102.37 rows=479993344 width=18)
+                                                                                             ->  Hash  (cost=100.00..100.00 rows=34 width=4)
+                                                                                                   ->  Partition Selector for catalog_sales (dynamic scan id: 3)  (cost=10.00..100.00 rows=34 width=4)
+                                                                                                         ->  Broadcast Motion 3:3  (slice13; segments: 3)  (cost=0.00..433.76 rows=32 width=4)
+                                                                                                               ->  Table Scan on date_dim date_dim_3  (cost=0.00..433.76 rows=11 width=4)
+                                                                                                                     Filter: ((d_date >= '08-04-1998'::date) AND (d_date <= '09-03-1998'::date))
+                                                               ->  Materialize  (cost=0.00..14458.42 rows=1 width=16)
+                                                                     ->  Broadcast Motion 1:3  (slice12)  (cost=0.00..14458.42 rows=3 width=16)
+                                                                           ->  Aggregate  (cost=0.00..14458.42 rows=1 width=16)
+                                                                                 ->  Gather Motion 3:1  (slice11; segments: 3)  (cost=0.00..14458.42 rows=1 width=16)
+                                                                                       ->  Aggregate  (cost=0.00..14458.42 rows=1 width=16)
+                                                                                             ->  Hash Join  (cost=0.00..14455.20 rows=718645 width=10)
+                                                                                                   Hash Cond: (catalog_returns.cr_returned_date_sk = date_dim_2.d_date_sk)
+                                                                                                   ->  Dynamic Table Scan on catalog_returns (dynamic scan id: 4)  (cost=0.00..3994.93 rows=47998998 width=14)
+                                                                                                   ->  Hash  (cost=100.00..100.00 rows=34 width=4)
+                                                                                                         ->  Partition Selector for catalog_returns (dynamic scan id: 4)  (cost=10.00..100.00 rows=34 width=4)
+                                                                                                               ->  Broadcast Motion 3:3  (slice10; segments: 3)  (cost=0.00..433.76 rows=32 width=4)
+                                                                                                                     ->  Table Scan on date_dim date_dim_2  (cost=0.00..433.76 rows=11 width=4)
+                                                                                                                           Filter: ((d_date >= '08-04-1998'::date) AND (d_date <= '09-03-1998'::date))
+                                                   ->  Result  (cost=0.00..86161.12 rows=1915 width=36)
+                                                         ->  Hash Left Join  (cost=0.00..86161.05 rows=1915 width=36)
+                                                               Hash Cond: (web_page.wp_web_page_sk = web_page_1.wp_web_page_sk)
+                                                               ->  HashAggregate  (cost=0.00..77671.28 rows=988 width=20)
+                                                                     Group Key: web_page.wp_web_page_sk
+                                                                     ->  Redistribute Motion 3:3  (slice17; segments: 3)  (cost=0.00..77671.15 rows=988 width=20)
+                                                                           Hash Key: web_page.wp_web_page_sk
+                                                                           ->  Result  (cost=0.00..77671.09 rows=988 width=20)
+                                                                                 ->  HashAggregate  (cost=0.00..77671.09 rows=988 width=20)
+                                                                                       Group Key: web_page.wp_web_page_sk
+                                                                                       ->  Hash Join  (cost=0.00..77143.64 rows=4125490 width=14)
+                                                                                             Hash Cond: (web_sales.ws_web_page_sk = web_page.wp_web_page_sk)
+                                                                                             ->  Hash Join  (cost=0.00..75753.94 rows=4144742 width=14)
+                                                                                                   Hash Cond: (web_sales.ws_sold_date_sk = date_dim_4.d_date_sk)
+                                                                                                   ->  Dynamic Table Scan on web_sales (dynamic scan id: 5)  (cost=0.00..22739.00 rows=240000000 width=18)
+                                                                                                   ->  Hash  (cost=100.00..100.00 rows=34 width=4)
+                                                                                                         ->  Partition Selector for web_sales (dynamic scan id: 5)  (cost=10.00..100.00 rows=34 width=4)
+                                                                                                               ->  Broadcast Motion 3:3  (slice15; segments: 3)  (cost=0.00..433.76 rows=32 width=4)
+                                                                                                                     ->  Table Scan on date_dim date_dim_4  (cost=0.00..433.76 rows=11 width=4)
+                                                                                                                           Filter: ((d_date >= '08-04-1998'::date) AND (d_date <= '09-03-1998'::date))
+                                                                                             ->  Hash  (cost=431.29..431.29 rows=3000 width=4)
+                                                                                                   ->  Broadcast Motion 3:3  (slice16; segments: 3)  (cost=0.00..431.29 rows=3000 width=4)
+                                                                                                         ->  Table Scan on web_page  (cost=0.00..431.06 rows=1000 width=4)
+                                                               ->  Hash  (cost=8488.79..8488.79 rows=992 width=20)
+                                                                     ->  HashAggregate  (cost=0.00..8488.79 rows=992 width=20)
+                                                                           Group Key: web_page_1.wp_web_page_sk
+                                                                           ->  Redistribute Motion 3:3  (slice20; segments: 3)  (cost=0.00..8488.66 rows=992 width=20)
+                                                                                 Hash Key: web_page_1.wp_web_page_sk
+                                                                                 ->  Result  (cost=0.00..8488.60 rows=992 width=20)
+                                                                                       ->  HashAggregate  (cost=0.00..8488.60 rows=992 width=20)
+                                                                                             Group Key: web_page_1.wp_web_page_sk
+                                                                                             ->  Hash Join  (cost=0.00..8444.54 rows=344550 width=16)
+                                                                                                   Hash Cond: (web_returns.wr_web_page_sk = web_page_1.wp_web_page_sk)
+                                                                                                   ->  Hash Join  (cost=0.00..7929.83 rows=346273 width=16)
+                                                                                                         Hash Cond: (web_returns.wr_returned_date_sk = date_dim_5.d_date_sk)
+                                                                                                         ->  Dynamic Table Scan on web_returns (dynamic scan id: 6)  (cost=0.00..2120.54 rows=23999168 width=20)
+                                                                                                         ->  Hash  (cost=100.00..100.00 rows=34 width=4)
+                                                                                                               ->  Partition Selector for web_returns (dynamic scan id: 6)  (cost=10.00..100.00 rows=34 width=4)
+                                                                                                                     ->  Broadcast Motion 3:3  (slice18; segments: 3)  (cost=0.00..433.76 rows=32 width=4)
+                                                                                                                           ->  Table Scan on date_dim date_dim_5  (cost=0.00..433.76 rows=11 width=4)
+                                                                                                                                 Filter: ((d_date >= '08-04-1998'::date) AND (d_date <= '09-03-1998'::date))
+                                                                                                   ->  Hash  (cost=431.29..431.29 rows=3000 width=4)
+                                                                                                         ->  Broadcast Motion 3:3  (slice19; segments: 3)  (cost=0.00..431.29 rows=3000 width=4)
+                                                                                                               ->  Table Scan on web_page web_page_1  (cost=0.00..431.06 rows=1000 width=4)
+                                 ->  Append  (cost=0.00..1294.54 rows=2259 width=36)
+                                       ->  HashAggregate  (cost=0.00..431.80 rows=2258 width=36)
+                                             Group Key: share6_ref2.channel, share6_ref2.s_store_sk
+                                             ->  Shared Scan (share slice:id 21:6)  (cost=0.00..431.20 rows=2258 width=36)
+                                       ->  Result  (cost=0.00..431.47 rows=1 width=36)
+                                             ->  GroupAggregate  (cost=0.00..431.47 rows=1 width=32)
+                                                   Group Key: share6_ref3.channel
+                                                   ->  Sort  (cost=0.00..431.47 rows=1 width=32)
+                                                         Sort Key: share6_ref3.channel
+                                                         ->  Redistribute Motion 3:3  (slice1; segments: 3)  (cost=0.00..431.47 rows=1 width=32)
+                                                               Hash Key: share6_ref3.channel
+                                                               ->  Result  (cost=0.00..431.47 rows=1 width=32)
+                                                                     ->  HashAggregate  (cost=0.00..431.47 rows=1 width=32)
+                                                                           Group Key: share6_ref3.channel
+                                                                           ->  Shared Scan (share slice:id 1:6)  (cost=0.00..431.17 rows=2258 width=32)
+                                       ->  Result  (cost=0.00..431.19 rows=1 width=36)
+                                             ->  Redistribute Motion 1:3  (slice3)  (cost=0.00..431.19 rows=1 width=24)
+                                                   ->  Aggregate  (cost=0.00..431.19 rows=1 width=24)
+                                                         ->  Gather Motion 3:1  (slice2; segments: 3)  (cost=0.00..431.19 rows=1 width=24)
+                                                               ->  Aggregate  (cost=0.00..431.19 rows=1 width=24)
+                                                                     ->  Shared Scan (share slice:id 2:6)  (cost=0.00..431.13 rows=2258 width=24)
+ Planning time: 1344.965 ms
+ Optimizer: PQO version 3.8.0
+(154 rows)
+
+-- end query 1 in stream 0 using template query77.tpl

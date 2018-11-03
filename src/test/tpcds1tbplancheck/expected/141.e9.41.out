@@ -1,0 +1,80 @@
+-- start query 1 in stream 0 using template query41.tpl
+explain
+select  distinct(i_product_name)
+ from item i1
+ where i_manufact_id between 742 and 742+40 
+   and (select count(*) as item_cnt
+        from item
+        where (i_manufact = i1.i_manufact and
+        ((i_category = 'Women' and 
+        (i_color = 'orchid' or i_color = 'papaya') and 
+        (i_units = 'Pound' or i_units = 'Lb') and
+        (i_size = 'petite' or i_size = 'medium')
+        ) or
+        (i_category = 'Women' and
+        (i_color = 'burlywood' or i_color = 'navy') and
+        (i_units = 'Bundle' or i_units = 'Each') and
+        (i_size = 'N/A' or i_size = 'extra large')
+        ) or
+        (i_category = 'Men' and
+        (i_color = 'bisque' or i_color = 'azure') and
+        (i_units = 'N/A' or i_units = 'Tsp') and
+        (i_size = 'small' or i_size = 'large')
+        ) or
+        (i_category = 'Men' and
+        (i_color = 'chocolate' or i_color = 'cornflower') and
+        (i_units = 'Bunch' or i_units = 'Gross') and
+        (i_size = 'petite' or i_size = 'medium')
+        ))) or
+       (i_manufact = i1.i_manufact and
+        ((i_category = 'Women' and 
+        (i_color = 'salmon' or i_color = 'midnight') and 
+        (i_units = 'Oz' or i_units = 'Box') and
+        (i_size = 'petite' or i_size = 'medium')
+        ) or
+        (i_category = 'Women' and
+        (i_color = 'snow' or i_color = 'steel') and
+        (i_units = 'Carton' or i_units = 'Tbl') and
+        (i_size = 'N/A' or i_size = 'extra large')
+        ) or
+        (i_category = 'Men' and
+        (i_color = 'purple' or i_color = 'gainsboro') and
+        (i_units = 'Dram' or i_units = 'Unknown') and
+        (i_size = 'small' or i_size = 'large')
+        ) or
+        (i_category = 'Men' and
+        (i_color = 'metallic' or i_color = 'forest') and
+        (i_units = 'Gram' or i_units = 'Ounce') and
+        (i_size = 'petite' or i_size = 'medium')
+        )))) > 0
+ order by i_product_name
+ limit 100;
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            QUERY PLAN                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=14551122360.63..14551122362.88 rows=100 width=118)
+   ->  Gather Motion 3:1  (slice3; segments: 3)  (cost=14551122360.63..14551122362.88 rows=100 width=118)
+         Merge Key: i1.i_product_name
+         ->  Limit  (cost=14551122360.63..14551122360.88 rows=34 width=118)
+               ->  Sort  (cost=14551122360.63..14551122366.30 rows=756 width=118)
+                     Sort Key: i1.i_product_name
+                     ->  HashAggregate  (cost=14551122251.31..14551122273.98 rows=756 width=118)
+                           Group Key: i1.i_product_name
+                           ->  Redistribute Motion 3:3  (slice2; segments: 3)  (cost=14551122177.64..14551122222.98 rows=756 width=118)
+                                 Hash Key: i1.i_product_name
+                                 ->  HashAggregate  (cost=14551122177.64..14551122177.64 rows=756 width=118)
+                                       Group Key: i1.i_product_name
+                                       ->  Seq Scan on item i1  (cost=0.00..14551122171.97 rows=756 width=23)
+                                             Filter: ((i_manufact_id >= 742) AND (i_manufact_id <= 782) AND ((SubPlan 1) > 0))
+                                             SubPlan 1  (slice2; segments: 3)
+                                               ->  Aggregate  (cost=48625.75..48625.76 rows=1 width=8)
+                                                     ->  Result  (cost=0.00..48624.35 rows=13 width=0)
+                                                           Filter: ((item.i_manufact)::text = (i1.i_manufact)::text)
+                                                           ->  Materialize  (cost=0.00..48624.35 rows=13 width=0)
+                                                                 ->  Broadcast Motion 3:3  (slice1; segments: 3)  (cost=0.00..48624.17 rows=13 width=0)
+                                                                       ->  Seq Scan on item  (cost=0.00..48624.17 rows=13 width=0)
+                                                                             Filter: ((((i_category)::text = 'Women'::text) AND (((i_color)::text = 'orchid'::text) OR ((i_color)::text = 'papaya'::text)) AND (((i_units)::text = 'Pound'::text) OR ((i_units)::text = 'Lb'::text)) AND (((i_size)::text = 'petite'::text) OR ((i_size)::text = 'medium'::text))) OR (((i_category)::text = 'Women'::text) AND (((i_color)::text = 'burlywood'::text) OR ((i_color)::text = 'navy'::text)) AND (((i_units)::text = 'Bundle'::text) OR ((i_units)::text = 'Each'::text)) AND (((i_size)::text = 'N/A'::text) OR ((i_size)::text = 'extra large'::text))) OR (((i_category)::text = 'Men'::text) AND (((i_color)::text = 'bisque'::text) OR ((i_color)::text = 'azure'::text)) AND (((i_units)::text = 'N/A'::text) OR ((i_units)::text = 'Tsp'::text)) AND (((i_size)::text = 'small'::text) OR ((i_size)::text = 'large'::text))) OR (((i_category)::text = 'Men'::text) AND (((i_color)::text = 'chocolate'::text) OR ((i_color)::text = 'cornflower'::text)) AND (((i_units)::text = 'Bunch'::text) OR ((i_units)::text = 'Gross'::text)) AND (((i_size)::text = 'petite'::text) OR ((i_size)::text = 'medium'::text))) OR (((i_category)::text = 'Women'::text) AND (((i_color)::text = 'salmon'::text) OR ((i_color)::text = 'midnight'::text)) AND (((i_units)::text = 'Oz'::text) OR ((i_units)::text = 'Box'::text)) AND (((i_size)::text = 'petite'::text) OR ((i_size)::text = 'medium'::text))) OR (((i_category)::text = 'Women'::text) AND (((i_color)::text = 'snow'::text) OR ((i_color)::text = 'steel'::text)) AND (((i_units)::text = 'Carton'::text) OR ((i_units)::text = 'Tbl'::text)) AND (((i_size)::text = 'N/A'::text) OR ((i_size)::text = 'extra large'::text))) OR (((i_category)::text = 'Men'::text) AND (((i_color)::text = 'purple'::text) OR ((i_color)::text = 'gainsboro'::text)) AND (((i_units)::text = 'Dram'::text) OR ((i_units)::text = 'Unknown'::text)) AND (((i_size)::text = 'small'::text) OR ((i_size)::text = 'large'::text))) OR (((i_category)::text = 'Men'::text) AND (((i_color)::text = 'metallic'::text) OR ((i_color)::text = 'forest'::text)) AND (((i_units)::text = 'Gram'::text) OR ((i_units)::text = 'Ounce'::text)) AND (((i_size)::text = 'petite'::text) OR ((i_size)::text = 'medium'::text))))
+ Planning time: 1.708 ms
+ Optimizer: legacy query optimizer
+(24 rows)
+
+-- end query 1 in stream 0 using template query41.tpl

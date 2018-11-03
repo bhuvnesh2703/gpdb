@@ -1,0 +1,107 @@
+-- start query 1 in stream 0 using template query59.tpl
+explain
+with wss as 
+ (select d_week_seq,
+        ss_store_sk,
+        sum(case when (d_day_name='Sunday') then ss_sales_price else null end) sun_sales,
+        sum(case when (d_day_name='Monday') then ss_sales_price else null end) mon_sales,
+        sum(case when (d_day_name='Tuesday') then ss_sales_price else  null end) tue_sales,
+        sum(case when (d_day_name='Wednesday') then ss_sales_price else null end) wed_sales,
+        sum(case when (d_day_name='Thursday') then ss_sales_price else null end) thu_sales,
+        sum(case when (d_day_name='Friday') then ss_sales_price else null end) fri_sales,
+        sum(case when (d_day_name='Saturday') then ss_sales_price else null end) sat_sales
+ from store_sales,date_dim
+ where d_date_sk = ss_sold_date_sk
+ group by d_week_seq,ss_store_sk
+ )
+  select  s_store_name1,s_store_id1,d_week_seq1
+       ,sun_sales1/sun_sales2,mon_sales1/mon_sales2
+       ,tue_sales1/tue_sales2,wed_sales1/wed_sales2,thu_sales1/thu_sales2
+       ,fri_sales1/fri_sales2,sat_sales1/sat_sales2
+ from
+ (select s_store_name s_store_name1,wss.d_week_seq d_week_seq1
+        ,s_store_id s_store_id1,sun_sales sun_sales1
+        ,mon_sales mon_sales1,tue_sales tue_sales1
+        ,wed_sales wed_sales1,thu_sales thu_sales1
+        ,fri_sales fri_sales1,sat_sales sat_sales1
+  from wss,store,date_dim d
+  where d.d_week_seq = wss.d_week_seq and
+        ss_store_sk = s_store_sk and 
+        d_month_seq between 1185 and 1185 + 11) y,
+ (select s_store_name s_store_name2,wss.d_week_seq d_week_seq2
+        ,s_store_id s_store_id2,sun_sales sun_sales2
+        ,mon_sales mon_sales2,tue_sales tue_sales2
+        ,wed_sales wed_sales2,thu_sales thu_sales2
+        ,fri_sales fri_sales2,sat_sales sat_sales2
+  from wss,store,date_dim d
+  where d.d_week_seq = wss.d_week_seq and
+        ss_store_sk = s_store_sk and 
+        d_month_seq between 1185+ 12 and 1185 + 23) x
+ where s_store_id1=s_store_id2
+   and d_week_seq1=d_week_seq2-52
+ order by s_store_name1,s_store_id1,d_week_seq1
+limit 100;
+                                                                               QUERY PLAN                                                                                
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Sequence  (cost=0.00..616845.86 rows=34 width=76)
+   ->  Shared Scan (share slice:id 0:0)  (cost=0.00..605585.44 rows=983745 width=1)
+         ->  Materialize  (cost=0.00..605585.44 rows=983745 width=1)
+               ->  Gather Motion 3:1  (slice10; segments: 3)  (cost=0.00..605582.49 rows=2951235 width=64)
+                     ->  HashAggregate  (cost=0.00..604878.60 rows=983745 width=64)
+                           Group Key: date_dim_2.d_week_seq, store_sales.ss_store_sk
+                           ->  Redistribute Motion 3:3  (slice9; segments: 3)  (cost=0.00..604593.08 rows=983745 width=64)
+                                 Hash Key: date_dim_2.d_week_seq, store_sales.ss_store_sk
+                                 ->  Result  (cost=0.00..604396.01 rows=983745 width=64)
+                                       ->  HashAggregate  (cost=0.00..604396.01 rows=983745 width=64)
+                                             Group Key: date_dim_2.d_week_seq, store_sales.ss_store_sk
+                                             ->  Hash Join  (cost=0.00..342982.78 rows=959996672 width=22)
+                                                   Hash Cond: (store_sales.ss_sold_date_sk = date_dim_2.d_date_sk)
+                                                   ->  Dynamic Table Scan on store_sales (dynamic scan id: 1)  (cost=0.00..68542.76 rows=959996672 width=14)
+                                                   ->  Hash  (cost=100.00..100.00 rows=34 width=4)
+                                                         ->  Partition Selector for store_sales (dynamic scan id: 1)  (cost=10.00..100.00 rows=34 width=4)
+                                                               ->  Broadcast Motion 3:3  (slice8; segments: 3)  (cost=0.00..454.60 rows=73049 width=16)
+                                                                     ->  Table Scan on date_dim date_dim_2  (cost=0.00..432.96 rows=24350 width=16)
+   ->  Limit  (cost=0.00..11260.41 rows=34 width=76)
+         ->  Gather Motion 3:1  (slice7; segments: 3)  (cost=0.00..11260.41 rows=100 width=76)
+               Merge Key: store.s_store_name, store.s_store_id, share0_ref3.d_week_seq
+               ->  Limit  (cost=0.00..11260.38 rows=34 width=76)
+                     ->  Sort  (cost=0.00..11260.37 rows=705348 width=76)
+                           Sort Key: store.s_store_name, store.s_store_id, share0_ref3.d_week_seq
+                           ->  Result  (cost=0.00..5355.27 rows=705348 width=76)
+                                 ->  Hash Join  (cost=0.00..5301.67 rows=705348 width=137)
+                                       Hash Cond: (((store.s_store_id)::text = (store_1.s_store_id)::text) AND (share0_ref3.d_week_seq = (share0_ref2.d_week_seq - 52)))
+                                       ->  Redistribute Motion 3:3  (slice3; segments: 3)  (cost=0.00..2451.86 rows=37796 width=81)
+                                             Hash Key: share0_ref3.d_week_seq
+                                             ->  Hash Join  (cost=0.00..2442.28 rows=37796 width=81)
+                                                   Hash Cond: (share0_ref3.ss_store_sk = store.s_store_sk)
+                                                   ->  Redistribute Motion 1:3  (slice2)  (cost=0.00..1992.23 rows=113386 width=64)
+                                                         Hash Key: share0_ref3.ss_store_sk
+                                                         ->  Hash Join  (cost=0.00..1973.39 rows=37796 width=64)
+                                                               Hash Cond: (share0_ref3.d_week_seq = date_dim.d_week_seq)
+                                                               ->  Shared Scan (share slice:id 2:0)  (cost=0.00..886.20 rows=983745 width=64)
+                                                               ->  Hash  (cost=433.76..433.76 rows=134 width=4)
+                                                                     ->  Gather Motion 3:1  (slice1; segments: 3)  (cost=0.00..433.76 rows=400 width=4)
+                                                                           ->  Table Scan on date_dim  (cost=0.00..433.76 rows=134 width=4)
+                                                                                 Filter: ((d_month_seq >= 1185) AND (d_month_seq <= 1196))
+                                                   ->  Hash  (cost=431.05..431.05 rows=334 width=25)
+                                                         ->  Table Scan on store  (cost=0.00..431.05 rows=334 width=25)
+                                       ->  Hash  (cost=2433.52..2433.52 rows=32380 width=77)
+                                             ->  Hash Join  (cost=0.00..2433.52 rows=32380 width=77)
+                                                   Hash Cond: (share0_ref2.ss_store_sk = store_1.s_store_sk)
+                                                   ->  Redistribute Motion 1:3  (slice5)  (cost=0.00..1985.88 rows=97138 width=64)
+                                                         Hash Key: (share0_ref2.d_week_seq - 52)
+                                                         ->  Hash Join  (cost=0.00..1969.74 rows=32380 width=64)
+                                                               Hash Cond: (share0_ref2.d_week_seq = date_dim_1.d_week_seq)
+                                                               ->  Shared Scan (share slice:id 5:0)  (cost=0.00..886.20 rows=983745 width=64)
+                                                               ->  Hash  (cost=433.76..433.76 rows=115 width=4)
+                                                                     ->  Gather Motion 3:1  (slice4; segments: 3)  (cost=0.00..433.76 rows=343 width=4)
+                                                                           ->  Table Scan on date_dim date_dim_1  (cost=0.00..433.76 rows=115 width=4)
+                                                                                 Filter: ((d_month_seq >= 1197) AND (d_month_seq <= 1208))
+                                                   ->  Hash  (cost=431.44..431.44 rows=1002 width=21)
+                                                         ->  Broadcast Motion 3:3  (slice6; segments: 3)  (cost=0.00..431.44 rows=1002 width=21)
+                                                               ->  Table Scan on store store_1  (cost=0.00..431.05 rows=334 width=21)
+ Planning time: 1231.070 ms
+ Optimizer: PQO version 3.8.0
+(59 rows)
+
+-- end query 1 in stream 0 using template query59.tpl

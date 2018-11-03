@@ -1,0 +1,66 @@
+-- start query 1 in stream 0 using template query84.tpl
+explain
+select  c_customer_id as customer_id
+       ,c_last_name || ', ' || c_first_name as customername
+ from customer
+     ,customer_address
+     ,customer_demographics
+     ,household_demographics
+     ,income_band
+     ,store_returns
+ where ca_city	        =  'Hopewell'
+   and c_current_addr_sk = ca_address_sk
+   and ib_lower_bound   >=  32287
+   and ib_upper_bound   <=  32287 + 50000
+   and ib_income_band_sk = hd_income_band_sk
+   and cd_demo_sk = c_current_cdemo_sk
+   and hd_demo_sk = c_current_hdemo_sk
+   and sr_cdemo_sk = cd_demo_sk
+ order by c_customer_id
+ limit 100;
+                                                                                    QUERY PLAN                                                                                    
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=0.00..30289.34 rows=34 width=16)
+   ->  Gather Motion 3:1  (slice6; segments: 3)  (cost=0.00..30289.34 rows=100 width=16)
+         Merge Key: customer.c_customer_id
+         ->  Limit  (cost=0.00..30289.33 rows=34 width=16)
+               ->  Result  (cost=0.00..30289.33 rows=558223 width=16)
+                     ->  Sort  (cost=0.00..30280.40 rows=558223 width=30)
+                           Sort Key: customer.c_customer_id
+                           ->  Hash Join  (cost=0.00..28467.69 rows=558223 width=30)
+                                 Hash Cond: ((customer.c_current_cdemo_sk = customer_demographics.cd_demo_sk) AND (store_returns.sr_cdemo_sk = customer_demographics.cd_demo_sk))
+                                 ->  Redistribute Motion 3:3  (slice5; segments: 3)  (cost=0.00..27635.69 rows=558223 width=38)
+                                       Hash Key: customer.c_current_cdemo_sk
+                                       ->  Hash Join  (cost=0.00..27569.29 rows=558223 width=38)
+                                             Hash Cond: (store_returns.sr_cdemo_sk = customer.c_current_cdemo_sk)
+                                             ->  Sequence  (cost=0.00..6080.60 rows=96000000 width=4)
+                                                   ->  Partition Selector for store_returns (dynamic scan id: 1)  (cost=10.00..100.00 rows=34 width=4)
+                                                         Partitions selected: 80 (out of 80)
+                                                   ->  Dynamic Table Scan on store_returns (dynamic scan id: 1)  (cost=0.00..6080.60 rows=96000000 width=4)
+                                             ->  Hash  (cost=3388.04..3388.04 rows=10910 width=34)
+                                                   ->  Broadcast Motion 3:3  (slice4; segments: 3)  (cost=0.00..3388.04 rows=10910 width=34)
+                                                         ->  Hash Join  (cost=0.00..3381.40 rows=3637 width=34)
+                                                               Hash Cond: (customer.c_current_hdemo_sk = household_demographics.hd_demo_sk)
+                                                               ->  Hash Join  (cost=0.00..2515.81 rows=9571 width=38)
+                                                                     Hash Cond: (customer.c_current_addr_sk = customer_address.ca_address_sk)
+                                                                     ->  Table Scan on customer  (cost=0.00..754.40 rows=3999967 width=42)
+                                                                     ->  Hash  (cost=648.32..648.32 rows=9630 width=4)
+                                                                           ->  Broadcast Motion 3:3  (slice1; segments: 3)  (cost=0.00..648.32 rows=9630 width=4)
+                                                                                 ->  Table Scan on customer_address  (cost=0.00..647.63 rows=3210 width=4)
+                                                                                       Filter: ((ca_city)::text = 'Hopewell'::text)
+                                                               ->  Hash  (cost=862.75..862.75 rows=2740 width=4)
+                                                                     ->  Broadcast Motion 3:3  (slice3; segments: 3)  (cost=0.00..862.75 rows=2740 width=4)
+                                                                           ->  Hash Join  (cost=0.00..862.55 rows=914 width=4)
+                                                                                 Hash Cond: (household_demographics.hd_income_band_sk = income_band.ib_income_band_sk)
+                                                                                 ->  Table Scan on household_demographics  (cost=0.00..431.07 rows=2400 width=8)
+                                                                                 ->  Hash  (cost=431.00..431.00 rows=8 width=4)
+                                                                                       ->  Broadcast Motion 3:3  (slice2; segments: 3)  (cost=0.00..431.00 rows=8 width=4)
+                                                                                             ->  Table Scan on income_band  (cost=0.00..431.00 rows=3 width=4)
+                                                                                                   Filter: ((ib_lower_bound >= 32287) AND (ib_upper_bound <= 82287))
+                                 ->  Hash  (cost=456.00..456.00 rows=640260 width=4)
+                                       ->  Table Scan on customer_demographics  (cost=0.00..456.00 rows=640260 width=4)
+ Planning time: 604.699 ms
+ Optimizer: PQO version 3.8.0
+(41 rows)
+
+-- end query 1 in stream 0 using template query84.tpl

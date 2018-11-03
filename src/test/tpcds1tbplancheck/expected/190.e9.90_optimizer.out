@@ -1,0 +1,85 @@
+-- start query 1 in stream 0 using template query90.tpl
+explain
+select  cast(amc as decimal(15,4))/cast(pmc as decimal(15,4)) am_pm_ratio
+ from ( select count(*) amc
+       from web_sales, household_demographics , time_dim, web_page
+       where ws_sold_time_sk = time_dim.t_time_sk
+         and ws_ship_hdemo_sk = household_demographics.hd_demo_sk
+         and ws_web_page_sk = web_page.wp_web_page_sk
+         and time_dim.t_hour between 6 and 6+1
+         and household_demographics.hd_dep_count = 8
+         and web_page.wp_char_count between 5000 and 5200) at,
+      ( select count(*) pmc
+       from web_sales, household_demographics , time_dim, web_page
+       where ws_sold_time_sk = time_dim.t_time_sk
+         and ws_ship_hdemo_sk = household_demographics.hd_demo_sk
+         and ws_web_page_sk = web_page.wp_web_page_sk
+         and time_dim.t_hour between 14 and 14+1
+         and household_demographics.hd_dep_count = 8
+         and web_page.wp_char_count between 5000 and 5200) pt
+ order by am_pm_ratio
+ limit 100;
+                                                                                    QUERY PLAN                                                                                     
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=0.00..157943659.25 rows=1 width=8)
+   ->  Sort  (cost=0.00..157943659.25 rows=1 width=8)
+         Sort Key: (("numeric"(((count((count()))))::numeric, 983048) / "numeric"(((count((count()))))::numeric, 983048)))
+         ->  Result  (cost=0.00..157943659.25 rows=1 width=8)
+               ->  Nested Loop  (cost=0.00..157943659.25 rows=1 width=16)
+                     Join Filter: true
+                     ->  Aggregate  (cost=0.00..76904.93 rows=1 width=8)
+                           ->  Gather Motion 3:1  (slice8; segments: 3)  (cost=0.00..76904.93 rows=1 width=8)
+                                 ->  Aggregate  (cost=0.00..76904.93 rows=1 width=8)
+                                       ->  Hash Join  (cost=0.00..76904.93 rows=43997 width=1)
+                                             Hash Cond: (web_sales_1.ws_ship_hdemo_sk = household_demographics_1.hd_demo_sk)
+                                             ->  Hash Join  (cost=0.00..76395.79 rows=440585 width=4)
+                                                   Hash Cond: (web_sales_1.ws_sold_time_sk = time_dim_1.t_time_sk)
+                                                   ->  Hash Join  (cost=0.00..75019.26 rows=5229553 width=8)
+                                                         Hash Cond: (web_sales_1.ws_web_page_sk = web_page_1.wp_web_page_sk)
+                                                         ->  Sequence  (cost=0.00..22739.00 rows=240000000 width=12)
+                                                               ->  Partition Selector for web_sales (dynamic scan id: 1)  (cost=10.00..100.00 rows=34 width=4)
+                                                                     Partitions selected: 80 (out of 80)
+                                                               ->  Dynamic Table Scan on web_sales web_sales_1 (dynamic scan id: 1)  (cost=0.00..22739.00 rows=240000000 width=12)
+                                                         ->  Hash  (cost=431.10..431.10 rows=66 width=4)
+                                                               ->  Broadcast Motion 3:3  (slice5; segments: 3)  (cost=0.00..431.10 rows=66 width=4)
+                                                                     ->  Table Scan on web_page web_page_1  (cost=0.00..431.10 rows=22 width=4)
+                                                                           Filter: ((wp_char_count >= 5000) AND (wp_char_count <= 5200))
+                                                   ->  Hash  (cost=434.61..434.61 rows=7212 width=4)
+                                                         ->  Broadcast Motion 3:3  (slice6; segments: 3)  (cost=0.00..434.61 rows=7212 width=4)
+                                                               ->  Table Scan on time_dim time_dim_1  (cost=0.00..434.09 rows=2404 width=4)
+                                                                     Filter: ((t_hour >= 6) AND (t_hour <= 7))
+                                             ->  Hash  (cost=431.21..431.21 rows=720 width=4)
+                                                   ->  Broadcast Motion 3:3  (slice7; segments: 3)  (cost=0.00..431.21 rows=720 width=4)
+                                                         ->  Table Scan on household_demographics household_demographics_1  (cost=0.00..431.15 rows=240 width=4)
+                                                               Filter: (hd_dep_count = 8)
+                     ->  Aggregate  (cost=0.00..76905.92 rows=1 width=8)
+                           ->  Materialize  (cost=0.00..76905.92 rows=1 width=8)
+                                 ->  Gather Motion 3:1  (slice4; segments: 3)  (cost=0.00..76905.92 rows=1 width=8)
+                                       ->  Aggregate  (cost=0.00..76905.92 rows=1 width=8)
+                                             ->  Hash Join  (cost=0.00..76905.92 rows=44506 width=1)
+                                                   Hash Cond: (web_sales.ws_ship_hdemo_sk = household_demographics.hd_demo_sk)
+                                                   ->  Hash Join  (cost=0.00..76395.88 rows=445690 width=4)
+                                                         Hash Cond: (web_sales.ws_sold_time_sk = time_dim.t_time_sk)
+                                                         ->  Hash Join  (cost=0.00..75019.26 rows=5229553 width=8)
+                                                               Hash Cond: (web_sales.ws_web_page_sk = web_page.wp_web_page_sk)
+                                                               ->  Sequence  (cost=0.00..22739.00 rows=240000000 width=12)
+                                                                     ->  Partition Selector for web_sales (dynamic scan id: 2)  (cost=10.00..100.00 rows=34 width=4)
+                                                                           Partitions selected: 80 (out of 80)
+                                                                     ->  Dynamic Table Scan on web_sales (dynamic scan id: 2)  (cost=0.00..22739.00 rows=240000000 width=12)
+                                                               ->  Hash  (cost=431.10..431.10 rows=66 width=4)
+                                                                     ->  Broadcast Motion 3:3  (slice1; segments: 3)  (cost=0.00..431.10 rows=66 width=4)
+                                                                           ->  Table Scan on web_page  (cost=0.00..431.10 rows=22 width=4)
+                                                                                 Filter: ((wp_char_count >= 5000) AND (wp_char_count <= 5200))
+                                                         ->  Hash  (cost=434.61..434.61 rows=7296 width=4)
+                                                               ->  Broadcast Motion 3:3  (slice2; segments: 3)  (cost=0.00..434.61 rows=7296 width=4)
+                                                                     ->  Table Scan on time_dim  (cost=0.00..434.09 rows=2432 width=4)
+                                                                           Filter: ((t_hour >= 14) AND (t_hour <= 15))
+                                                   ->  Hash  (cost=431.21..431.21 rows=720 width=4)
+                                                         ->  Broadcast Motion 3:3  (slice3; segments: 3)  (cost=0.00..431.21 rows=720 width=4)
+                                                               ->  Table Scan on household_demographics  (cost=0.00..431.15 rows=240 width=4)
+                                                                     Filter: (hd_dep_count = 8)
+ Planning time: 894.654 ms
+ Optimizer: PQO version 3.8.0
+(59 rows)
+
+-- end query 1 in stream 0 using template query90.tpl

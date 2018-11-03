@@ -1,0 +1,97 @@
+-- start query 1 in stream 0 using template query22.tpl
+explain
+select  i_product_name
+             ,i_brand
+             ,i_class
+             ,i_category
+             ,avg(inv_quantity_on_hand) qoh
+       from inventory
+           ,date_dim
+           ,item
+           ,warehouse
+       where inv_date_sk=d_date_sk
+              and inv_item_sk=i_item_sk
+              and inv_warehouse_sk = w_warehouse_sk
+              and d_month_seq between 1212 and 1212 + 11
+       group by rollup(i_product_name
+                       ,i_brand
+                       ,i_class
+                       ,i_category)
+order by qoh, i_product_name, i_brand, i_class, i_category
+limit 100;
+                                                                                      QUERY PLAN                                                                                       
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=0.00..285253.76 rows=34 width=62)
+   ->  Gather Motion 3:1  (slice10; segments: 3)  (cost=0.00..285253.76 rows=100 width=62)
+         Merge Key: (pg_catalog.avg((avg(share0_ref2.inv_quantity_on_hand)))), share0_ref2.i_product_name, share0_ref2.i_brand, share0_ref2.i_class, share0_ref2.i_category
+         ->  Limit  (cost=0.00..285253.74 rows=34 width=62)
+               ->  Sort  (cost=0.00..285253.73 rows=398705 width=62)
+                     Sort Key: (pg_catalog.avg((avg(share0_ref2.inv_quantity_on_hand)))), share0_ref2.i_product_name, share0_ref2.i_brand, share0_ref2.i_class, share0_ref2.i_category
+                     ->  Sequence  (cost=0.00..282646.05 rows=398705 width=62)
+                           ->  Shared Scan (share slice:id 10:0)  (cost=0.00..227884.25 rows=260999896 width=1)
+                                 ->  Materialize  (cost=0.00..227884.25 rows=260999896 width=1)
+                                       ->  Hash Join  (cost=0.00..227623.25 rows=260999896 width=58)
+                                             Hash Cond: (inventory.inv_item_sk = item.i_item_sk)
+                                             ->  Hash Join  (cost=0.00..126813.86 rows=260999896 width=8)
+                                                   Hash Cond: (inventory.inv_date_sk = date_dim.d_date_sk)
+                                                   ->  Hash Join  (cost=0.00..71802.85 rows=260999896 width=12)
+                                                         Hash Cond: (inventory.inv_warehouse_sk = warehouse.w_warehouse_sk)
+                                                         ->  Dynamic Table Scan on inventory (dynamic scan id: 1)  (cost=0.00..4737.50 rows=261000000 width=16)
+                                                         ->  Hash  (cost=431.00..431.00 rows=20 width=4)
+                                                               ->  Broadcast Motion 3:3  (slice7; segments: 3)  (cost=0.00..431.00 rows=20 width=4)
+                                                                     ->  Table Scan on warehouse  (cost=0.00..431.00 rows=7 width=4)
+                                                   ->  Hash  (cost=100.00..100.00 rows=34 width=4)
+                                                         ->  Partition Selector for inventory (dynamic scan id: 1)  (cost=10.00..100.00 rows=34 width=4)
+                                                               ->  Broadcast Motion 3:3  (slice8; segments: 3)  (cost=0.00..433.78 rows=356 width=4)
+                                                                     ->  Table Scan on date_dim  (cost=0.00..433.76 rows=119 width=4)
+                                                                           Filter: ((d_month_seq >= 1212) AND (d_month_seq <= 1223))
+                                             ->  Hash  (cost=769.12..769.12 rows=299247 width=58)
+                                                   ->  Broadcast Motion 3:3  (slice9; segments: 3)  (cost=0.00..769.12 rows=299247 width=58)
+                                                         ->  Table Scan on item  (cost=0.00..447.68 rows=99749 width=58)
+                           ->  Append  (cost=0.00..54737.09 rows=398705 width=62)
+                                 ->  HashAggregate  (cost=0.00..20252.47 rows=99749 width=62)
+                                       Group Key: share0_ref2.i_product_name, share0_ref2.i_brand, share0_ref2.i_class, share0_ref2.i_category
+                                       ->  Redistribute Motion 3:3  (slice1; segments: 3)  (cost=0.00..20198.35 rows=99749 width=62)
+                                             Hash Key: share0_ref2.i_product_name, share0_ref2.i_brand, share0_ref2.i_class, share0_ref2.i_category
+                                             ->  Result  (cost=0.00..20178.99 rows=99749 width=62)
+                                                   ->  HashAggregate  (cost=0.00..20178.99 rows=99749 width=62)
+                                                         Group Key: share0_ref2.i_product_name, share0_ref2.i_brand, share0_ref2.i_class, share0_ref2.i_category
+                                                         ->  Shared Scan (share slice:id 1:0)  (cost=0.00..4581.91 rows=29695989 width=58)
+                                 ->  Result  (cost=0.00..15934.64 rows=99749 width=64)
+                                       ->  HashAggregate  (cost=0.00..15928.25 rows=99749 width=56)
+                                             Group Key: share0_ref3.i_product_name, share0_ref3.i_brand, share0_ref3.i_class
+                                             ->  Redistribute Motion 3:3  (slice2; segments: 3)  (cost=0.00..15887.33 rows=99749 width=56)
+                                                   Hash Key: share0_ref3.i_product_name, share0_ref3.i_brand, share0_ref3.i_class
+                                                   ->  Result  (cost=0.00..15869.85 rows=99749 width=56)
+                                                         ->  HashAggregate  (cost=0.00..15869.85 rows=99749 width=56)
+                                                               Group Key: share0_ref3.i_product_name, share0_ref3.i_brand, share0_ref3.i_class
+                                                               ->  Shared Scan (share slice:id 2:0)  (cost=0.00..4152.50 rows=29695989 width=52)
+                                 ->  Result  (cost=0.00..11476.53 rows=99749 width=64)
+                                       ->  HashAggregate  (cost=0.00..11470.15 rows=99749 width=48)
+                                             Group Key: share0_ref4.i_product_name, share0_ref4.i_brand
+                                             ->  Redistribute Motion 3:3  (slice3; segments: 3)  (cost=0.00..11442.45 rows=99749 width=48)
+                                                   Hash Key: share0_ref4.i_product_name, share0_ref4.i_brand
+                                                   ->  Result  (cost=0.00..11427.46 rows=99749 width=48)
+                                                         ->  HashAggregate  (cost=0.00..11427.46 rows=99749 width=48)
+                                                               Group Key: share0_ref4.i_product_name, share0_ref4.i_brand
+                                                               ->  Shared Scan (share slice:id 3:0)  (cost=0.00..3579.96 rows=29695989 width=44)
+                                 ->  Result  (cost=0.00..6318.16 rows=99457 width=55)
+                                       ->  HashAggregate  (cost=0.00..6312.69 rows=99457 width=31)
+                                             Group Key: share0_ref5.i_product_name
+                                             ->  Redistribute Motion 3:3  (slice4; segments: 3)  (cost=0.00..6298.68 rows=99457 width=31)
+                                                   Hash Key: share0_ref5.i_product_name
+                                                   ->  Result  (cost=0.00..6289.03 rows=99457 width=31)
+                                                         ->  HashAggregate  (cost=0.00..6289.03 rows=99457 width=31)
+                                                               Group Key: share0_ref5.i_product_name
+                                                               ->  Shared Scan (share slice:id 4:0)  (cost=0.00..2363.32 rows=29695989 width=27)
+                                 ->  Result  (cost=0.00..730.57 rows=1 width=40)
+                                       ->  Redistribute Motion 1:3  (slice6)  (cost=0.00..730.57 rows=1 width=8)
+                                             ->  Aggregate  (cost=0.00..730.57 rows=1 width=8)
+                                                   ->  Gather Motion 3:1  (slice5; segments: 3)  (cost=0.00..730.57 rows=1 width=8)
+                                                         ->  Aggregate  (cost=0.00..730.57 rows=1 width=8)
+                                                               ->  Shared Scan (share slice:id 5:0)  (cost=0.00..717.27 rows=29695989 width=4)
+ Planning time: 420.504 ms
+ Optimizer: PQO version 3.8.0
+(71 rows)
+
+-- end query 1 in stream 0 using template query22.tpl

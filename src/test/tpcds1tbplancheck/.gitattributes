@@ -1,0 +1,2 @@
+sql/stats.sql filter=lfs diff=lfs merge=lfs -text
+expected/stats.out filter=lfs diff=lfs merge=lfs -text

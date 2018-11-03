@@ -1,0 +1,187 @@
+-- start query 1 in stream 0 using template query75.tpl
+explain
+WITH all_sales AS (
+ SELECT d_year
+       ,i_brand_id
+       ,i_class_id
+       ,i_category_id
+       ,i_manufact_id
+       ,SUM(sales_cnt) AS sales_cnt
+       ,SUM(sales_amt) AS sales_amt
+ FROM (SELECT d_year
+             ,i_brand_id
+             ,i_class_id
+             ,i_category_id
+             ,i_manufact_id
+             ,cs_quantity - COALESCE(cr_return_quantity,0) AS sales_cnt
+             ,cs_ext_sales_price - COALESCE(cr_return_amount,0.0) AS sales_amt
+       FROM catalog_sales JOIN item ON i_item_sk=cs_item_sk
+                          JOIN date_dim ON d_date_sk=cs_sold_date_sk
+                          LEFT JOIN catalog_returns ON (cs_order_number=cr_order_number 
+                                                    AND cs_item_sk=cr_item_sk)
+       WHERE i_category='Sports'
+       UNION
+       SELECT d_year
+             ,i_brand_id
+             ,i_class_id
+             ,i_category_id
+             ,i_manufact_id
+             ,ss_quantity - COALESCE(sr_return_quantity,0) AS sales_cnt
+             ,ss_ext_sales_price - COALESCE(sr_return_amt,0.0) AS sales_amt
+       FROM store_sales JOIN item ON i_item_sk=ss_item_sk
+                        JOIN date_dim ON d_date_sk=ss_sold_date_sk
+                        LEFT JOIN store_returns ON (ss_ticket_number=sr_ticket_number 
+                                                AND ss_item_sk=sr_item_sk)
+       WHERE i_category='Sports'
+       UNION
+       SELECT d_year
+             ,i_brand_id
+             ,i_class_id
+             ,i_category_id
+             ,i_manufact_id
+             ,ws_quantity - COALESCE(wr_return_quantity,0) AS sales_cnt
+             ,ws_ext_sales_price - COALESCE(wr_return_amt,0.0) AS sales_amt
+       FROM web_sales JOIN item ON i_item_sk=ws_item_sk
+                      JOIN date_dim ON d_date_sk=ws_sold_date_sk
+                      LEFT JOIN web_returns ON (ws_order_number=wr_order_number 
+                                            AND ws_item_sk=wr_item_sk)
+       WHERE i_category='Sports') sales_detail
+ GROUP BY d_year, i_brand_id, i_class_id, i_category_id, i_manufact_id)
+ SELECT  prev_yr.d_year AS prev_year
+                          ,curr_yr.d_year AS year
+                          ,curr_yr.i_brand_id
+                          ,curr_yr.i_class_id
+                          ,curr_yr.i_category_id
+                          ,curr_yr.i_manufact_id
+                          ,prev_yr.sales_cnt AS prev_yr_cnt
+                          ,curr_yr.sales_cnt AS curr_yr_cnt
+                          ,curr_yr.sales_cnt-prev_yr.sales_cnt AS sales_cnt_diff
+                          ,curr_yr.sales_amt-prev_yr.sales_amt AS sales_amt_diff
+ FROM all_sales curr_yr, all_sales prev_yr
+ WHERE curr_yr.i_brand_id=prev_yr.i_brand_id
+   AND curr_yr.i_class_id=prev_yr.i_class_id
+   AND curr_yr.i_category_id=prev_yr.i_category_id
+   AND curr_yr.i_manufact_id=prev_yr.i_manufact_id
+   AND curr_yr.d_year=2002
+   AND prev_yr.d_year=2002-1
+   AND CAST(curr_yr.sales_cnt AS DECIMAL(17,2))/CAST(prev_yr.sales_cnt AS DECIMAL(17,2))<0.9
+ ORDER BY sales_cnt_diff
+ limit 100;
+                                                                                                                                                                    QUERY PLAN                                                                                                                                                                     
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Gather Motion 3:1  (slice14; segments: 3)  (cost=0.00..909095887.40 rows=100 width=56)
+   Merge Key: ((share0_ref3.sales_cnt - share0_ref2.sales_cnt))
+   ->  Sort  (cost=0.00..909095887.37 rows=34 width=56)
+         Sort Key: ((share0_ref3.sales_cnt - share0_ref2.sales_cnt))
+         ->  Sequence  (cost=0.00..909095887.32 rows=34 width=56)
+               ->  Shared Scan (share slice:id 14:0)  (cost=0.00..1055841.38 rows=69534448 width=1)
+                     ->  Materialize  (cost=0.00..1055841.38 rows=69534448 width=1)
+                           ->  HashAggregate  (cost=0.00..1055771.85 rows=69534448 width=36)
+                                 Group Key: date_dim.d_year, item.i_brand_id, item.i_class_id, item.i_category_id, item.i_manufact_id
+                                 ->  Redistribute Motion 3:3  (slice13; segments: 3)  (cost=0.00..1011245.05 rows=69534448 width=36)
+                                       Hash Key: date_dim.d_year, item.i_brand_id, item.i_class_id, item.i_category_id, item.i_manufact_id
+                                       ->  Result  (cost=0.00..1003409.90 rows=69534448 width=36)
+                                             ->  HashAggregate  (cost=0.00..1003409.90 rows=69534448 width=36)
+                                                   Group Key: date_dim.d_year, item.i_brand_id, item.i_class_id, item.i_category_id, item.i_manufact_id
+                                                   ->  HashAggregate  (cost=0.00..958883.10 rows=69534448 width=32)
+                                                         Group Key: date_dim.d_year, item.i_brand_id, item.i_class_id, item.i_category_id, item.i_manufact_id, ((catalog_sales.cs_quantity - COALESCE(catalog_returns.cr_return_quantity, 0))), ((catalog_sales.cs_ext_sales_price - COALESCE(catalog_returns.cr_return_amount, 0.0)))
+                                                         ->  Redistribute Motion 3:3  (slice12; segments: 3)  (cost=0.00..897481.40 rows=69534448 width=32)
+                                                               Hash Key: date_dim.d_year, item.i_brand_id, item.i_class_id, item.i_category_id, item.i_manufact_id, ((catalog_sales.cs_quantity - COALESCE(catalog_returns.cr_return_quantity, 0))), ((catalog_sales.cs_ext_sales_price - COALESCE(catalog_returns.cr_return_amount, 0.0)))
+                                                               ->  HashAggregate  (cost=0.00..890516.83 rows=69534448 width=32)
+                                                                     Group Key: date_dim.d_year, item.i_brand_id, item.i_class_id, item.i_category_id, item.i_manufact_id, ((catalog_sales.cs_quantity - COALESCE(catalog_returns.cr_return_quantity, 0))), ((catalog_sales.cs_ext_sales_price - COALESCE(catalog_returns.cr_return_amount, 0.0)))
+                                                                     ->  Append  (cost=0.00..829115.14 rows=69534448 width=32)
+                                                                           ->  Result  (cost=0.00..243925.33 rows=19581801 width=32)
+                                                                                 ->  Hash Left Join  (cost=0.00..243298.71 rows=19581801 width=38)
+                                                                                       Hash Cond: ((catalog_sales.cs_order_number = catalog_returns.cr_order_number) AND (catalog_sales.cs_item_sk = catalog_returns.cr_item_sk))
+                                                                                       ->  Hash Join  (cost=0.00..179670.31 rows=19581801 width=41)
+                                                                                             Hash Cond: (catalog_sales.cs_sold_date_sk = date_dim.d_date_sk)
+                                                                                             ->  Hash Join  (cost=0.00..166672.86 rows=49068943 width=41)
+                                                                                                   Hash Cond: (catalog_sales.cs_item_sk = item.i_item_sk)
+                                                                                                   ->  Dynamic Table Scan on catalog_sales (dynamic scan id: 1)  (cost=0.00..46102.37 rows=479993344 width=25)
+                                                                                                   ->  Hash  (cost=462.13..462.13 rows=29859 width=20)
+                                                                                                         ->  Broadcast Motion 3:3  (slice5; segments: 3)  (cost=0.00..462.13 rows=29859 width=20)
+                                                                                                               ->  Table Scan on item  (cost=0.00..451.44 rows=9953 width=20)
+                                                                                                                     Filter: ((i_category)::text = 'Sports'::text)
+                                                                                             ->  Hash  (cost=100.00..100.00 rows=34 width=4)
+                                                                                                   ->  Partition Selector for catalog_sales (dynamic scan id: 1)  (cost=10.00..100.00 rows=34 width=4)
+                                                                                                         ->  Broadcast Motion 3:3  (slice6; segments: 3)  (cost=0.00..433.86 rows=732 width=8)
+                                                                                                               ->  Table Scan on date_dim  (cost=0.00..433.76 rows=244 width=8)
+                                                                                                                     Filter: ((d_year = 2002) OR (d_year = 2001))
+                                                                                       ->  Hash  (cost=3994.93..3994.93 rows=47998998 width=21)
+                                                                                             ->  Sequence  (cost=0.00..3994.93 rows=47998998 width=21)
+                                                                                                   ->  Partition Selector for catalog_returns (dynamic scan id: 2)  (cost=10.00..100.00 rows=34 width=4)
+                                                                                                         Partitions selected: 80 (out of 80)
+                                                                                                   ->  Dynamic Table Scan on catalog_returns (dynamic scan id: 2)  (cost=0.00..3994.93 rows=47998998 width=21)
+                                                                           ->  Result  (cost=0.00..464363.04 rows=40103151 width=32)
+                                                                                 ->  Hash Left Join  (cost=0.00..463079.74 rows=40103151 width=39)
+                                                                                       Hash Cond: ((store_sales.ss_ticket_number = store_returns.sr_ticket_number) AND (store_sales.ss_item_sk = store_returns.sr_item_sk))
+                                                                                       ->  Hash Join  (cost=0.00..337643.99 rows=39386550 width=42)
+                                                                                             Hash Cond: (store_sales.ss_sold_date_sk = date_dim_1.d_date_sk)
+                                                                                             ->  Hash Join  (cost=0.00..311892.47 rows=97942739 width=42)
+                                                                                                   Hash Cond: (store_sales.ss_item_sk = item_1.i_item_sk)
+                                                                                                   ->  Dynamic Table Scan on store_sales (dynamic scan id: 3)  (cost=0.00..68542.76 rows=959996672 width=26)
+                                                                                                   ->  Hash  (cost=462.13..462.13 rows=29859 width=20)
+                                                                                                         ->  Broadcast Motion 3:3  (slice7; segments: 3)  (cost=0.00..462.13 rows=29859 width=20)
+                                                                                                               ->  Table Scan on item item_1  (cost=0.00..451.44 rows=9953 width=20)
+                                                                                                                     Filter: ((i_category)::text = 'Sports'::text)
+                                                                                             ->  Hash  (cost=100.00..100.00 rows=34 width=4)
+                                                                                                   ->  Partition Selector for store_sales (dynamic scan id: 3)  (cost=10.00..100.00 rows=34 width=4)
+                                                                                                         ->  Broadcast Motion 3:3  (slice8; segments: 3)  (cost=0.00..433.86 rows=732 width=8)
+                                                                                                               ->  Table Scan on date_dim date_dim_1  (cost=0.00..433.76 rows=244 width=8)
+                                                                                                                     Filter: ((d_year = 2002) OR (d_year = 2001))
+                                                                                       ->  Hash  (cost=6080.60..6080.60 rows=96000000 width=21)
+                                                                                             ->  Sequence  (cost=0.00..6080.60 rows=96000000 width=21)
+                                                                                                   ->  Partition Selector for store_returns (dynamic scan id: 4)  (cost=10.00..100.00 rows=34 width=4)
+                                                                                                         Partitions selected: 80 (out of 80)
+                                                                                                   ->  Dynamic Table Scan on store_returns (dynamic scan id: 4)  (cost=0.00..6080.60 rows=96000000 width=21)
+                                                                           ->  Result  (cost=0.00..118601.66 rows=9849497 width=32)
+                                                                                 ->  Hash Left Join  (cost=0.00..118286.48 rows=9849497 width=39)
+                                                                                       Hash Cond: ((web_sales.ws_order_number = web_returns.wr_order_number) AND (web_sales.ws_item_sk = web_returns.wr_item_sk))
+                                                                                       ->  Redistribute Motion 3:3  (slice11; segments: 3)  (cost=0.00..88199.86 rows=9849497 width=37)
+                                                                                             Hash Key: web_sales.ws_order_number, web_sales.ws_item_sk
+                                                                                             ->  Hash Join  (cost=0.00..87059.19 rows=9849497 width=37)
+                                                                                                   Hash Cond: (web_sales.ws_sold_date_sk = date_dim_2.d_date_sk)
+                                                                                                   ->  Hash Join  (cost=0.00..80543.51 rows=24479330 width=37)
+                                                                                                         Hash Cond: (web_sales.ws_item_sk = item_2.i_item_sk)
+                                                                                                         ->  Dynamic Table Scan on web_sales (dynamic scan id: 5)  (cost=0.00..22739.00 rows=240000000 width=21)
+                                                                                                         ->  Hash  (cost=462.13..462.13 rows=29859 width=20)
+                                                                                                               ->  Broadcast Motion 3:3  (slice9; segments: 3)  (cost=0.00..462.13 rows=29859 width=20)
+                                                                                                                     ->  Table Scan on item item_2  (cost=0.00..451.44 rows=9953 width=20)
+                                                                                                                           Filter: ((i_category)::text = 'Sports'::text)
+                                                                                                   ->  Hash  (cost=100.00..100.00 rows=34 width=4)
+                                                                                                         ->  Partition Selector for web_sales (dynamic scan id: 5)  (cost=10.00..100.00 rows=34 width=4)
+                                                                                                               ->  Broadcast Motion 3:3  (slice10; segments: 3)  (cost=0.00..433.86 rows=732 width=8)
+                                                                                                                     ->  Table Scan on date_dim date_dim_2  (cost=0.00..433.76 rows=244 width=8)
+                                                                                                                           Filter: ((d_year = 2002) OR (d_year = 2001))
+                                                                                       ->  Hash  (cost=2120.54..2120.54 rows=23999168 width=18)
+                                                                                             ->  Sequence  (cost=0.00..2120.54 rows=23999168 width=18)
+                                                                                                   ->  Partition Selector for web_returns (dynamic scan id: 6)  (cost=10.00..100.00 rows=34 width=4)
+                                                                                                         Partitions selected: 80 (out of 80)
+                                                                                                   ->  Dynamic Table Scan on web_returns (dynamic scan id: 6)  (cost=0.00..2120.54 rows=23999168 width=18)
+               ->  Redistribute Motion 1:3  (slice4)  (cost=0.00..908040045.94 rows=100 width=56)
+                     ->  Limit  (cost=0.00..908040045.92 rows=34 width=56)
+                           ->  Gather Motion 3:1  (slice3; segments: 3)  (cost=0.00..908040045.92 rows=100 width=56)
+                                 Merge Key: ((share0_ref3.sales_cnt - share0_ref2.sales_cnt))
+                                 ->  Limit  (cost=0.00..908040045.90 rows=34 width=56)
+                                       ->  Sort  (cost=0.00..908040045.90 rows=77360631171 width=56)
+                                             Sort Key: ((share0_ref3.sales_cnt - share0_ref2.sales_cnt))
+                                             ->  Result  (cost=0.00..19554900.32 rows=77360631171 width=56)
+                                                   ->  Hash Join  (cost=0.00..15222704.97 rows=77360631171 width=56)
+                                                         Hash Cond: ((share0_ref3.i_brand_id = share0_ref2.i_brand_id) AND (share0_ref3.i_class_id = share0_ref2.i_class_id) AND (share0_ref3.i_category_id = share0_ref2.i_category_id) AND (share0_ref3.i_manufact_id = share0_ref2.i_manufact_id))
+                                                         Join Filter: (("numeric"((share0_ref3.sales_cnt)::numeric, 1114118) / "numeric"((share0_ref2.sales_cnt)::numeric, 1114118)) < 0.9)
+                                                         ->  Redistribute Motion 3:3  (slice1; segments: 3)  (cost=0.00..5326.23 rows=13906890 width=36)
+                                                               Hash Key: share0_ref3.i_brand_id, share0_ref3.i_class_id, share0_ref3.i_category_id, share0_ref3.i_manufact_id
+                                                               ->  Result  (cost=0.00..3759.20 rows=13906890 width=36)
+                                                                     Filter: (share0_ref3.d_year = 2002)
+                                                                     ->  Shared Scan (share slice:id 1:0)  (cost=0.00..2844.12 rows=27813780 width=36)
+                                                         ->  Hash  (cost=5326.23..5326.23 rows=13906890 width=36)
+                                                               ->  Redistribute Motion 3:3  (slice2; segments: 3)  (cost=0.00..5326.23 rows=13906890 width=36)
+                                                                     Hash Key: share0_ref2.i_brand_id, share0_ref2.i_class_id, share0_ref2.i_category_id, share0_ref2.i_manufact_id
+                                                                     ->  Result  (cost=0.00..3759.20 rows=13906890 width=36)
+                                                                           Filter: (share0_ref2.d_year = 2001)
+                                                                           ->  Shared Scan (share slice:id 2:0)  (cost=0.00..2844.12 rows=27813780 width=36)
+ Planning time: 1637.064 ms
+ Optimizer: PQO version 3.8.0
+(113 rows)
+
+-- end query 1 in stream 0 using template query75.tpl

@@ -1,0 +1,114 @@
+-- start query 1 in stream 0 using template query72.tpl
+explain
+select  i_item_desc
+      ,w_warehouse_name
+      ,d1.d_week_seq
+      ,count(case when p_promo_sk is null then 1 else 0 end) no_promo
+      ,count(case when p_promo_sk is not null then 1 else 0 end) promo
+      ,count(*) total_cnt
+from catalog_sales
+join inventory on (cs_item_sk = inv_item_sk)
+join warehouse on (w_warehouse_sk=inv_warehouse_sk)
+join item on (i_item_sk = cs_item_sk)
+join customer_demographics on (cs_bill_cdemo_sk = cd_demo_sk)
+join household_demographics on (cs_bill_hdemo_sk = hd_demo_sk)
+join date_dim d1 on (cs_sold_date_sk = d1.d_date_sk)
+join date_dim d2 on (inv_date_sk = d2.d_date_sk)
+join date_dim d3 on (cs_ship_date_sk = d3.d_date_sk)
+left outer join promotion on (cs_promo_sk=p_promo_sk)
+left outer join catalog_returns on (cr_item_sk = cs_item_sk and cr_order_number = cs_order_number)
+where d1.d_week_seq = d2.d_week_seq
+  and inv_quantity_on_hand < cs_quantity 
+  and d3.d_date > d1.d_date + 5
+  and hd_buy_potential = '1001-5000'
+  and d1.d_year = 2001
+  and hd_buy_potential = '1001-5000'
+  and cd_marital_status = 'M'
+  and d1.d_year = 2001
+group by i_item_desc,w_warehouse_name,d1.d_week_seq
+order by total_cnt desc, i_item_desc, w_warehouse_name, d_week_seq
+limit 100;
+                                                                                                                  QUERY PLAN                                                                                                                  
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=0.00..4890635.14 rows=34 width=147)
+   ->  Gather Motion 3:1  (slice11; segments: 3)  (cost=0.00..4890635.12 rows=100 width=147)
+         Merge Key: (count((count()))), item.i_item_desc, warehouse.w_warehouse_name, date_dim.d_week_seq
+         ->  Limit  (cost=0.00..4890635.07 rows=34 width=147)
+               ->  Sort  (cost=0.00..4890635.06 rows=101558071 width=147)
+                     Sort Key: (count((count()))), item.i_item_desc, warehouse.w_warehouse_name, date_dim.d_week_seq
+                     ->  HashAggregate  (cost=0.00..2639200.13 rows=101558071 width=147)
+                           Group Key: item.i_item_desc, warehouse.w_warehouse_name, date_dim.d_week_seq
+                           ->  Redistribute Motion 3:3  (slice10; segments: 3)  (cost=0.00..2589247.88 rows=101558071 width=147)
+                                 Hash Key: item.i_item_desc, warehouse.w_warehouse_name, date_dim.d_week_seq
+                                 ->  Result  (cost=0.00..2542519.99 rows=101558071 width=147)
+                                       ->  HashAggregate  (cost=0.00..2542519.99 rows=101558071 width=147)
+                                             Group Key: item.i_item_desc, warehouse.w_warehouse_name, date_dim.d_week_seq
+                                             ->  Hash Join  (cost=0.00..2093493.80 rows=987158081 width=127)
+                                                   Hash Cond: ((catalog_sales.cs_item_sk = inventory.inv_item_sk) AND (item.i_item_sk = inventory.inv_item_sk) AND (date_dim_2.d_date_sk = inventory.inv_date_sk))
+                                                   Join Filter: (inventory.inv_quantity_on_hand < catalog_sales.cs_quantity)
+                                                   ->  Hash Join  (cost=0.00..1237002.22 rows=7886519 width=126)
+                                                         Hash Cond: (date_dim.d_week_seq = date_dim_2.d_week_seq)
+                                                         ->  Hash Join  (cost=0.00..1232781.08 rows=1123885 width=122)
+                                                               Hash Cond: (catalog_sales.cs_ship_date_sk = date_dim_1.d_date_sk)
+                                                               Join Filter: (date_dim_1.d_date > (date_dim.d_date + 5))
+                                                               ->  Hash Join  (cost=0.00..1230630.43 rows=2809712 width=130)
+                                                                     Hash Cond: (catalog_sales.cs_item_sk = item.i_item_sk)
+                                                                     ->  Redistribute Motion 3:3  (slice5; segments: 3)  (cost=0.00..1227646.89 rows=5242557 width=24)
+                                                                           Hash Key: catalog_sales.cs_item_sk
+                                                                           ->  Hash Join  (cost=0.00..1227253.07 rows=5242557 width=24)
+                                                                                 Hash Cond: (catalog_sales.cs_sold_date_sk = date_dim.d_date_sk)
+                                                                                 ->  Hash Join  (cost=0.00..1221485.58 rows=26310027 width=20)
+                                                                                       Hash Cond: (catalog_sales.cs_bill_cdemo_sk = customer_demographics.cd_demo_sk)
+                                                                                       ->  Hash Join  (cost=0.00..1195569.09 rows=124700046 width=24)
+                                                                                             Hash Cond: (catalog_sales.cs_bill_hdemo_sk = household_demographics.hd_demo_sk)
+                                                                                             ->  Hash Left Join  (cost=0.00..1041787.97 rows=748615942 width=28)
+                                                                                                   Hash Cond: ((catalog_sales.cs_item_sk = catalog_returns.cr_item_sk) AND (catalog_sales.cs_order_number = catalog_returns.cr_order_number))
+                                                                                                   ->  Hash Left Join  (cost=0.00..266945.98 rows=748615942 width=36)
+                                                                                                         Hash Cond: (catalog_sales.cs_promo_sk = promotion.p_promo_sk)
+                                                                                                         ->  Dynamic Table Scan on catalog_sales (dynamic scan id: 1)  (cost=0.00..46102.37 rows=479993344 width=36)
+                                                                                                         ->  Hash  (cost=431.15..431.15 rows=1500 width=4)
+                                                                                                               ->  Broadcast Motion 3:3  (slice1; segments: 3)  (cost=0.00..431.15 rows=1500 width=4)
+                                                                                                                     ->  Table Scan on promotion  (cost=0.00..431.04 rows=500 width=4)
+                                                                                                   ->  Hash  (cost=3994.93..3994.93 rows=47998998 width=12)
+                                                                                                         ->  Sequence  (cost=0.00..3994.93 rows=47998998 width=12)
+                                                                                                               ->  Partition Selector for catalog_returns (dynamic scan id: 3)  (cost=10.00..100.00 rows=34 width=4)
+                                                                                                                     Partitions selected: 80 (out of 80)
+                                                                                                               ->  Dynamic Table Scan on catalog_returns (dynamic scan id: 3)  (cost=0.00..3994.93 rows=47998998 width=12)
+                                                                                             ->  Hash  (cost=431.25..431.25 rows=1200 width=4)
+                                                                                                   ->  Broadcast Motion 3:3  (slice2; segments: 3)  (cost=0.00..431.25 rows=1200 width=4)
+                                                                                                         ->  Table Scan on household_demographics  (cost=0.00..431.16 rows=400 width=4)
+                                                                                                               Filter: ((hd_buy_potential)::text = '1001-5000'::text)
+                                                                                       ->  Hash  (cost=506.00..506.00 rows=384156 width=4)
+                                                                                             ->  Broadcast Motion 3:3  (slice3; segments: 3)  (cost=0.00..506.00 rows=384156 width=4)
+                                                                                                   ->  Table Scan on customer_demographics  (cost=0.00..478.50 rows=128052 width=4)
+                                                                                                         Filter: (cd_marital_status = 'M'::bpchar)
+                                                                                 ->  Hash  (cost=100.00..100.00 rows=34 width=4)
+                                                                                       ->  Partition Selector for catalog_sales (dynamic scan id: 1)  (cost=10.00..100.00 rows=34 width=4)
+                                                                                             ->  Broadcast Motion 3:3  (slice4; segments: 3)  (cost=0.00..433.84 rows=366 width=12)
+                                                                                                   ->  Table Scan on date_dim  (cost=0.00..433.76 rows=122 width=12)
+                                                                                                         Filter: (d_year = 2001)
+                                                                     ->  Hash  (cost=447.68..447.68 rows=99749 width=106)
+                                                                           ->  Table Scan on item  (cost=0.00..447.68 rows=99749 width=106)
+                                                               ->  Hash  (cost=443.78..443.78 rows=73049 width=8)
+                                                                     ->  Broadcast Motion 3:3  (slice6; segments: 3)  (cost=0.00..443.78 rows=73049 width=8)
+                                                                           ->  Table Scan on date_dim date_dim_1  (cost=0.00..432.96 rows=24350 width=8)
+                                                         ->  Hash  (cost=443.78..443.78 rows=73049 width=8)
+                                                               ->  Broadcast Motion 3:3  (slice7; segments: 3)  (cost=0.00..443.78 rows=73049 width=8)
+                                                                     ->  Table Scan on date_dim date_dim_2  (cost=0.00..432.96 rows=24350 width=8)
+                                                   ->  Hash  (cost=115199.31..115199.31 rows=260999896 width=29)
+                                                         ->  Redistribute Motion 3:3  (slice9; segments: 3)  (cost=0.00..115199.31 rows=260999896 width=29)
+                                                               Hash Key: inventory.inv_item_sk
+                                                               ->  Hash Join  (cost=0.00..91508.35 rows=260999896 width=29)
+                                                                     Hash Cond: (inventory.inv_warehouse_sk = warehouse.w_warehouse_sk)
+                                                                     ->  Sequence  (cost=0.00..4737.50 rows=261000000 width=16)
+                                                                           ->  Partition Selector for inventory (dynamic scan id: 2)  (cost=10.00..100.00 rows=34 width=4)
+                                                                                 Partitions selected: 80 (out of 80)
+                                                                           ->  Dynamic Table Scan on inventory (dynamic scan id: 2)  (cost=0.00..4737.50 rows=261000000 width=16)
+                                                                     ->  Hash  (cost=431.01..431.01 rows=20 width=21)
+                                                                           ->  Broadcast Motion 3:3  (slice8; segments: 3)  (cost=0.00..431.01 rows=20 width=21)
+                                                                                 ->  Table Scan on warehouse  (cost=0.00..431.00 rows=7 width=21)
+ Planning time: 10208.782 ms
+ Optimizer: PQO version 3.8.0
+(79 rows)
+
+-- end query 1 in stream 0 using template query72.tpl

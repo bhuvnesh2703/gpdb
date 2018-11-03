@@ -1,0 +1,80 @@
+-- start query 1 in stream 0 using template query62.tpl
+explain
+select  
+   substr(w_warehouse_name,1,20)
+  ,sm_type
+  ,web_name
+  ,sum(case when (ws_ship_date_sk - ws_sold_date_sk <= 30 ) then 1 else 0 end)  as "30 days" 
+  ,sum(case when (ws_ship_date_sk - ws_sold_date_sk > 30) and 
+                 (ws_ship_date_sk - ws_sold_date_sk <= 60) then 1 else 0 end )  as "31-60 days" 
+  ,sum(case when (ws_ship_date_sk - ws_sold_date_sk > 60) and 
+                 (ws_ship_date_sk - ws_sold_date_sk <= 90) then 1 else 0 end)  as "61-90 days" 
+  ,sum(case when (ws_ship_date_sk - ws_sold_date_sk > 90) and
+                 (ws_ship_date_sk - ws_sold_date_sk <= 120) then 1 else 0 end)  as "91-120 days" 
+  ,sum(case when (ws_ship_date_sk - ws_sold_date_sk  > 120) then 1 else 0 end)  as ">120 days" 
+from
+   web_sales
+  ,warehouse
+  ,ship_mode
+  ,web_site
+  ,date_dim
+where
+    d_month_seq between 1212 and 1212 + 11
+and ws_ship_date_sk   = d_date_sk
+and ws_warehouse_sk   = w_warehouse_sk
+and ws_ship_mode_sk   = sm_ship_mode_sk
+and ws_web_site_sk    = web_site_sk
+group by
+   substr(w_warehouse_name,1,20)
+  ,sm_type
+  ,web_name
+order by substr(w_warehouse_name,1,20)
+        ,sm_type
+       ,web_name
+limit 100;
+                                                                                       QUERY PLAN                                                                                        
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=0.00..147239.68 rows=34 width=63)
+   ->  Gather Motion 3:1  (slice6; segments: 3)  (cost=0.00..147239.67 rows=100 width=63)
+         Merge Key: (substr((warehouse.w_warehouse_name)::text, 1, 20)), ship_mode.sm_type, web_site.web_name
+         ->  Limit  (cost=0.00..147239.65 rows=34 width=63)
+               ->  GroupAggregate  (cost=0.00..147239.64 rows=111 width=63)
+                     Group Key: (substr((warehouse.w_warehouse_name)::text, 1, 20)), ship_mode.sm_type, web_site.web_name
+                     ->  Sort  (cost=0.00..147239.63 rows=111 width=63)
+                           Sort Key: (substr((warehouse.w_warehouse_name)::text, 1, 20)), ship_mode.sm_type, web_site.web_name
+                           ->  Redistribute Motion 3:3  (slice5; segments: 3)  (cost=0.00..147239.36 rows=111 width=63)
+                                 Hash Key: (substr((warehouse.w_warehouse_name)::text, 1, 20)), ship_mode.sm_type, web_site.web_name
+                                 ->  Result  (cost=0.00..147239.34 rows=111 width=63)
+                                       ->  HashAggregate  (cost=0.00..147239.34 rows=111 width=63)
+                                             Group Key: substr((warehouse.w_warehouse_name)::text, 1, 20), ship_mode.sm_type, web_site.web_name
+                                             ->  Result  (cost=0.00..129656.55 rows=44084891 width=31)
+                                                   ->  Hash Join  (cost=0.00..128289.91 rows=44084891 width=40)
+                                                         Hash Cond: (web_sales.ws_web_site_sk = web_site.web_site_sk)
+                                                         ->  Hash Join  (cost=0.00..113031.68 rows=44084894 width=37)
+                                                               Hash Cond: (web_sales.ws_ship_mode_sk = ship_mode.sm_ship_mode_sk)
+                                                               ->  Hash Join  (cost=0.00..98343.74 rows=44084912 width=33)
+                                                                     Hash Cond: (web_sales.ws_warehouse_sk = warehouse.w_warehouse_sk)
+                                                                     ->  Hash Join  (cost=0.00..84622.00 rows=44084930 width=20)
+                                                                           Hash Cond: (web_sales.ws_ship_date_sk = date_dim.d_date_sk)
+                                                                           ->  Sequence  (cost=0.00..22739.00 rows=240000000 width=20)
+                                                                                 ->  Partition Selector for web_sales (dynamic scan id: 1)  (cost=10.00..100.00 rows=34 width=4)
+                                                                                       Partitions selected: 80 (out of 80)
+                                                                                 ->  Dynamic Table Scan on web_sales (dynamic scan id: 1)  (cost=0.00..22739.00 rows=240000000 width=20)
+                                                                           ->  Hash  (cost=433.78..433.78 rows=356 width=4)
+                                                                                 ->  Broadcast Motion 3:3  (slice1; segments: 3)  (cost=0.00..433.78 rows=356 width=4)
+                                                                                       ->  Table Scan on date_dim  (cost=0.00..433.76 rows=119 width=4)
+                                                                                             Filter: ((d_month_seq >= 1212) AND (d_month_seq <= 1223))
+                                                                     ->  Hash  (cost=431.01..431.01 rows=20 width=21)
+                                                                           ->  Broadcast Motion 3:3  (slice2; segments: 3)  (cost=0.00..431.01 rows=20 width=21)
+                                                                                 ->  Table Scan on warehouse  (cost=0.00..431.00 rows=7 width=21)
+                                                               ->  Hash  (cost=431.00..431.00 rows=20 width=12)
+                                                                     ->  Broadcast Motion 3:3  (slice3; segments: 3)  (cost=0.00..431.00 rows=20 width=12)
+                                                                           ->  Table Scan on ship_mode  (cost=0.00..431.00 rows=7 width=12)
+                                                         ->  Hash  (cost=431.01..431.01 rows=54 width=11)
+                                                               ->  Broadcast Motion 3:3  (slice4; segments: 3)  (cost=0.00..431.01 rows=54 width=11)
+                                                                     ->  Table Scan on web_site  (cost=0.00..431.00 rows=18 width=11)
+ Planning time: 464.726 ms
+ Optimizer: PQO version 3.8.0
+(41 rows)
+
+-- end query 1 in stream 0 using template query62.tpl

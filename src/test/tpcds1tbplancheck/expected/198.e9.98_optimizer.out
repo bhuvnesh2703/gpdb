@@ -1,0 +1,72 @@
+-- start query 1 in stream 0 using template query98.tpl
+explain
+select i_item_desc 
+      ,i_category 
+      ,i_class 
+      ,i_current_price
+      ,sum(ss_ext_sales_price) as itemrevenue 
+      ,sum(ss_ext_sales_price)*100/sum(sum(ss_ext_sales_price)) over
+          (partition by i_class) as revenueratio
+from	
+	store_sales
+    	,item 
+    	,date_dim
+where 
+	ss_item_sk = i_item_sk 
+  	and i_category in ('Jewelry', 'Sports', 'Books')
+  	and ss_sold_date_sk = d_date_sk
+	and d_date between cast('2001-01-12' as date) 
+				and (cast('2001-01-12' as date) + 30 )
+group by 
+	i_item_id
+        ,i_item_desc 
+        ,i_category
+        ,i_class
+        ,i_current_price
+order by 
+	i_category
+        ,i_class
+        ,i_item_id
+        ,i_item_desc
+        ,revenueratio;
+                                                                                                                   QUERY PLAN                                                                                                                    
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Result  (cost=0.00..275351.98 rows=9954 width=48)
+   ->  Gather Motion 3:1  (slice5; segments: 3)  (cost=0.00..275351.98 rows=29860 width=48)
+         Merge Key: item.i_category, item.i_class, item.i_item_id, item.i_item_desc, ((((pg_catalog.sum((sum(store_sales.ss_ext_sales_price)))) * 100::numeric) / (sum((pg_catalog.sum((sum(store_sales.ss_ext_sales_price))))) OVER (?))))
+         ->  Sort  (cost=0.00..275345.75 rows=9954 width=56)
+               Sort Key: item.i_category, item.i_class, item.i_item_id, item.i_item_desc, ((((pg_catalog.sum((sum(store_sales.ss_ext_sales_price)))) * 100::numeric) / (sum((pg_catalog.sum((sum(store_sales.ss_ext_sales_price))))) OVER (?))))
+               ->  Result  (cost=0.00..275303.78 rows=9954 width=56)
+                     ->  WindowAgg  (cost=0.00..275303.22 rows=9954 width=56)
+                           Partition By: item.i_class
+                           ->  Sort  (cost=0.00..275303.22 rows=9954 width=147)
+                                 Sort Key: item.i_class
+                                 ->  Redistribute Motion 3:3  (slice4; segments: 3)  (cost=0.00..275193.04 rows=9954 width=147)
+                                       Hash Key: item.i_class
+                                       ->  Result  (cost=0.00..275188.46 rows=9954 width=147)
+                                             ->  HashAggregate  (cost=0.00..275188.46 rows=9954 width=147)
+                                                   Group Key: item.i_category, item.i_class, item.i_item_id, item.i_item_desc, item.i_current_price
+                                                   ->  Redistribute Motion 3:3  (slice3; segments: 3)  (cost=0.00..275180.85 rows=9954 width=147)
+                                                         Hash Key: item.i_category, item.i_class, item.i_item_id, item.i_item_desc, item.i_current_price
+                                                         ->  Result  (cost=0.00..275176.27 rows=9954 width=147)
+                                                               ->  HashAggregate  (cost=0.00..275176.27 rows=9954 width=147)
+                                                                     Group Key: item.i_category, item.i_class, item.i_item_id, item.i_item_desc, item.i_current_price
+                                                                     ->  Hash Join  (cost=0.00..273975.01 rows=1659664 width=145)
+                                                                           Hash Cond: (store_sales.ss_item_sk = item.i_item_sk)
+                                                                           ->  Hash Join  (cost=0.00..269576.53 rows=16266832 width=10)
+                                                                                 Hash Cond: (store_sales.ss_sold_date_sk = date_dim.d_date_sk)
+                                                                                 ->  Dynamic Table Scan on store_sales (dynamic scan id: 1)  (cost=0.00..68542.76 rows=959996672 width=14)
+                                                                                 ->  Hash  (cost=100.00..100.00 rows=34 width=4)
+                                                                                       ->  Partition Selector for store_sales (dynamic scan id: 1)  (cost=10.00..100.00 rows=34 width=4)
+                                                                                             ->  Broadcast Motion 3:3  (slice1; segments: 3)  (cost=0.00..433.76 rows=31 width=4)
+                                                                                                   ->  Table Scan on date_dim  (cost=0.00..433.76 rows=11 width=4)
+                                                                                                         Filter: ((d_date >= '01-12-2001'::date) AND (d_date <= '02-11-2001'::date))
+                                                                           ->  Hash  (cost=530.04..530.04 rows=29860 width=143)
+                                                                                 ->  Broadcast Motion 3:3  (slice2; segments: 3)  (cost=0.00..530.04 rows=29860 width=143)
+                                                                                       ->  Table Scan on item  (cost=0.00..453.61 rows=9954 width=143)
+                                                                                             Filter: ((i_category)::text = ANY ('{Jewelry,Sports,Books}'::text[]))
+ Planning time: 264.763 ms
+ Optimizer: PQO version 3.8.0
+(36 rows)
+
+-- end query 1 in stream 0 using template query98.tpl

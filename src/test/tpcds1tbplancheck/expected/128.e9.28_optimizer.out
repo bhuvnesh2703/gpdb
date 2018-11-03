@@ -1,0 +1,165 @@
+-- start query 1 in stream 0 using template query28.tpl
+explain
+select  *
+from (select avg(ss_list_price) B1_LP
+            ,count(ss_list_price) B1_CNT
+            ,count(distinct ss_list_price) B1_CNTD
+      from store_sales
+      where ss_quantity between 0 and 5
+        and (ss_list_price between 11 and 11+10 
+             or ss_coupon_amt between 460 and 460+1000
+             or ss_wholesale_cost between 14 and 14+20)) B1,
+     (select avg(ss_list_price) B2_LP
+            ,count(ss_list_price) B2_CNT
+            ,count(distinct ss_list_price) B2_CNTD
+      from store_sales
+      where ss_quantity between 6 and 10
+        and (ss_list_price between 91 and 91+10
+          or ss_coupon_amt between 1430 and 1430+1000
+          or ss_wholesale_cost between 32 and 32+20)) B2,
+     (select avg(ss_list_price) B3_LP
+            ,count(ss_list_price) B3_CNT
+            ,count(distinct ss_list_price) B3_CNTD
+      from store_sales
+      where ss_quantity between 11 and 15
+        and (ss_list_price between 66 and 66+10
+          or ss_coupon_amt between 920 and 920+1000
+          or ss_wholesale_cost between 4 and 4+20)) B3,
+     (select avg(ss_list_price) B4_LP
+            ,count(ss_list_price) B4_CNT
+            ,count(distinct ss_list_price) B4_CNTD
+      from store_sales
+      where ss_quantity between 16 and 20
+        and (ss_list_price between 142 and 142+10
+          or ss_coupon_amt between 3054 and 3054+1000
+          or ss_wholesale_cost between 80 and 80+20)) B4,
+     (select avg(ss_list_price) B5_LP
+            ,count(ss_list_price) B5_CNT
+            ,count(distinct ss_list_price) B5_CNTD
+      from store_sales
+      where ss_quantity between 21 and 25
+        and (ss_list_price between 135 and 135+10
+          or ss_coupon_amt between 14180 and 14180+1000
+          or ss_wholesale_cost between 38 and 38+20)) B5,
+     (select avg(ss_list_price) B6_LP
+            ,count(ss_list_price) B6_CNT
+            ,count(distinct ss_list_price) B6_CNTD
+      from store_sales
+      where ss_quantity between 26 and 30
+        and (ss_list_price between 28 and 28+10
+          or ss_coupon_amt between 2513 and 2513+1000
+          or ss_wholesale_cost between 42 and 42+20)) B6
+limit 100;
+                                                                                                                                                                                        QUERY PLAN                                                                                                                                                                                        
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=0.00..562791403137776615424.00 rows=1 width=144)
+   ->  Nested Loop  (cost=0.00..562791403137776615424.00 rows=1 width=144)
+         Join Filter: true
+         ->  Aggregate  (cost=0.00..249508.46 rows=1 width=24)
+               ->  Gather Motion 3:1  (slice12; segments: 3)  (cost=0.00..249508.01 rows=20087 width=22)
+                     ->  Result  (cost=0.00..249506.37 rows=6696 width=22)
+                           ->  HashAggregate  (cost=0.00..249506.37 rows=6696 width=22)
+                                 Group Key: store_sales_5.ss_list_price
+                                 ->  Redistribute Motion 3:3  (slice11; segments: 3)  (cost=0.00..249505.46 rows=6696 width=22)
+                                       Hash Key: store_sales_5.ss_list_price
+                                       ->  Result  (cost=0.00..249505.00 rows=6696 width=22)
+                                             ->  HashAggregate  (cost=0.00..249505.00 rows=6696 width=22)
+                                                   Group Key: store_sales_5.ss_list_price
+                                                   ->  Sequence  (cost=0.00..247044.55 rows=19127117 width=19)
+                                                         ->  Partition Selector for store_sales (dynamic scan id: 6)  (cost=10.00..100.00 rows=34 width=4)
+                                                               Partitions selected: 80 (out of 80)
+                                                         ->  Dynamic Table Scan on store_sales store_sales_5 (dynamic scan id: 6)  (cost=0.00..247044.55 rows=19127117 width=19)
+                                                               Filter: ((ss_quantity >= 26) AND (ss_quantity <= 30) AND (((ss_list_price >= 28::numeric) AND (ss_list_price <= 38::numeric)) OR ((ss_coupon_amt >= 2513::numeric) AND (ss_coupon_amt <= 3513::numeric)) OR ((ss_wholesale_cost >= 42::numeric) AND (ss_wholesale_cost <= 62::numeric))))
+         ->  Materialize  (cost=0.00..549600979626484992.00 rows=1 width=120)
+               ->  Nested Loop  (cost=0.00..549600979626484992.00 rows=1 width=120)
+                     Join Filter: true
+                     ->  Nested Loop  (cost=0.00..536719706416773.44 rows=1 width=96)
+                           Join Filter: true
+                           ->  Nested Loop  (cost=0.00..524140088564.84 rows=1 width=72)
+                                 Join Filter: true
+                                 ->  Nested Loop  (cost=0.00..511605571.69 rows=1 width=48)
+                                       Join Filter: true
+                                       ->  Aggregate  (cost=0.00..249539.73 rows=1 width=24)
+                                             ->  Gather Motion 3:1  (slice10; segments: 3)  (cost=0.00..249539.28 rows=20087 width=22)
+                                                   ->  Result  (cost=0.00..249537.63 rows=6696 width=22)
+                                                         ->  HashAggregate  (cost=0.00..249537.63 rows=6696 width=22)
+                                                               Group Key: store_sales_4.ss_list_price
+                                                               ->  Redistribute Motion 3:3  (slice9; segments: 3)  (cost=0.00..249536.73 rows=6696 width=22)
+                                                                     Hash Key: store_sales_4.ss_list_price
+                                                                     ->  Result  (cost=0.00..249536.27 rows=6696 width=22)
+                                                                           ->  HashAggregate  (cost=0.00..249536.27 rows=6696 width=22)
+                                                                                 Group Key: store_sales_4.ss_list_price
+                                                                                 ->  Sequence  (cost=0.00..247044.55 rows=19370193 width=19)
+                                                                                       ->  Partition Selector for store_sales (dynamic scan id: 2)  (cost=10.00..100.00 rows=34 width=4)
+                                                                                             Partitions selected: 80 (out of 80)
+                                                                                       ->  Dynamic Table Scan on store_sales store_sales_4 (dynamic scan id: 2)  (cost=0.00..247044.55 rows=19370193 width=19)
+                                                                                             Filter: ((ss_quantity >= 6) AND (ss_quantity <= 10) AND (((ss_list_price >= 91::numeric) AND (ss_list_price <= 101::numeric)) OR ((ss_coupon_amt >= 1430::numeric) AND (ss_coupon_amt <= 2430::numeric)) OR ((ss_wholesale_cost >= 32::numeric) AND (ss_wholesale_cost <= 52::numeric))))
+                                       ->  Materialize  (cost=0.00..249644.09 rows=1 width=24)
+                                             ->  Aggregate  (cost=0.00..249644.09 rows=1 width=24)
+                                                   ->  Gather Motion 3:1  (slice8; segments: 3)  (cost=0.00..249643.64 rows=20087 width=22)
+                                                         ->  Result  (cost=0.00..249642.00 rows=6696 width=22)
+                                                               ->  HashAggregate  (cost=0.00..249642.00 rows=6696 width=22)
+                                                                     Group Key: store_sales_3.ss_list_price
+                                                                     ->  Redistribute Motion 3:3  (slice7; segments: 3)  (cost=0.00..249641.09 rows=6696 width=22)
+                                                                           Hash Key: store_sales_3.ss_list_price
+                                                                           ->  Result  (cost=0.00..249640.63 rows=6696 width=22)
+                                                                                 ->  HashAggregate  (cost=0.00..249640.63 rows=6696 width=22)
+                                                                                       Group Key: store_sales_3.ss_list_price
+                                                                                       ->  Sequence  (cost=0.00..247044.55 rows=20181493 width=19)
+                                                                                             ->  Partition Selector for store_sales (dynamic scan id: 1)  (cost=10.00..100.00 rows=34 width=4)
+                                                                                                   Partitions selected: 80 (out of 80)
+                                                                                             ->  Dynamic Table Scan on store_sales store_sales_3 (dynamic scan id: 1)  (cost=0.00..247044.55 rows=20181493 width=19)
+                                                                                                   Filter: ((ss_quantity >= 0) AND (ss_quantity <= 5) AND (((ss_list_price >= 11::numeric) AND (ss_list_price <= 21::numeric)) OR ((ss_coupon_amt >= 460::numeric) AND (ss_coupon_amt <= 1460::numeric)) OR ((ss_wholesale_cost >= 14::numeric) AND (ss_wholesale_cost <= 34::numeric))))
+                                 ->  Materialize  (cost=0.00..249552.55 rows=1 width=24)
+                                       ->  Aggregate  (cost=0.00..249552.55 rows=1 width=24)
+                                             ->  Gather Motion 3:1  (slice6; segments: 3)  (cost=0.00..249552.10 rows=20087 width=22)
+                                                   ->  Result  (cost=0.00..249550.46 rows=6696 width=22)
+                                                         ->  HashAggregate  (cost=0.00..249550.46 rows=6696 width=22)
+                                                               Group Key: store_sales_2.ss_list_price
+                                                               ->  Redistribute Motion 3:3  (slice5; segments: 3)  (cost=0.00..249549.55 rows=6696 width=22)
+                                                                     Hash Key: store_sales_2.ss_list_price
+                                                                     ->  Result  (cost=0.00..249549.09 rows=6696 width=22)
+                                                                           ->  HashAggregate  (cost=0.00..249549.09 rows=6696 width=22)
+                                                                                 Group Key: store_sales_2.ss_list_price
+                                                                                 ->  Sequence  (cost=0.00..247044.55 rows=19469868 width=19)
+                                                                                       ->  Partition Selector for store_sales (dynamic scan id: 3)  (cost=10.00..100.00 rows=34 width=4)
+                                                                                             Partitions selected: 80 (out of 80)
+                                                                                       ->  Dynamic Table Scan on store_sales store_sales_2 (dynamic scan id: 3)  (cost=0.00..247044.55 rows=19469868 width=19)
+                                                                                             Filter: ((ss_quantity >= 11) AND (ss_quantity <= 15) AND (((ss_list_price >= 66::numeric) AND (ss_list_price <= 76::numeric)) OR ((ss_coupon_amt >= 920::numeric) AND (ss_coupon_amt <= 1920::numeric)) OR ((ss_wholesale_cost >= 4::numeric) AND (ss_wholesale_cost <= 24::numeric))))
+                           ->  Materialize  (cost=0.00..249301.79 rows=1 width=24)
+                                 ->  Aggregate  (cost=0.00..249301.79 rows=1 width=24)
+                                       ->  Gather Motion 3:1  (slice4; segments: 3)  (cost=0.00..249301.34 rows=20087 width=22)
+                                             ->  Result  (cost=0.00..249299.70 rows=6696 width=22)
+                                                   ->  HashAggregate  (cost=0.00..249299.70 rows=6696 width=22)
+                                                         Group Key: store_sales_1.ss_list_price
+                                                         ->  Redistribute Motion 3:3  (slice3; segments: 3)  (cost=0.00..249298.79 rows=6696 width=22)
+                                                               Hash Key: store_sales_1.ss_list_price
+                                                               ->  Result  (cost=0.00..249298.33 rows=6696 width=22)
+                                                                     ->  HashAggregate  (cost=0.00..249298.33 rows=6696 width=22)
+                                                                           Group Key: store_sales_1.ss_list_price
+                                                                           ->  Sequence  (cost=0.00..247044.55 rows=17520471 width=19)
+                                                                                 ->  Partition Selector for store_sales (dynamic scan id: 4)  (cost=10.00..100.00 rows=34 width=4)
+                                                                                       Partitions selected: 80 (out of 80)
+                                                                                 ->  Dynamic Table Scan on store_sales store_sales_1 (dynamic scan id: 4)  (cost=0.00..247044.55 rows=17520471 width=19)
+                                                                                       Filter: ((ss_quantity >= 16) AND (ss_quantity <= 20) AND (((ss_list_price >= 142::numeric) AND (ss_list_price <= 152::numeric)) OR ((ss_coupon_amt >= 3054::numeric) AND (ss_coupon_amt <= 4054::numeric)) OR ((ss_wholesale_cost >= 80::numeric) AND (ss_wholesale_cost <= 100::numeric))))
+                     ->  Materialize  (cost=0.00..249284.82 rows=1 width=24)
+                           ->  Aggregate  (cost=0.00..249284.82 rows=1 width=24)
+                                 ->  Gather Motion 3:1  (slice2; segments: 3)  (cost=0.00..249284.37 rows=20087 width=22)
+                                       ->  Result  (cost=0.00..249282.73 rows=6696 width=22)
+                                             ->  HashAggregate  (cost=0.00..249282.73 rows=6696 width=22)
+                                                   Group Key: store_sales.ss_list_price
+                                                   ->  Redistribute Motion 3:3  (slice1; segments: 3)  (cost=0.00..249281.82 rows=6696 width=22)
+                                                         Hash Key: store_sales.ss_list_price
+                                                         ->  Result  (cost=0.00..249281.36 rows=6696 width=22)
+                                                               ->  HashAggregate  (cost=0.00..249281.36 rows=6696 width=22)
+                                                                     Group Key: store_sales.ss_list_price
+                                                                     ->  Sequence  (cost=0.00..247044.55 rows=17388561 width=19)
+                                                                           ->  Partition Selector for store_sales (dynamic scan id: 5)  (cost=10.00..100.00 rows=34 width=4)
+                                                                                 Partitions selected: 80 (out of 80)
+                                                                           ->  Dynamic Table Scan on store_sales (dynamic scan id: 5)  (cost=0.00..247044.55 rows=17388561 width=19)
+                                                                                 Filter: ((ss_quantity >= 21) AND (ss_quantity <= 25) AND (((ss_list_price >= 135::numeric) AND (ss_list_price <= 145::numeric)) OR ((ss_coupon_amt >= 14180::numeric) AND (ss_coupon_amt <= 15180::numeric)) OR ((ss_wholesale_cost >= 38::numeric) AND (ss_wholesale_cost <= 58::numeric))))
+ Planning time: 464.900 ms
+ Optimizer: PQO version 3.8.0
+(108 rows)
+
+-- end query 1 in stream 0 using template query28.tpl

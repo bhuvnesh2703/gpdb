@@ -1,0 +1,52 @@
+-- start query 1 in stream 0 using template query43.tpl
+explain
+select  s_store_name, s_store_id,
+        sum(case when (d_day_name='Sunday') then ss_sales_price else null end) sun_sales,
+        sum(case when (d_day_name='Monday') then ss_sales_price else null end) mon_sales,
+        sum(case when (d_day_name='Tuesday') then ss_sales_price else  null end) tue_sales,
+        sum(case when (d_day_name='Wednesday') then ss_sales_price else null end) wed_sales,
+        sum(case when (d_day_name='Thursday') then ss_sales_price else null end) thu_sales,
+        sum(case when (d_day_name='Friday') then ss_sales_price else null end) fri_sales,
+        sum(case when (d_day_name='Saturday') then ss_sales_price else null end) sat_sales
+ from date_dim, store_sales, store
+ where d_date_sk = ss_sold_date_sk and
+       s_store_sk = ss_store_sk and
+       s_gmt_offset = -6 and
+       d_year = 1998 
+ group by s_store_name, s_store_id
+ order by s_store_name, s_store_id,sun_sales,mon_sales,tue_sales,wed_sales,thu_sales,fri_sales,sat_sales
+ limit 100;
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    QUERY PLAN                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=0.00..373686.63 rows=34 width=77)
+   ->  Gather Motion 3:1  (slice4; segments: 3)  (cost=0.00..373686.62 rows=100 width=77)
+         Merge Key: store.s_store_name, store.s_store_id, (pg_catalog.sum((sum(CASE WHEN ((date_dim.d_day_name)::text = 'Sunday'::text) THEN store_sales.ss_sales_price ELSE NULL::numeric END)))), (pg_catalog.sum((sum(CASE WHEN ((date_dim.d_day_name)::text = 'Monday'::text) THEN store_sales.ss_sales_price ELSE NULL::numeric END)))), (pg_catalog.sum((sum(CASE WHEN ((date_dim.d_day_name)::text = 'Tuesday'::text) THEN store_sales.ss_sales_price ELSE NULL::numeric END)))), (pg_catalog.sum((sum(CASE WHEN ((date_dim.d_day_name)::text = 'Wednesday'::text) THEN store_sales.ss_sales_price ELSE NULL::numeric END)))), (pg_catalog.sum((sum(CASE WHEN ((date_dim.d_day_name)::text = 'Thursday'::text) THEN store_sales.ss_sales_price ELSE NULL::numeric END)))), (pg_catalog.sum((sum(CASE WHEN ((date_dim.d_day_name)::text = 'Friday'::text) THEN store_sales.ss_sales_price ELSE NULL::numeric END)))), (pg_catalog.sum((sum(CASE WHEN ((date_dim.d_day_name)::text = 'Saturday'::text) THEN store_sales.ss_sales_price ELSE NULL::numeric END))))
+         ->  Limit  (cost=0.00..373686.59 rows=34 width=77)
+               ->  Sort  (cost=0.00..373686.59 rows=123 width=77)
+                     Sort Key: store.s_store_name, store.s_store_id, (pg_catalog.sum((sum(CASE WHEN ((date_dim.d_day_name)::text = 'Sunday'::text) THEN store_sales.ss_sales_price ELSE NULL::numeric END)))), (pg_catalog.sum((sum(CASE WHEN ((date_dim.d_day_name)::text = 'Monday'::text) THEN store_sales.ss_sales_price ELSE NULL::numeric END)))), (pg_catalog.sum((sum(CASE WHEN ((date_dim.d_day_name)::text = 'Tuesday'::text) THEN store_sales.ss_sales_price ELSE NULL::numeric END)))), (pg_catalog.sum((sum(CASE WHEN ((date_dim.d_day_name)::text = 'Wednesday'::text) THEN store_sales.ss_sales_price ELSE NULL::numeric END)))), (pg_catalog.sum((sum(CASE WHEN ((date_dim.d_day_name)::text = 'Thursday'::text) THEN store_sales.ss_sales_price ELSE NULL::numeric END)))), (pg_catalog.sum((sum(CASE WHEN ((date_dim.d_day_name)::text = 'Friday'::text) THEN store_sales.ss_sales_price ELSE NULL::numeric END)))), (pg_catalog.sum((sum(CASE WHEN ((date_dim.d_day_name)::text = 'Saturday'::text) THEN store_sales.ss_sales_price ELSE NULL::numeric END))))
+                     ->  HashAggregate  (cost=0.00..373686.22 rows=123 width=77)
+                           Group Key: store.s_store_name, store.s_store_id
+                           ->  Redistribute Motion 3:3  (slice3; segments: 3)  (cost=0.00..373686.18 rows=123 width=77)
+                                 Hash Key: store.s_store_name, store.s_store_id
+                                 ->  Result  (cost=0.00..373686.15 rows=123 width=77)
+                                       ->  HashAggregate  (cost=0.00..373686.15 rows=123 width=77)
+                                             Group Key: store.s_store_name, store.s_store_id
+                                             ->  Hash Join  (cost=0.00..334439.44 rows=140746640 width=35)
+                                                   Hash Cond: (store_sales.ss_store_sk = store.s_store_sk)
+                                                   ->  Hash Join  (cost=0.00..281151.41 rows=192761949 width=18)
+                                                         Hash Cond: (store_sales.ss_sold_date_sk = date_dim.d_date_sk)
+                                                         ->  Dynamic Table Scan on store_sales (dynamic scan id: 1)  (cost=0.00..68542.76 rows=959996672 width=14)
+                                                         ->  Hash  (cost=100.00..100.00 rows=34 width=4)
+                                                               ->  Partition Selector for store_sales (dynamic scan id: 1)  (cost=10.00..100.00 rows=34 width=4)
+                                                                     ->  Broadcast Motion 3:3  (slice1; segments: 3)  (cost=0.00..433.84 rows=366 width=12)
+                                                                           ->  Table Scan on date_dim  (cost=0.00..433.76 rows=122 width=12)
+                                                                                 Filter: (d_year = 1998)
+                                                   ->  Hash  (cost=431.24..431.24 rows=368 width=25)
+                                                         ->  Broadcast Motion 3:3  (slice2; segments: 3)  (cost=0.00..431.24 rows=368 width=25)
+                                                               ->  Table Scan on store  (cost=0.00..431.07 rows=123 width=25)
+                                                                     Filter: (s_gmt_offset = (-6)::numeric)
+ Planning time: 276.796 ms
+ Optimizer: PQO version 3.8.0
+(29 rows)
+
+-- end query 1 in stream 0 using template query43.tpl

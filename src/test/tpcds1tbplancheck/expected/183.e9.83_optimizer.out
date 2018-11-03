@@ -1,0 +1,181 @@
+-- start query 1 in stream 0 using template query83.tpl
+explain
+with sr_items as
+ (select i_item_id item_id,
+        sum(sr_return_quantity) sr_item_qty
+ from store_returns,
+      item,
+      date_dim
+ where sr_item_sk = i_item_sk
+ and   d_date    in 
+	(select d_date
+	from date_dim
+	where d_week_seq in 
+		(select d_week_seq
+		from date_dim
+	  where d_date in ('1998-01-02','1998-10-15','1998-11-10')))
+ and   sr_returned_date_sk   = d_date_sk
+ group by i_item_id),
+ cr_items as
+ (select i_item_id item_id,
+        sum(cr_return_quantity) cr_item_qty
+ from catalog_returns,
+      item,
+      date_dim
+ where cr_item_sk = i_item_sk
+ and   d_date    in 
+	(select d_date
+	from date_dim
+	where d_week_seq in 
+		(select d_week_seq
+		from date_dim
+	  where d_date in ('1998-01-02','1998-10-15','1998-11-10')))
+ and   cr_returned_date_sk   = d_date_sk
+ group by i_item_id),
+ wr_items as
+ (select i_item_id item_id,
+        sum(wr_return_quantity) wr_item_qty
+ from web_returns,
+      item,
+      date_dim
+ where wr_item_sk = i_item_sk
+ and   d_date    in 
+	(select d_date
+	from date_dim
+	where d_week_seq in 
+		(select d_week_seq
+		from date_dim
+		where d_date in ('1998-01-02','1998-10-15','1998-11-10')))
+ and   wr_returned_date_sk   = d_date_sk
+ group by i_item_id)
+  select  sr_items.item_id
+       ,sr_item_qty
+       ,sr_item_qty/(sr_item_qty+cr_item_qty+wr_item_qty)/3.0 * 100 sr_dev
+       ,cr_item_qty
+       ,cr_item_qty/(sr_item_qty+cr_item_qty+wr_item_qty)/3.0 * 100 cr_dev
+       ,wr_item_qty
+       ,wr_item_qty/(sr_item_qty+cr_item_qty+wr_item_qty)/3.0 * 100 wr_dev
+       ,(sr_item_qty+cr_item_qty+wr_item_qty)/3.0 average
+ from sr_items
+     ,cr_items
+     ,wr_items
+ where sr_items.item_id=cr_items.item_id
+   and sr_items.item_id=wr_items.item_id 
+ order by sr_items.item_id
+         ,sr_item_qty
+ limit 100;
+                                                                                                              QUERY PLAN                                                                                                               
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Sort  (cost=0.00..51999.16 rows=34 width=64)
+   Sort Key: item.i_item_id, (pg_catalog.sum((sum(store_returns.sr_return_quantity))))
+   ->  Limit  (cost=0.00..51998.91 rows=34 width=64)
+         ->  Gather Motion 3:1  (slice16; segments: 3)  (cost=0.00..51998.91 rows=100 width=64)
+               Merge Key: item.i_item_id, (pg_catalog.sum((sum(store_returns.sr_return_quantity))))
+               ->  Limit  (cost=0.00..51998.88 rows=34 width=64)
+                     ->  Result  (cost=0.00..51998.88 rows=42635 width=64)
+                           ->  Sort  (cost=0.00..51996.15 rows=42635 width=41)
+                                 Sort Key: item.i_item_id, (pg_catalog.sum((sum(store_returns.sr_return_quantity))))
+                                 ->  Hash Join  (cost=0.00..51843.72 rows=42635 width=41)
+                                       Hash Cond: ((item.i_item_id)::text = (item_2.i_item_id)::text)
+                                       ->  Hash Join  (cost=0.00..36247.96 rows=42635 width=33)
+                                             Hash Cond: ((item.i_item_id)::text = (item_1.i_item_id)::text)
+                                             ->  HashAggregate  (cost=0.00..27417.10 rows=42635 width=25)
+                                                   Group Key: item.i_item_id
+                                                   ->  Redistribute Motion 3:3  (slice5; segments: 3)  (cost=0.00..27411.97 rows=36888 width=25)
+                                                         Hash Key: item.i_item_id
+                                                         ->  Result  (cost=0.00..27409.09 rows=36888 width=25)
+                                                               ->  HashAggregate  (cost=0.00..27409.09 rows=36888 width=25)
+                                                                     Group Key: item.i_item_id
+                                                                     ->  Hash Join  (cost=0.00..27404.04 rows=36888 width=21)
+                                                                           Hash Cond: (item.i_item_sk = store_returns.sr_item_sk)
+                                                                           ->  Table Scan on item  (cost=0.00..447.68 rows=99749 width=21)
+                                                                           ->  Hash  (cost=26920.75..26920.75 rows=36888 width=8)
+                                                                                 ->  Redistribute Motion 3:3  (slice4; segments: 3)  (cost=0.00..26920.75 rows=36888 width=8)
+                                                                                       Hash Key: store_returns.sr_item_sk
+                                                                                       ->  Hash Join  (cost=0.00..26919.83 rows=36888 width=8)
+                                                                                             Hash Cond: (store_returns.sr_returned_date_sk = date_dim.d_date_sk)
+                                                                                             ->  Dynamic Table Scan on store_returns (dynamic scan id: 1)  (cost=0.00..6080.60 rows=96000000 width=12)
+                                                                                             ->  Hash  (cost=100.00..100.00 rows=34 width=4)
+                                                                                                   ->  Partition Selector for store_returns (dynamic scan id: 1)  (cost=10.00..100.00 rows=34 width=4)
+                                                                                                         ->  Broadcast Motion 3:3  (slice3; segments: 3)  (cost=0.00..1309.10 rows=29 width=4)
+                                                                                                               ->  Hash Semi Join  (cost=0.00..1309.10 rows=10 width=4)
+                                                                                                                     Hash Cond: (date_dim.d_date = date_dim_1.d_date)
+                                                                                                                     ->  Table Scan on date_dim  (cost=0.00..432.96 rows=24350 width=8)
+                                                                                                                     ->  Hash  (cost=871.43..871.43 rows=29 width=4)
+                                                                                                                           ->  Broadcast Motion 3:3  (slice2; segments: 3)  (cost=0.00..871.43 rows=29 width=4)
+                                                                                                                                 ->  Hash Semi Join  (cost=0.00..871.43 rows=10 width=4)
+                                                                                                                                       Hash Cond: (date_dim_1.d_week_seq = date_dim_2.d_week_seq)
+                                                                                                                                       ->  Table Scan on date_dim date_dim_1  (cost=0.00..432.96 rows=24350 width=8)
+                                                                                                                                       ->  Hash  (cost=433.76..433.76 rows=4 width=4)
+                                                                                                                                             ->  Broadcast Motion 3:3  (slice1; segments: 3)  (cost=0.00..433.76 rows=4 width=4)
+                                                                                                                                                   ->  Table Scan on date_dim date_dim_2  (cost=0.00..433.76 rows=2 width=4)
+                                                                                                                                                         Filter: (d_date = ANY ('{01-02-1998,10-15-1998,11-10-1998}'::date[]))
+                                             ->  Hash  (cost=8789.42..8789.42 rows=42635 width=25)
+                                                   ->  HashAggregate  (cost=0.00..8789.42 rows=42635 width=25)
+                                                         Group Key: item_1.i_item_id
+                                                         ->  Redistribute Motion 3:3  (slice10; segments: 3)  (cost=0.00..8787.69 rows=9222 width=25)
+                                                               Hash Key: item_1.i_item_id
+                                                               ->  Result  (cost=0.00..8786.96 rows=9222 width=25)
+                                                                     ->  HashAggregate  (cost=0.00..8786.96 rows=9222 width=25)
+                                                                           Group Key: item_1.i_item_id
+                                                                           ->  Hash Join  (cost=0.00..8785.70 rows=9222 width=21)
+                                                                                 Hash Cond: (item_1.i_item_sk = web_returns.wr_item_sk)
+                                                                                 ->  Table Scan on item item_1  (cost=0.00..447.68 rows=99749 width=21)
+                                                                                 ->  Hash  (cost=8312.24..8312.24 rows=9222 width=8)
+                                                                                       ->  Redistribute Motion 3:3  (slice9; segments: 3)  (cost=0.00..8312.24 rows=9222 width=8)
+                                                                                             Hash Key: web_returns.wr_item_sk
+                                                                                             ->  Hash Join  (cost=0.00..8312.01 rows=9222 width=8)
+                                                                                                   Hash Cond: (web_returns.wr_returned_date_sk = date_dim_3.d_date_sk)
+                                                                                                   ->  Dynamic Table Scan on web_returns (dynamic scan id: 3)  (cost=0.00..2120.54 rows=23999168 width=12)
+                                                                                                   ->  Hash  (cost=100.00..100.00 rows=34 width=4)
+                                                                                                         ->  Partition Selector for web_returns (dynamic scan id: 3)  (cost=10.00..100.00 rows=34 width=4)
+                                                                                                               ->  Broadcast Motion 3:3  (slice8; segments: 3)  (cost=0.00..1309.10 rows=29 width=4)
+                                                                                                                     ->  Hash Semi Join  (cost=0.00..1309.10 rows=10 width=4)
+                                                                                                                           Hash Cond: (date_dim_3.d_date = date_dim_4.d_date)
+                                                                                                                           ->  Table Scan on date_dim date_dim_3  (cost=0.00..432.96 rows=24350 width=8)
+                                                                                                                           ->  Hash  (cost=871.43..871.43 rows=29 width=4)
+                                                                                                                                 ->  Broadcast Motion 3:3  (slice7; segments: 3)  (cost=0.00..871.43 rows=29 width=4)
+                                                                                                                                       ->  Hash Semi Join  (cost=0.00..871.43 rows=10 width=4)
+                                                                                                                                             Hash Cond: (date_dim_4.d_week_seq = date_dim_5.d_week_seq)
+                                                                                                                                             ->  Table Scan on date_dim date_dim_4  (cost=0.00..432.96 rows=24350 width=8)
+                                                                                                                                             ->  Hash  (cost=433.76..433.76 rows=4 width=4)
+                                                                                                                                                   ->  Broadcast Motion 3:3  (slice6; segments: 3)  (cost=0.00..433.76 rows=4 width=4)
+                                                                                                                                                         ->  Table Scan on date_dim date_dim_5  (cost=0.00..433.76 rows=2 width=4)
+                                                                                                                                                               Filter: (d_date = ANY ('{01-02-1998,10-15-1998,11-10-1998}'::date[]))
+                                       ->  Hash  (cost=15552.92..15552.92 rows=42635 width=25)
+                                             ->  HashAggregate  (cost=0.00..15552.92 rows=42635 width=25)
+                                                   Group Key: item_2.i_item_id
+                                                   ->  Redistribute Motion 3:3  (slice15; segments: 3)  (cost=0.00..15550.06 rows=18444 width=25)
+                                                         Hash Key: item_2.i_item_id
+                                                         ->  Result  (cost=0.00..15548.61 rows=18444 width=25)
+                                                               ->  HashAggregate  (cost=0.00..15548.61 rows=18444 width=25)
+                                                                     Group Key: item_2.i_item_id
+                                                                     ->  Hash Join  (cost=0.00..15546.09 rows=18444 width=21)
+                                                                           Hash Cond: (item_2.i_item_sk = catalog_returns.cr_item_sk)
+                                                                           ->  Table Scan on item item_2  (cost=0.00..447.68 rows=99749 width=21)
+                                                                           ->  Hash  (cost=15069.35..15069.35 rows=18444 width=8)
+                                                                                 ->  Redistribute Motion 3:3  (slice14; segments: 3)  (cost=0.00..15069.35 rows=18444 width=8)
+                                                                                       Hash Key: catalog_returns.cr_item_sk
+                                                                                       ->  Hash Join  (cost=0.00..15068.89 rows=18444 width=8)
+                                                                                             Hash Cond: (catalog_returns.cr_returned_date_sk = date_dim_6.d_date_sk)
+                                                                                             ->  Dynamic Table Scan on catalog_returns (dynamic scan id: 2)  (cost=0.00..3994.93 rows=47998998 width=12)
+                                                                                             ->  Hash  (cost=100.00..100.00 rows=34 width=4)
+                                                                                                   ->  Partition Selector for catalog_returns (dynamic scan id: 2)  (cost=10.00..100.00 rows=34 width=4)
+                                                                                                         ->  Broadcast Motion 3:3  (slice13; segments: 3)  (cost=0.00..1309.10 rows=29 width=4)
+                                                                                                               ->  Hash Semi Join  (cost=0.00..1309.10 rows=10 width=4)
+                                                                                                                     Hash Cond: (date_dim_6.d_date = date_dim_7.d_date)
+                                                                                                                     ->  Table Scan on date_dim date_dim_6  (cost=0.00..432.96 rows=24350 width=8)
+                                                                                                                     ->  Hash  (cost=871.43..871.43 rows=29 width=4)
+                                                                                                                           ->  Broadcast Motion 3:3  (slice12; segments: 3)  (cost=0.00..871.43 rows=29 width=4)
+                                                                                                                                 ->  Hash Semi Join  (cost=0.00..871.43 rows=10 width=4)
+                                                                                                                                       Hash Cond: (date_dim_7.d_week_seq = date_dim_8.d_week_seq)
+                                                                                                                                       ->  Table Scan on date_dim date_dim_7  (cost=0.00..432.96 rows=24350 width=8)
+                                                                                                                                       ->  Hash  (cost=433.76..433.76 rows=4 width=4)
+                                                                                                                                             ->  Broadcast Motion 3:3  (slice11; segments: 3)  (cost=0.00..433.76 rows=4 width=4)
+                                                                                                                                                   ->  Table Scan on date_dim date_dim_8  (cost=0.00..433.76 rows=2 width=4)
+                                                                                                                                                         Filter: (d_date = ANY ('{01-02-1998,10-15-1998,11-10-1998}'::date[]))
+ Planning time: 2147.310 ms
+ Optimizer: PQO version 3.8.0
+(110 rows)
+
+-- end query 1 in stream 0 using template query83.tpl

@@ -1,0 +1,100 @@
+-- start query 1 in stream 0 using template query94.tpl
+explain
+select  
+   count(distinct ws_order_number) as "order count"
+  ,sum(ws_ext_ship_cost) as "total shipping cost"
+  ,sum(ws_net_profit) as "total net profit"
+from
+   web_sales ws1
+  ,date_dim
+  ,customer_address
+  ,web_site
+where
+    d_date between '1999-5-01' and 
+           (cast('1999-5-01' as date) + 60 )
+and ws1.ws_ship_date_sk = d_date_sk
+and ws1.ws_ship_addr_sk = ca_address_sk
+and ca_state = 'TX'
+and ws1.ws_web_site_sk = web_site_sk
+and web_company_name = 'pri'
+and exists (select *
+            from web_sales ws2
+            where ws1.ws_order_number = ws2.ws_order_number
+              and ws1.ws_warehouse_sk <> ws2.ws_warehouse_sk)
+and not exists(select *
+               from web_returns wr1
+               where ws1.ws_order_number = wr1.wr_order_number)
+order by count(distinct ws_order_number)
+limit 100;
+                                                                                                                                                                                    QUERY PLAN                                                                                                                                                                                     
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=0.00..227848.51 rows=1 width=24)
+   ->  Sort  (cost=0.00..227848.51 rows=1 width=24)
+         Sort Key: (count(web_sales_1.ws_order_number))
+         ->  Aggregate  (cost=0.00..227848.51 rows=1 width=24)
+               ->  Gather Motion 3:1  (slice9; segments: 3)  (cost=0.00..227847.87 rows=31514 width=20)
+                     ->  Result  (cost=0.00..227845.52 rows=10505 width=20)
+                           ->  HashAggregate  (cost=0.00..227845.52 rows=10505 width=20)
+                                 Group Key: web_sales_1.ws_order_number
+                                 ->  Redistribute Motion 3:3  (slice8; segments: 3)  (cost=0.00..227844.12 rows=10505 width=20)
+                                       Hash Key: web_sales_1.ws_order_number
+                                       ->  Result  (cost=0.00..227843.46 rows=10505 width=20)
+                                             ->  HashAggregate  (cost=0.00..227843.46 rows=10505 width=20)
+                                                   Group Key: web_sales_1.ws_order_number
+                                                   ->  GroupAggregate  (cost=0.00..227842.06 rows=10505 width=14)
+                                                         Group Key: web_sales_1.ws_order_number, web_sales_1.ws_ext_ship_cost, web_sales_1.ws_net_profit, web_sales_1.ctid, web_sales_1.tableoid, web_sales_1.gp_segment_id, date_dim.ctid, date_dim.gp_segment_id, customer_address.ctid, customer_address.gp_segment_id, web_site.ctid, web_site.gp_segment_id
+                                                         ->  Sort  (cost=0.00..227831.56 rows=179651 width=58)
+                                                               Sort Key: web_sales_1.ctid, web_sales_1.tableoid, web_sales_1.gp_segment_id, date_dim.ctid, date_dim.gp_segment_id, customer_address.ctid, customer_address.gp_segment_id, web_site.ctid, web_site.gp_segment_id
+                                                               ->  Redistribute Motion 3:3  (slice7; segments: 3)  (cost=0.00..226800.33 rows=179651 width=58)
+                                                                     Hash Key: web_sales_1.ctid, web_sales_1.tableoid, web_sales_1.gp_segment_id, date_dim.ctid, date_dim.gp_segment_id, customer_address.ctid, customer_address.gp_segment_id, web_site.ctid, web_site.gp_segment_id
+                                                                     ->  GroupAggregate  (cost=0.00..226767.72 rows=179651 width=58)
+                                                                           Group Key: web_sales_1.ws_order_number, web_sales_1.ws_ext_ship_cost, web_sales_1.ws_net_profit, web_sales_1.ctid, web_sales_1.tableoid, web_sales_1.gp_segment_id, date_dim.ctid, date_dim.gp_segment_id, customer_address.ctid, customer_address.gp_segment_id, web_site.ctid, web_site.gp_segment_id
+                                                                           ->  Sort  (cost=0.00..226751.45 rows=179651 width=58)
+                                                                                 Sort Key: web_sales_1.ctid, web_sales_1.tableoid, web_sales_1.gp_segment_id, date_dim.ctid, date_dim.gp_segment_id, customer_address.ctid, customer_address.gp_segment_id, web_site.ctid, web_site.gp_segment_id
+                                                                                 ->  Hash Join  (cost=0.00..225720.22 rows=179651 width=58)
+                                                                                       Hash Cond: (web_sales.ws_order_number = web_sales_1.ws_order_number)
+                                                                                       Join Filter: (web_sales_1.ws_warehouse_sk <> web_sales.ws_warehouse_sk)
+                                                                                       ->  Sequence  (cost=0.00..22739.00 rows=240000000 width=8)
+                                                                                             ->  Partition Selector for web_sales (dynamic scan id: 2)  (cost=10.00..100.00 rows=34 width=4)
+                                                                                                   Partitions selected: 80 (out of 80)
+                                                                                             ->  Dynamic Table Scan on web_sales (dynamic scan id: 2)  (cost=0.00..22739.00 rows=240000000 width=8)
+                                                                                       ->  Hash  (cost=112809.62..112809.62 rows=31514 width=62)
+                                                                                             ->  Broadcast Motion 3:3  (slice6; segments: 3)  (cost=0.00..112809.62 rows=31514 width=62)
+                                                                                                   ->  Hash Anti Join  (cost=0.00..112774.64 rows=10505 width=62)
+                                                                                                         Hash Cond: (web_sales_1.ws_order_number = web_returns.wr_order_number)
+                                                                                                         ->  Redistribute Motion 3:3  (slice4; segments: 3)  (cost=0.00..104665.74 rows=26262 width=62)
+                                                                                                               Hash Key: web_sales_1.ws_order_number
+                                                                                                               ->  Hash Join  (cost=0.00..104660.65 rows=26262 width=62)
+                                                                                                                     Hash Cond: (web_sales_1.ws_web_site_sk = web_site.web_site_sk)
+                                                                                                                     ->  Hash Join  (cost=0.00..104189.92 rows=163627 width=56)
+                                                                                                                           Hash Cond: (web_sales_1.ws_ship_date_sk = date_dim.d_date_sk)
+                                                                                                                           ->  Hash Join  (cost=0.00..102692.57 rows=5050082 width=50)
+                                                                                                                                 Hash Cond: (web_sales_1.ws_ship_addr_sk = customer_address.ca_address_sk)
+                                                                                                                                 ->  Sequence  (cost=0.00..22739.00 rows=240000000 width=44)
+                                                                                                                                       ->  Partition Selector for web_sales (dynamic scan id: 1)  (cost=10.00..100.00 rows=34 width=4)
+                                                                                                                                             Partitions selected: 80 (out of 80)
+                                                                                                                                       ->  Dynamic Table Scan on web_sales web_sales_1 (dynamic scan id: 1)  (cost=0.00..22739.00 rows=240000000 width=44)
+                                                                                                                                 ->  Hash  (cost=677.41..677.41 rows=114309 width=14)
+                                                                                                                                       ->  Broadcast Motion 3:3  (slice1; segments: 3)  (cost=0.00..677.41 rows=114309 width=14)
+                                                                                                                                             ->  Table Scan on customer_address  (cost=0.00..648.76 rows=38103 width=14)
+                                                                                                                                                   Filter: ((ca_state)::text = 'TX'::text)
+                                                                                                                           ->  Hash  (cost=433.77..433.77 rows=63 width=14)
+                                                                                                                                 ->  Broadcast Motion 3:3  (slice2; segments: 3)  (cost=0.00..433.77 rows=63 width=14)
+                                                                                                                                       ->  Table Scan on date_dim  (cost=0.00..433.76 rows=21 width=14)
+                                                                                                                                             Filter: ((d_date >= '05-01-1999'::date) AND (d_date <= '06-30-1999'::date))
+                                                                                                                     ->  Hash  (cost=431.01..431.01 rows=9 width=14)
+                                                                                                                           ->  Broadcast Motion 3:3  (slice3; segments: 3)  (cost=0.00..431.01 rows=9 width=14)
+                                                                                                                                 ->  Table Scan on web_site  (cost=0.00..431.00 rows=3 width=14)
+                                                                                                                                       Filter: ((web_company_name)::text = 'pri'::text)
+                                                                                                         ->  Hash  (cost=2695.56..2695.56 rows=23999168 width=4)
+                                                                                                               ->  Redistribute Motion 3:3  (slice5; segments: 3)  (cost=0.00..2695.56 rows=23999168 width=4)
+                                                                                                                     Hash Key: web_returns.wr_order_number
+                                                                                                                     ->  Sequence  (cost=0.00..2120.54 rows=23999168 width=4)
+                                                                                                                           ->  Partition Selector for web_returns (dynamic scan id: 3)  (cost=10.00..100.00 rows=34 width=4)
+                                                                                                                                 Partitions selected: 80 (out of 80)
+                                                                                                                           ->  Dynamic Table Scan on web_returns (dynamic scan id: 3)  (cost=0.00..2120.54 rows=23999168 width=4)
+ Planning time: 1882.374 ms
+ Optimizer: PQO version 3.8.0
+(67 rows)
+
+-- end query 1 in stream 0 using template query94.tpl

@@ -1,0 +1,81 @@
+-- start query 1 in stream 0 using template query97.tpl
+explain
+with ssci as (
+select ss_customer_sk customer_sk
+      ,ss_item_sk item_sk
+from store_sales,date_dim
+where ss_sold_date_sk = d_date_sk
+  and d_month_seq between 1212 and 1212 + 11
+group by ss_customer_sk
+        ,ss_item_sk),
+csci as(
+ select cs_bill_customer_sk customer_sk
+      ,cs_item_sk item_sk
+from catalog_sales,date_dim
+where cs_sold_date_sk = d_date_sk
+  and d_month_seq between 1212 and 1212 + 11
+group by cs_bill_customer_sk
+        ,cs_item_sk)
+ select  sum(case when ssci.customer_sk is not null and csci.customer_sk is null then 1 else 0 end) store_only
+      ,sum(case when ssci.customer_sk is null and csci.customer_sk is not null then 1 else 0 end) catalog_only
+      ,sum(case when ssci.customer_sk is not null and csci.customer_sk is not null then 1 else 0 end) store_and_catalog
+from ssci full outer join csci on (ssci.customer_sk=csci.customer_sk
+                               and ssci.item_sk = csci.item_sk)
+limit 100;
+                                                                                     QUERY PLAN                                                                                      
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=0.00..951741.76 rows=1 width=24)
+   ->  Aggregate  (cost=0.00..951741.76 rows=1 width=24)
+         ->  Gather Motion 3:1  (slice5; segments: 3)  (cost=0.00..951741.76 rows=1 width=24)
+               ->  Aggregate  (cost=0.00..951741.76 rows=1 width=24)
+                     ->  Sequence  (cost=0.00..949626.17 rows=393523953 width=8)
+                           ->  Shared Scan (share slice:id 5:2)  (cost=0.00..366959.46 rows=187875308 width=1)
+                                 ->  Materialize  (cost=0.00..366959.46 rows=187875308 width=1)
+                                       ->  HashAggregate  (cost=0.00..366771.59 rows=187875308 width=8)
+                                             Group Key: store_sales.ss_customer_sk, store_sales.ss_item_sk
+                                             ->  Redistribute Motion 3:3  (slice4; segments: 3)  (cost=0.00..320501.66 rows=187875308 width=8)
+                                                   Hash Key: store_sales.ss_customer_sk, store_sales.ss_item_sk
+                                                   ->  HashAggregate  (cost=0.00..315797.26 rows=187875308 width=8)
+                                                         Group Key: store_sales.ss_customer_sk, store_sales.ss_item_sk
+                                                         ->  Hash Join  (cost=0.00..269527.33 rows=187875308 width=8)
+                                                               Hash Cond: (store_sales.ss_sold_date_sk = date_dim_1.d_date_sk)
+                                                               ->  Dynamic Table Scan on store_sales (dynamic scan id: 1)  (cost=0.00..68542.76 rows=959996672 width=12)
+                                                               ->  Hash  (cost=100.00..100.00 rows=34 width=4)
+                                                                     ->  Partition Selector for store_sales (dynamic scan id: 1)  (cost=10.00..100.00 rows=34 width=4)
+                                                                           ->  Broadcast Motion 3:3  (slice3; segments: 3)  (cost=0.00..433.78 rows=356 width=4)
+                                                                                 ->  Table Scan on date_dim date_dim_1  (cost=0.00..433.76 rows=119 width=4)
+                                                                                       Filter: ((d_month_seq >= 1212) AND (d_month_seq <= 1223))
+                           ->  Sequence  (cost=0.00..579518.52 rows=393523953 width=8)
+                                 ->  Shared Scan (share slice:id 5:3)  (cost=0.00..195133.93 rows=93219213 width=1)
+                                       ->  Materialize  (cost=0.00..195133.93 rows=93219213 width=1)
+                                             ->  HashAggregate  (cost=0.00..195040.71 rows=93219213 width=8)
+                                                   Group Key: catalog_sales.cs_bill_customer_sk, catalog_sales.cs_item_sk
+                                                   ->  Redistribute Motion 3:3  (slice2; segments: 3)  (cost=0.00..172082.68 rows=93219213 width=8)
+                                                         Hash Key: catalog_sales.cs_bill_customer_sk, catalog_sales.cs_item_sk
+                                                         ->  HashAggregate  (cost=0.00..169748.47 rows=93219213 width=8)
+                                                               Group Key: catalog_sales.cs_bill_customer_sk, catalog_sales.cs_item_sk
+                                                               ->  Hash Join  (cost=0.00..146790.44 rows=93219213 width=8)
+                                                                     Hash Cond: (catalog_sales.cs_sold_date_sk = date_dim.d_date_sk)
+                                                                     ->  Dynamic Table Scan on catalog_sales (dynamic scan id: 2)  (cost=0.00..46102.37 rows=479993344 width=12)
+                                                                     ->  Hash  (cost=100.00..100.00 rows=34 width=4)
+                                                                           ->  Partition Selector for catalog_sales (dynamic scan id: 2)  (cost=10.00..100.00 rows=34 width=4)
+                                                                                 ->  Broadcast Motion 3:3  (slice1; segments: 3)  (cost=0.00..433.78 rows=356 width=4)
+                                                                                       ->  Table Scan on date_dim  (cost=0.00..433.76 rows=119 width=4)
+                                                                                             Filter: ((d_month_seq >= 1212) AND (d_month_seq <= 1223))
+                                 ->  Append  (cost=0.00..381236.40 rows=393523953 width=8)
+                                       ->  Hash Left Join  (cost=0.00..217318.92 rows=356236268 width=16)
+                                             Hash Cond: ((share2_ref2.ss_customer_sk = share3_ref2.cs_bill_customer_sk) AND (share2_ref2.ss_item_sk = share3_ref2.cs_item_sk))
+                                             ->  Shared Scan (share slice:id 5:2)  (cost=0.00..4053.24 rows=187875308 width=8)
+                                             ->  Hash  (cost=2228.27..2228.27 rows=93219213 width=8)
+                                                   ->  Shared Scan (share slice:id 5:3)  (cost=0.00..2228.27 rows=93219213 width=8)
+                                       ->  Result  (cost=0.00..160769.29 rows=37287685 width=16)
+                                             ->  Hash Anti Join  (cost=0.00..160172.68 rows=37287685 width=8)
+                                                   Hash Cond: ((share3_ref3.cs_bill_customer_sk = share2_ref3.ss_customer_sk) AND (share3_ref3.cs_item_sk = share2_ref3.ss_item_sk))
+                                                   ->  Shared Scan (share slice:id 5:3)  (cost=0.00..2228.27 rows=93219213 width=8)
+                                                   ->  Hash  (cost=4053.24..4053.24 rows=187875308 width=8)
+                                                         ->  Shared Scan (share slice:id 5:2)  (cost=0.00..4053.24 rows=187875308 width=8)
+ Planning time: 359.285 ms
+ Optimizer: PQO version 3.8.0
+(52 rows)
+
+-- end query 1 in stream 0 using template query97.tpl

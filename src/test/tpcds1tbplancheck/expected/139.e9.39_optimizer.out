@@ -1,0 +1,112 @@
+-- start query 1 in stream 0 using template query39.tpl
+explain
+with inv as
+(select w_warehouse_name,w_warehouse_sk,i_item_sk,d_moy
+       ,stdev,mean, case mean when 0 then null else stdev/mean end cov
+ from(select w_warehouse_name,w_warehouse_sk,i_item_sk,d_moy
+            ,stddev_samp(inv_quantity_on_hand) stdev,avg(inv_quantity_on_hand) mean
+      from inventory
+          ,item
+          ,warehouse
+          ,date_dim
+      where inv_item_sk = i_item_sk
+        and inv_warehouse_sk = w_warehouse_sk
+        and inv_date_sk = d_date_sk
+        and d_year =2002
+      group by w_warehouse_name,w_warehouse_sk,i_item_sk,d_moy) foo
+ where case mean when 0 then 0 else stdev/mean end > 1)
+select inv1.w_warehouse_sk,inv1.i_item_sk,inv1.d_moy,inv1.mean, inv1.cov
+        ,inv2.w_warehouse_sk,inv2.i_item_sk,inv2.d_moy,inv2.mean, inv2.cov
+from inv inv1,inv inv2
+where inv1.i_item_sk = inv2.i_item_sk
+  and inv1.w_warehouse_sk =  inv2.w_warehouse_sk
+  and inv1.d_moy=3
+  and inv2.d_moy=3+1
+order by inv1.w_warehouse_sk,inv1.i_item_sk,inv1.d_moy,inv1.mean,inv1.cov
+        ,inv2.d_moy,inv2.mean, inv2.cov
+;
+                                                                                                                                               QUERY PLAN                                                                                                                                               
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Gather Motion 3:1  (slice7; segments: 3)  (cost=0.00..199245.95 rows=1453401 width=56)
+   Merge Key: share0_ref3.w_warehouse_sk, share0_ref3.i_item_sk, share0_ref3.d_moy, share0_ref3.mean, share0_ref3.cov, share0_ref2.d_moy, share0_ref2.mean, share0_ref2.cov
+   ->  Sort  (cost=0.00..198942.63 rows=484467 width=56)
+         Sort Key: share0_ref3.w_warehouse_sk, share0_ref3.i_item_sk, share0_ref3.d_moy, share0_ref3.mean, share0_ref3.cov, share0_ref2.d_moy, share0_ref2.mean, share0_ref2.cov
+         ->  Sequence  (cost=0.00..196037.44 rows=484467 width=56)
+               ->  Shared Scan (share slice:id 7:0)  (cost=0.00..194670.72 rows=430638 width=1)
+                     ->  Materialize  (cost=0.00..194670.72 rows=430638 width=1)
+                           ->  Result  (cost=0.00..194670.29 rows=430638 width=44)
+                                 ->  Result  (cost=0.00..194651.34 rows=430638 width=45)
+                                       Filter: (CASE (pg_catalog.avg((avg(inventory.inv_quantity_on_hand)))) WHEN 0::numeric THEN 0::numeric ELSE ((pg_catalog.stddev_samp((stddev_samp(inventory.inv_quantity_on_hand)))) / (pg_catalog.avg((avg(inventory.inv_quantity_on_hand))))) END > 1::numeric)
+                                       ->  HashAggregate  (cost=0.00..194580.50 rows=1076593 width=45)
+                                             Group Key: warehouse.w_warehouse_name, warehouse.w_warehouse_sk, item.i_item_sk, date_dim.d_moy
+                                             ->  Redistribute Motion 3:3  (slice6; segments: 3)  (cost=0.00..194014.85 rows=1076593 width=45)
+                                                   Hash Key: warehouse.w_warehouse_name, warehouse.w_warehouse_sk, item.i_item_sk, date_dim.d_moy
+                                                   ->  Result  (cost=0.00..193863.21 rows=1076593 width=45)
+                                                         ->  HashAggregate  (cost=0.00..193863.21 rows=1076593 width=45)
+                                                               Group Key: warehouse.w_warehouse_name, warehouse.w_warehouse_sk, item.i_item_sk, date_dim.d_moy
+                                                               ->  Hash Join  (cost=0.00..136331.67 rows=112168337 width=33)
+                                                                     Hash Cond: (inventory.inv_item_sk = item.i_item_sk)
+                                                                     ->  Hash Join  (cost=0.00..101100.18 rows=112168337 width=33)
+                                                                           Hash Cond: (inventory.inv_warehouse_sk = warehouse.w_warehouse_sk)
+                                                                           ->  Hash Join  (cost=0.00..67125.88 rows=112168382 width=16)
+                                                                                 Hash Cond: (inventory.inv_date_sk = date_dim.d_date_sk)
+                                                                                 ->  Dynamic Table Scan on inventory (dynamic scan id: 1)  (cost=0.00..4737.50 rows=261000000 width=16)
+                                                                                 ->  Hash  (cost=100.00..100.00 rows=34 width=4)
+                                                                                       ->  Partition Selector for inventory (dynamic scan id: 1)  (cost=10.00..100.00 rows=34 width=4)
+                                                                                             ->  Broadcast Motion 3:3  (slice3; segments: 3)  (cost=0.00..434.57 rows=111 width=8)
+                                                                                                   ->  Table Scan on date_dim  (cost=0.00..434.56 rows=37 width=8)
+                                                                                                         Filter: ((d_year = 2002) AND ((d_moy = 3) OR (d_moy = 4)))
+                                                                           ->  Hash  (cost=431.01..431.01 rows=20 width=21)
+                                                                                 ->  Broadcast Motion 3:3  (slice4; segments: 3)  (cost=0.00..431.01 rows=20 width=21)
+                                                                                       ->  Table Scan on warehouse  (cost=0.00..431.00 rows=7 width=21)
+                                                                     ->  Hash  (cost=469.85..469.85 rows=299247 width=4)
+                                                                           ->  Broadcast Motion 3:3  (slice5; segments: 3)  (cost=0.00..469.85 rows=299247 width=4)
+                                                                                 ->  Table Scan on item  (cost=0.00..447.68 rows=99749 width=4)
+               ->  Hash Join  (cost=0.00..1339.59 rows=484467 width=56)
+                     Hash Cond: ((share0_ref3.i_item_sk = share0_ref2.i_item_sk) AND (share0_ref3.w_warehouse_sk = share0_ref2.w_warehouse_sk))
+                     ->  Redistribute Motion 3:3  (slice1; segments: 3)  (cost=0.00..493.10 rows=215319 width=28)
+                           Hash Key: share0_ref3.i_item_sk, share0_ref3.w_warehouse_sk
+                           ->  Result  (cost=0.00..474.23 rows=215319 width=28)
+                                 Filter: (share0_ref3.d_moy = 3)
+                                 ->  Shared Scan (share slice:id 1:0)  (cost=0.00..460.06 rows=430638 width=28)
+                     ->  Hash  (cost=493.10..493.10 rows=215319 width=28)
+                           ->  Redistribute Motion 3:3  (slice2; segments: 3)  (cost=0.00..493.10 rows=215319 width=28)
+                                 Hash Key: share0_ref2.i_item_sk, share0_ref2.w_warehouse_sk
+                                 ->  Result  (cost=0.00..474.23 rows=215319 width=28)
+                                       Filter: (share0_ref2.d_moy = 4)
+                                       ->  Shared Scan (share slice:id 2:0)  (cost=0.00..460.06 rows=430638 width=28)
+ Planning time: 412.567 ms
+ Optimizer: PQO version 3.8.0
+(50 rows)
+
+with inv as
+(select w_warehouse_name,w_warehouse_sk,i_item_sk,d_moy
+       ,stdev,mean, case mean when 0 then null else stdev/mean end cov
+ from(select w_warehouse_name,w_warehouse_sk,i_item_sk,d_moy
+            ,stddev_samp(inv_quantity_on_hand) stdev,avg(inv_quantity_on_hand) mean
+      from inventory
+          ,item
+          ,warehouse
+          ,date_dim
+      where inv_item_sk = i_item_sk
+        and inv_warehouse_sk = w_warehouse_sk
+        and inv_date_sk = d_date_sk
+        and d_year =2002
+      group by w_warehouse_name,w_warehouse_sk,i_item_sk,d_moy) foo
+ where case mean when 0 then 0 else stdev/mean end > 1)
+select inv1.w_warehouse_sk,inv1.i_item_sk,inv1.d_moy,inv1.mean, inv1.cov
+        ,inv2.w_warehouse_sk,inv2.i_item_sk,inv2.d_moy,inv2.mean, inv2.cov
+from inv inv1,inv inv2
+where inv1.i_item_sk = inv2.i_item_sk
+  and inv1.w_warehouse_sk =  inv2.w_warehouse_sk
+  and inv1.d_moy=3
+  and inv2.d_moy=3+1
+  and inv1.cov > 1.5
+order by inv1.w_warehouse_sk,inv1.i_item_sk,inv1.d_moy,inv1.mean,inv1.cov
+        ,inv2.d_moy,inv2.mean, inv2.cov
+;
+ w_warehouse_sk | i_item_sk | d_moy | mean | cov | w_warehouse_sk | i_item_sk | d_moy | mean | cov 
+----------------+-----------+-------+------+-----+----------------+-----------+-------+------+-----
+(0 rows)
+
+-- end query 1 in stream 0 using template query39.tpl

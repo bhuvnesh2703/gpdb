@@ -1,0 +1,455 @@
+-- start query 1 in stream 0 using template query82.tpl
+explain
+select  i_item_id
+       ,i_item_desc
+       ,i_current_price
+ from item, inventory, date_dim, store_sales
+ where i_current_price between 30 and 30+30
+ and inv_item_sk = i_item_sk
+ and d_date_sk=inv_date_sk
+ and d_date between cast('2002-05-30' as date) and (cast('2002-05-30' as date) +  60 )
+ and i_manufact_id in (437,129,727,663)
+ and inv_quantity_on_hand between 100 and 500
+ and ss_item_sk = i_item_sk
+ group by i_item_id,i_item_desc,i_current_price
+ order by i_item_id
+ limit 100;
+                                                                                                         QUERY PLAN                                                                                                         
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=64219093.75..64219096.00 rows=100 width=482)
+   ->  Gather Motion 3:1  (slice5; segments: 3)  (cost=64219093.75..64219096.00 rows=100 width=482)
+         Merge Key: item.i_item_id
+         ->  Limit  (cost=64219093.75..64219094.00 rows=34 width=482)
+               ->  Sort  (cost=64219093.75..64219094.13 rows=51 width=482)
+                     Sort Key: item.i_item_id
+                     ->  HashAggregate  (cost=64219086.72..64219088.24 rows=51 width=482)
+                           Group Key: item.i_item_id, item.i_item_desc, item.i_current_price
+                           ->  Redistribute Motion 3:3  (slice4; segments: 3)  (cost=64219081.02..64219084.06 rows=51 width=482)
+                                 Hash Key: item.i_item_id, item.i_item_desc, item.i_current_price
+                                 ->  HashAggregate  (cost=64219081.02..64219081.02 rows=51 width=482)
+                                       Group Key: item.i_item_id, item.i_item_desc, item.i_current_price
+                                       ->  Hash Join  (cost=13847906.89..64199117.62 rows=887263 width=125)
+                                             Hash Cond: (store_sales_1_prt_outliers.ss_item_sk = inventory_1_prt_outliers.inv_item_sk)
+                                             ->  Append  (cost=0.00..39524635.96 rows=959996170 width=4)
+                                                   ->  Append-only Columnar Scan on store_sales_1_prt_outliers  (cost=0.00..1568615.00 rows=43200334 width=4)
+                                                   ->  Append-only Columnar Scan on store_sales_1_prt_2  (cost=0.00..324595.00 rows=7840134 width=4)
+                                                   ->  Append-only Columnar Scan on store_sales_1_prt_3  (cost=0.00..336211.00 rows=8120800 width=4)
+                                                   ->  Append-only Columnar Scan on store_sales_1_prt_4  (cost=0.00..324382.00 rows=7834967 width=4)
+                                                   ->  Append-only Columnar Scan on store_sales_1_prt_5  (cost=0.00..336381.00 rows=8124734 width=4)
+                                                   ->  Append-only Columnar Scan on store_sales_1_prt_6  (cost=0.00..336417.00 rows=8125800 width=4)
+                                                   ->  Append-only Columnar Scan on store_sales_1_prt_7  (cost=0.00..336453.00 rows=8126567 width=4)
+                                                   ->  Append-only Columnar Scan on store_sales_1_prt_8  (cost=0.00..336058.00 rows=8116967 width=4)
+                                                   ->  Append-only Columnar Scan on store_sales_1_prt_9  (cost=0.00..489738.00 rows=11829267 width=4)
+                                                   ->  Append-only Columnar Scan on store_sales_1_prt_10  (cost=0.00..765474.00 rows=18489534 width=4)
+                                                   ->  Append-only Columnar Scan on store_sales_1_prt_11  (cost=0.00..766278.00 rows=18508900 width=4)
+                                                   ->  Append-only Columnar Scan on store_sales_1_prt_12  (cost=0.00..793967.00 rows=19177700 width=4)
+                                                   ->  Append-only Columnar Scan on store_sales_1_prt_13  (cost=0.00..1159820.00 rows=28014600 width=4)
+                                                   ->  Append-only Columnar Scan on store_sales_1_prt_14  (cost=0.00..1160753.00 rows=28037334 width=4)
+                                                   ->  Append-only Columnar Scan on store_sales_1_prt_15  (cost=0.00..436710.00 rows=10548367 width=4)
+                                                   ->  Append-only Columnar Scan on store_sales_1_prt_16  (cost=0.00..336477.00 rows=8127134 width=4)
+                                                   ->  Append-only Columnar Scan on store_sales_1_prt_17  (cost=0.00..324706.00 rows=7842834 width=4)
+                                                   ->  Append-only Columnar Scan on store_sales_1_prt_18  (cost=0.00..336587.00 rows=8129867 width=4)
+                                                   ->  Append-only Columnar Scan on store_sales_1_prt_19  (cost=0.00..336153.00 rows=8119367 width=4)
+                                                   ->  Append-only Columnar Scan on store_sales_1_prt_20  (cost=0.00..336736.00 rows=8133367 width=4)
+                                                   ->  Append-only Columnar Scan on store_sales_1_prt_21  (cost=0.00..336190.00 rows=8120200 width=4)
+                                                   ->  Append-only Columnar Scan on store_sales_1_prt_22  (cost=0.00..474334.00 rows=11457100 width=4)
+                                                   ->  Append-only Columnar Scan on store_sales_1_prt_23  (cost=0.00..766084.00 rows=18504234 width=4)
+                                                   ->  Append-only Columnar Scan on store_sales_1_prt_24  (cost=0.00..765781.00 rows=18496900 width=4)
+                                                   ->  Append-only Columnar Scan on store_sales_1_prt_25  (cost=0.00..779443.00 rows=18826834 width=4)
+                                                   ->  Append-only Columnar Scan on store_sales_1_prt_26  (cost=0.00..1160832.00 rows=28039467 width=4)
+                                                   ->  Append-only Columnar Scan on store_sales_1_prt_27  (cost=0.00..1160090.00 rows=28021400 width=4)
+                                                   ->  Append-only Columnar Scan on store_sales_1_prt_28  (cost=0.00..465893.00 rows=11253134 width=4)
+                                                   ->  Append-only Columnar Scan on store_sales_1_prt_29  (cost=0.00..335914.00 rows=8113600 width=4)
+                                                   ->  Append-only Columnar Scan on store_sales_1_prt_30  (cost=0.00..336186.00 rows=8120167 width=4)
+                                                   ->  Append-only Columnar Scan on store_sales_1_prt_31  (cost=0.00..336014.00 rows=8115934 width=4)
+                                                   ->  Append-only Columnar Scan on store_sales_1_prt_32  (cost=0.00..335918.00 rows=8113667 width=4)
+                                                   ->  Append-only Columnar Scan on store_sales_1_prt_33  (cost=0.00..336069.00 rows=8117334 width=4)
+                                                   ->  Append-only Columnar Scan on store_sales_1_prt_34  (cost=0.00..335472.00 rows=8102900 width=4)
+                                                   ->  Append-only Columnar Scan on store_sales_1_prt_35  (cost=0.00..457985.00 rows=11062100 width=4)
+                                                   ->  Append-only Columnar Scan on store_sales_1_prt_36  (cost=0.00..764679.00 rows=18470400 width=4)
+                                                   ->  Append-only Columnar Scan on store_sales_1_prt_37  (cost=0.00..764030.00 rows=18454700 width=4)
+                                                   ->  Append-only Columnar Scan on store_sales_1_prt_38  (cost=0.00..764484.00 rows=18465634 width=4)
+                                                   ->  Append-only Columnar Scan on store_sales_1_prt_39  (cost=0.00..1158198.04 rows=27975568 width=4)
+                                                   ->  Append-only Columnar Scan on store_sales_1_prt_40  (cost=0.00..1158199.04 rows=27975968 width=4)
+                                                   ->  Append-only Columnar Scan on store_sales_1_prt_41  (cost=0.00..483138.00 rows=11669800 width=4)
+                                                   ->  Append-only Columnar Scan on store_sales_1_prt_42  (cost=0.00..336559.00 rows=8129100 width=4)
+                                                   ->  Append-only Columnar Scan on store_sales_1_prt_43  (cost=0.00..324602.00 rows=7840367 width=4)
+                                                   ->  Append-only Columnar Scan on store_sales_1_prt_44  (cost=0.00..336209.00 rows=8120567 width=4)
+                                                   ->  Append-only Columnar Scan on store_sales_1_prt_45  (cost=0.00..336313.00 rows=8123267 width=4)
+                                                   ->  Append-only Columnar Scan on store_sales_1_prt_46  (cost=0.00..336621.00 rows=8130734 width=4)
+                                                   ->  Append-only Columnar Scan on store_sales_1_prt_47  (cost=0.00..335906.00 rows=8113400 width=4)
+                                                   ->  Append-only Columnar Scan on store_sales_1_prt_48  (cost=0.00..428657.00 rows=10353800 width=4)
+                                                   ->  Append-only Columnar Scan on store_sales_1_prt_49  (cost=0.00..766560.00 rows=18515734 width=4)
+                                                   ->  Append-only Columnar Scan on store_sales_1_prt_50  (cost=0.00..766167.00 rows=18506234 width=4)
+                                                   ->  Append-only Columnar Scan on store_sales_1_prt_51  (cost=0.00..766196.00 rows=18506900 width=4)
+                                                   ->  Append-only Columnar Scan on store_sales_1_prt_52  (cost=0.00..1130938.00 rows=27317200 width=4)
+                                                   ->  Append-only Columnar Scan on store_sales_1_prt_53  (cost=0.00..1160637.96 rows=28034566 width=4)
+                                                   ->  Append-only Columnar Scan on store_sales_1_prt_54  (cost=0.00..555225.00 rows=13411000 width=4)
+                                                   ->  Append-only Columnar Scan on store_sales_1_prt_55  (cost=0.00..336782.00 rows=8134567 width=4)
+                                                   ->  Append-only Columnar Scan on store_sales_1_prt_56  (cost=0.00..324454.00 rows=7836734 width=4)
+                                                   ->  Append-only Columnar Scan on store_sales_1_prt_57  (cost=0.00..336546.00 rows=8128867 width=4)
+                                                   ->  Append-only Columnar Scan on store_sales_1_prt_58  (cost=0.00..336207.00 rows=8120667 width=4)
+                                                   ->  Append-only Columnar Scan on store_sales_1_prt_59  (cost=0.00..336578.00 rows=8129534 width=4)
+                                                   ->  Append-only Columnar Scan on store_sales_1_prt_60  (cost=0.00..336468.00 rows=8127067 width=4)
+                                                   ->  Append-only Columnar Scan on store_sales_1_prt_61  (cost=0.00..412992.00 rows=9975467 width=4)
+                                                   ->  Append-only Columnar Scan on store_sales_1_prt_62  (cost=0.00..765709.00 rows=18495234 width=4)
+                                                   ->  Append-only Columnar Scan on store_sales_1_prt_63  (cost=0.00..766176.00 rows=18506500 width=4)
+                                                   ->  Append-only Columnar Scan on store_sales_1_prt_64  (cost=0.00..766142.00 rows=18505834 width=4)
+                                                   ->  Append-only Columnar Scan on store_sales_1_prt_65  (cost=0.00..1117566.96 rows=26994166 width=4)
+                                                   ->  Append-only Columnar Scan on store_sales_1_prt_66  (cost=0.00..1159645.96 rows=28010566 width=4)
+                                                   ->  Append-only Columnar Scan on store_sales_1_prt_67  (cost=0.00..331321.00 rows=8002500 width=4)
+                                                   ->  Append-only Columnar Scan on store_sales_1_prt_68  (cost=0.00..1.00 rows=1 width=4)
+                                                   ->  Append-only Columnar Scan on store_sales_1_prt_69  (cost=0.00..1.00 rows=1 width=4)
+                                                   ->  Append-only Columnar Scan on store_sales_1_prt_70  (cost=0.00..1.00 rows=1 width=4)
+                                                   ->  Append-only Columnar Scan on store_sales_1_prt_71  (cost=0.00..1.00 rows=1 width=4)
+                                                   ->  Append-only Columnar Scan on store_sales_1_prt_72  (cost=0.00..1.00 rows=1 width=4)
+                                                   ->  Append-only Columnar Scan on store_sales_1_prt_73  (cost=0.00..1.00 rows=1 width=4)
+                                                   ->  Append-only Columnar Scan on store_sales_1_prt_74  (cost=0.00..1.00 rows=1 width=4)
+                                                   ->  Append-only Columnar Scan on store_sales_1_prt_75  (cost=0.00..1.00 rows=1 width=4)
+                                                   ->  Append-only Columnar Scan on store_sales_1_prt_76  (cost=0.00..1.00 rows=1 width=4)
+                                                   ->  Append-only Columnar Scan on store_sales_1_prt_77  (cost=0.00..1.00 rows=1 width=4)
+                                                   ->  Append-only Columnar Scan on store_sales_1_prt_78  (cost=0.00..1.00 rows=1 width=4)
+                                                   ->  Append-only Columnar Scan on store_sales_1_prt_79  (cost=0.00..1.00 rows=1 width=4)
+                                                   ->  Append-only Columnar Scan on store_sales_1_prt_80  (cost=0.00..1.00 rows=1 width=4)
+                                             ->  Hash  (cost=13847898.66..13847898.66 rows=220 width=133)
+                                                   ->  Broadcast Motion 3:3  (slice3; segments: 3)  (cost=10450.52..13847898.66 rows=220 width=133)
+                                                         ->  Hash Join  (cost=10450.52..13847889.89 rows=74 width=133)
+                                                               Hash Cond: (inventory_1_prt_outliers.inv_item_sk = item.i_item_sk)
+                                                               ->  Hash Join  (cost=1456.58..13837304.20 rows=84777 width=4)
+                                                                     Hash Cond: (inventory_1_prt_outliers.inv_date_sk = date_dim.d_date_sk)
+                                                                     ->  Append  (cost=0.00..11976170.00 rows=99047165 width=8)
+                                                                           ->  Result  (cost=0.00..32.00 rows=1 width=8)
+                                                                                 One-Time Filter: PartSelected
+                                                                                 ->  Append-only Scan on inventory_1_prt_outliers  (cost=0.00..32.00 rows=1 width=8)
+                                                                                       Filter: ((inv_quantity_on_hand >= 100) AND (inv_quantity_on_hand <= 500))
+                                                                           ->  Result  (cost=0.00..183538.00 rows=1530219 width=8)
+                                                                                 One-Time Filter: PartSelected
+                                                                                 ->  Append-only Scan on inventory_1_prt_2  (cost=0.00..183538.00 rows=1530219 width=8)
+                                                                                       Filter: ((inv_quantity_on_hand >= 100) AND (inv_quantity_on_hand <= 500))
+                                                                           ->  Result  (cost=0.00..183535.00 rows=1519938 width=8)
+                                                                                 One-Time Filter: PartSelected
+                                                                                 ->  Append-only Scan on inventory_1_prt_3  (cost=0.00..183535.00 rows=1519938 width=8)
+                                                                                       Filter: ((inv_quantity_on_hand >= 100) AND (inv_quantity_on_hand <= 500))
+                                                                           ->  Result  (cost=0.00..183539.00 rows=1495317 width=8)
+                                                                                 One-Time Filter: PartSelected
+                                                                                 ->  Append-only Scan on inventory_1_prt_4  (cost=0.00..183539.00 rows=1495317 width=8)
+                                                                                       Filter: ((inv_quantity_on_hand >= 100) AND (inv_quantity_on_hand <= 500))
+                                                                           ->  Result  (cost=0.00..183535.00 rows=1513279 width=8)
+                                                                                 One-Time Filter: PartSelected
+                                                                                 ->  Append-only Scan on inventory_1_prt_5  (cost=0.00..183535.00 rows=1513279 width=8)
+                                                                                       Filter: ((inv_quantity_on_hand >= 100) AND (inv_quantity_on_hand <= 500))
+                                                                           ->  Result  (cost=0.00..183537.00 rows=1502803 width=8)
+                                                                                 One-Time Filter: PartSelected
+                                                                                 ->  Append-only Scan on inventory_1_prt_6  (cost=0.00..183537.00 rows=1502803 width=8)
+                                                                                       Filter: ((inv_quantity_on_hand >= 100) AND (inv_quantity_on_hand <= 500))
+                                                                           ->  Result  (cost=0.00..183537.00 rows=1518360 width=8)
+                                                                                 One-Time Filter: PartSelected
+                                                                                 ->  Append-only Scan on inventory_1_prt_7  (cost=0.00..183537.00 rows=1518360 width=8)
+                                                                                       Filter: ((inv_quantity_on_hand >= 100) AND (inv_quantity_on_hand <= 500))
+                                                                           ->  Result  (cost=0.00..183536.00 rows=1538860 width=8)
+                                                                                 One-Time Filter: PartSelected
+                                                                                 ->  Append-only Scan on inventory_1_prt_8  (cost=0.00..183536.00 rows=1538860 width=8)
+                                                                                       Filter: ((inv_quantity_on_hand >= 100) AND (inv_quantity_on_hand <= 500))
+                                                                           ->  Result  (cost=0.00..183537.00 rows=1517494 width=8)
+                                                                                 One-Time Filter: PartSelected
+                                                                                 ->  Append-only Scan on inventory_1_prt_9  (cost=0.00..183537.00 rows=1517494 width=8)
+                                                                                       Filter: ((inv_quantity_on_hand >= 100) AND (inv_quantity_on_hand <= 500))
+                                                                           ->  Result  (cost=0.00..183537.00 rows=1522024 width=8)
+                                                                                 One-Time Filter: PartSelected
+                                                                                 ->  Append-only Scan on inventory_1_prt_10  (cost=0.00..183537.00 rows=1522024 width=8)
+                                                                                       Filter: ((inv_quantity_on_hand >= 100) AND (inv_quantity_on_hand <= 500))
+                                                                           ->  Result  (cost=0.00..183535.00 rows=1514798 width=8)
+                                                                                 One-Time Filter: PartSelected
+                                                                                 ->  Append-only Scan on inventory_1_prt_11  (cost=0.00..183535.00 rows=1514798 width=8)
+                                                                                       Filter: ((inv_quantity_on_hand >= 100) AND (inv_quantity_on_hand <= 500))
+                                                                           ->  Result  (cost=0.00..183535.00 rows=1505776 width=8)
+                                                                                 One-Time Filter: PartSelected
+                                                                                 ->  Append-only Scan on inventory_1_prt_12  (cost=0.00..183535.00 rows=1505776 width=8)
+                                                                                       Filter: ((inv_quantity_on_hand >= 100) AND (inv_quantity_on_hand <= 500))
+                                                                           ->  Result  (cost=0.00..183532.00 rows=1522127 width=8)
+                                                                                 One-Time Filter: PartSelected
+                                                                                 ->  Append-only Scan on inventory_1_prt_13  (cost=0.00..183532.00 rows=1522127 width=8)
+                                                                                       Filter: ((inv_quantity_on_hand >= 100) AND (inv_quantity_on_hand <= 500))
+                                                                           ->  Result  (cost=0.00..183538.00 rows=1534974 width=8)
+                                                                                 One-Time Filter: PartSelected
+                                                                                 ->  Append-only Scan on inventory_1_prt_14  (cost=0.00..183538.00 rows=1534974 width=8)
+                                                                                       Filter: ((inv_quantity_on_hand >= 100) AND (inv_quantity_on_hand <= 500))
+                                                                           ->  Result  (cost=0.00..183536.00 rows=1541166 width=8)
+                                                                                 One-Time Filter: PartSelected
+                                                                                 ->  Append-only Scan on inventory_1_prt_15  (cost=0.00..183536.00 rows=1541166 width=8)
+                                                                                       Filter: ((inv_quantity_on_hand >= 100) AND (inv_quantity_on_hand <= 500))
+                                                                           ->  Result  (cost=0.00..183537.00 rows=1512581 width=8)
+                                                                                 One-Time Filter: PartSelected
+                                                                                 ->  Append-only Scan on inventory_1_prt_16  (cost=0.00..183537.00 rows=1512581 width=8)
+                                                                                       Filter: ((inv_quantity_on_hand >= 100) AND (inv_quantity_on_hand <= 500))
+                                                                           ->  Result  (cost=0.00..183537.00 rows=1508191 width=8)
+                                                                                 One-Time Filter: PartSelected
+                                                                                 ->  Append-only Scan on inventory_1_prt_17  (cost=0.00..183537.00 rows=1508191 width=8)
+                                                                                       Filter: ((inv_quantity_on_hand >= 100) AND (inv_quantity_on_hand <= 500))
+                                                                           ->  Result  (cost=0.00..183538.00 rows=1502885 width=8)
+                                                                                 One-Time Filter: PartSelected
+                                                                                 ->  Append-only Scan on inventory_1_prt_18  (cost=0.00..183538.00 rows=1502885 width=8)
+                                                                                       Filter: ((inv_quantity_on_hand >= 100) AND (inv_quantity_on_hand <= 500))
+                                                                           ->  Result  (cost=0.00..183537.00 rows=1529078 width=8)
+                                                                                 One-Time Filter: PartSelected
+                                                                                 ->  Append-only Scan on inventory_1_prt_19  (cost=0.00..183537.00 rows=1529078 width=8)
+                                                                                       Filter: ((inv_quantity_on_hand >= 100) AND (inv_quantity_on_hand <= 500))
+                                                                           ->  Result  (cost=0.00..183537.00 rows=1508960 width=8)
+                                                                                 One-Time Filter: PartSelected
+                                                                                 ->  Append-only Scan on inventory_1_prt_20  (cost=0.00..183537.00 rows=1508960 width=8)
+                                                                                       Filter: ((inv_quantity_on_hand >= 100) AND (inv_quantity_on_hand <= 500))
+                                                                           ->  Result  (cost=0.00..183535.00 rows=1526441 width=8)
+                                                                                 One-Time Filter: PartSelected
+                                                                                 ->  Append-only Scan on inventory_1_prt_21  (cost=0.00..183535.00 rows=1526441 width=8)
+                                                                                       Filter: ((inv_quantity_on_hand >= 100) AND (inv_quantity_on_hand <= 500))
+                                                                           ->  Result  (cost=0.00..183538.00 rows=1523004 width=8)
+                                                                                 One-Time Filter: PartSelected
+                                                                                 ->  Append-only Scan on inventory_1_prt_22  (cost=0.00..183538.00 rows=1523004 width=8)
+                                                                                       Filter: ((inv_quantity_on_hand >= 100) AND (inv_quantity_on_hand <= 500))
+                                                                           ->  Result  (cost=0.00..183538.00 rows=1515015 width=8)
+                                                                                 One-Time Filter: PartSelected
+                                                                                 ->  Append-only Scan on inventory_1_prt_23  (cost=0.00..183538.00 rows=1515015 width=8)
+                                                                                       Filter: ((inv_quantity_on_hand >= 100) AND (inv_quantity_on_hand <= 500))
+                                                                           ->  Result  (cost=0.00..183533.00 rows=1516654 width=8)
+                                                                                 One-Time Filter: PartSelected
+                                                                                 ->  Append-only Scan on inventory_1_prt_24  (cost=0.00..183533.00 rows=1516654 width=8)
+                                                                                       Filter: ((inv_quantity_on_hand >= 100) AND (inv_quantity_on_hand <= 500))
+                                                                           ->  Result  (cost=0.00..183537.00 rows=1511080 width=8)
+                                                                                 One-Time Filter: PartSelected
+                                                                                 ->  Append-only Scan on inventory_1_prt_25  (cost=0.00..183537.00 rows=1511080 width=8)
+                                                                                       Filter: ((inv_quantity_on_hand >= 100) AND (inv_quantity_on_hand <= 500))
+                                                                           ->  Result  (cost=0.00..183535.00 rows=1509960 width=8)
+                                                                                 One-Time Filter: PartSelected
+                                                                                 ->  Append-only Scan on inventory_1_prt_26  (cost=0.00..183535.00 rows=1509960 width=8)
+                                                                                       Filter: ((inv_quantity_on_hand >= 100) AND (inv_quantity_on_hand <= 500))
+                                                                           ->  Result  (cost=0.00..183537.00 rows=1511843 width=8)
+                                                                                 One-Time Filter: PartSelected
+                                                                                 ->  Append-only Scan on inventory_1_prt_27  (cost=0.00..183537.00 rows=1511843 width=8)
+                                                                                       Filter: ((inv_quantity_on_hand >= 100) AND (inv_quantity_on_hand <= 500))
+                                                                           ->  Result  (cost=0.00..183537.00 rows=1526685 width=8)
+                                                                                 One-Time Filter: PartSelected
+                                                                                 ->  Append-only Scan on inventory_1_prt_28  (cost=0.00..183537.00 rows=1526685 width=8)
+                                                                                       Filter: ((inv_quantity_on_hand >= 100) AND (inv_quantity_on_hand <= 500))
+                                                                           ->  Result  (cost=0.00..183537.00 rows=1501802 width=8)
+                                                                                 One-Time Filter: PartSelected
+                                                                                 ->  Append-only Scan on inventory_1_prt_29  (cost=0.00..183537.00 rows=1501802 width=8)
+                                                                                       Filter: ((inv_quantity_on_hand >= 100) AND (inv_quantity_on_hand <= 500))
+                                                                           ->  Result  (cost=0.00..183539.00 rows=1512317 width=8)
+                                                                                 One-Time Filter: PartSelected
+                                                                                 ->  Append-only Scan on inventory_1_prt_30  (cost=0.00..183539.00 rows=1512317 width=8)
+                                                                                       Filter: ((inv_quantity_on_hand >= 100) AND (inv_quantity_on_hand <= 500))
+                                                                           ->  Result  (cost=0.00..183535.00 rows=1517024 width=8)
+                                                                                 One-Time Filter: PartSelected
+                                                                                 ->  Append-only Scan on inventory_1_prt_31  (cost=0.00..183535.00 rows=1517024 width=8)
+                                                                                       Filter: ((inv_quantity_on_hand >= 100) AND (inv_quantity_on_hand <= 500))
+                                                                           ->  Result  (cost=0.00..183534.00 rows=1504234 width=8)
+                                                                                 One-Time Filter: PartSelected
+                                                                                 ->  Append-only Scan on inventory_1_prt_32  (cost=0.00..183534.00 rows=1504234 width=8)
+                                                                                       Filter: ((inv_quantity_on_hand >= 100) AND (inv_quantity_on_hand <= 500))
+                                                                           ->  Result  (cost=0.00..183537.00 rows=1492003 width=8)
+                                                                                 One-Time Filter: PartSelected
+                                                                                 ->  Append-only Scan on inventory_1_prt_33  (cost=0.00..183537.00 rows=1492003 width=8)
+                                                                                       Filter: ((inv_quantity_on_hand >= 100) AND (inv_quantity_on_hand <= 500))
+                                                                           ->  Result  (cost=0.00..183537.00 rows=1513235 width=8)
+                                                                                 One-Time Filter: PartSelected
+                                                                                 ->  Append-only Scan on inventory_1_prt_34  (cost=0.00..183537.00 rows=1513235 width=8)
+                                                                                       Filter: ((inv_quantity_on_hand >= 100) AND (inv_quantity_on_hand <= 500))
+                                                                           ->  Result  (cost=0.00..183536.00 rows=1490907 width=8)
+                                                                                 One-Time Filter: PartSelected
+                                                                                 ->  Append-only Scan on inventory_1_prt_35  (cost=0.00..183536.00 rows=1490907 width=8)
+                                                                                       Filter: ((inv_quantity_on_hand >= 100) AND (inv_quantity_on_hand <= 500))
+                                                                           ->  Result  (cost=0.00..183534.00 rows=1552836 width=8)
+                                                                                 One-Time Filter: PartSelected
+                                                                                 ->  Append-only Scan on inventory_1_prt_36  (cost=0.00..183534.00 rows=1552836 width=8)
+                                                                                       Filter: ((inv_quantity_on_hand >= 100) AND (inv_quantity_on_hand <= 500))
+                                                                           ->  Result  (cost=0.00..183537.00 rows=1532390 width=8)
+                                                                                 One-Time Filter: PartSelected
+                                                                                 ->  Append-only Scan on inventory_1_prt_37  (cost=0.00..183537.00 rows=1532390 width=8)
+                                                                                       Filter: ((inv_quantity_on_hand >= 100) AND (inv_quantity_on_hand <= 500))
+                                                                           ->  Result  (cost=0.00..183535.00 rows=1521645 width=8)
+                                                                                 One-Time Filter: PartSelected
+                                                                                 ->  Append-only Scan on inventory_1_prt_38  (cost=0.00..183535.00 rows=1521645 width=8)
+                                                                                       Filter: ((inv_quantity_on_hand >= 100) AND (inv_quantity_on_hand <= 500))
+                                                                           ->  Result  (cost=0.00..183540.00 rows=1532838 width=8)
+                                                                                 One-Time Filter: PartSelected
+                                                                                 ->  Append-only Scan on inventory_1_prt_39  (cost=0.00..183540.00 rows=1532838 width=8)
+                                                                                       Filter: ((inv_quantity_on_hand >= 100) AND (inv_quantity_on_hand <= 500))
+                                                                           ->  Result  (cost=0.00..183534.00 rows=1513945 width=8)
+                                                                                 One-Time Filter: PartSelected
+                                                                                 ->  Append-only Scan on inventory_1_prt_40  (cost=0.00..183534.00 rows=1513945 width=8)
+                                                                                       Filter: ((inv_quantity_on_hand >= 100) AND (inv_quantity_on_hand <= 500))
+                                                                           ->  Result  (cost=0.00..183535.00 rows=1533921 width=8)
+                                                                                 One-Time Filter: PartSelected
+                                                                                 ->  Append-only Scan on inventory_1_prt_41  (cost=0.00..183535.00 rows=1533921 width=8)
+                                                                                       Filter: ((inv_quantity_on_hand >= 100) AND (inv_quantity_on_hand <= 500))
+                                                                           ->  Result  (cost=0.00..183531.00 rows=1504451 width=8)
+                                                                                 One-Time Filter: PartSelected
+                                                                                 ->  Append-only Scan on inventory_1_prt_42  (cost=0.00..183531.00 rows=1504451 width=8)
+                                                                                       Filter: ((inv_quantity_on_hand >= 100) AND (inv_quantity_on_hand <= 500))
+                                                                           ->  Result  (cost=0.00..183530.00 rows=1503348 width=8)
+                                                                                 One-Time Filter: PartSelected
+                                                                                 ->  Append-only Scan on inventory_1_prt_43  (cost=0.00..183530.00 rows=1503348 width=8)
+                                                                                       Filter: ((inv_quantity_on_hand >= 100) AND (inv_quantity_on_hand <= 500))
+                                                                           ->  Result  (cost=0.00..183534.00 rows=1516134 width=8)
+                                                                                 One-Time Filter: PartSelected
+                                                                                 ->  Append-only Scan on inventory_1_prt_44  (cost=0.00..183534.00 rows=1516134 width=8)
+                                                                                       Filter: ((inv_quantity_on_hand >= 100) AND (inv_quantity_on_hand <= 500))
+                                                                           ->  Result  (cost=0.00..183529.00 rows=1528933 width=8)
+                                                                                 One-Time Filter: PartSelected
+                                                                                 ->  Append-only Scan on inventory_1_prt_45  (cost=0.00..183529.00 rows=1528933 width=8)
+                                                                                       Filter: ((inv_quantity_on_hand >= 100) AND (inv_quantity_on_hand <= 500))
+                                                                           ->  Result  (cost=0.00..183538.00 rows=1521169 width=8)
+                                                                                 One-Time Filter: PartSelected
+                                                                                 ->  Append-only Scan on inventory_1_prt_46  (cost=0.00..183538.00 rows=1521169 width=8)
+                                                                                       Filter: ((inv_quantity_on_hand >= 100) AND (inv_quantity_on_hand <= 500))
+                                                                           ->  Result  (cost=0.00..183534.00 rows=1501888 width=8)
+                                                                                 One-Time Filter: PartSelected
+                                                                                 ->  Append-only Scan on inventory_1_prt_47  (cost=0.00..183534.00 rows=1501888 width=8)
+                                                                                       Filter: ((inv_quantity_on_hand >= 100) AND (inv_quantity_on_hand <= 500))
+                                                                           ->  Result  (cost=0.00..183533.00 rows=1513575 width=8)
+                                                                                 One-Time Filter: PartSelected
+                                                                                 ->  Append-only Scan on inventory_1_prt_48  (cost=0.00..183533.00 rows=1513575 width=8)
+                                                                                       Filter: ((inv_quantity_on_hand >= 100) AND (inv_quantity_on_hand <= 500))
+                                                                           ->  Result  (cost=0.00..183531.00 rows=1527219 width=8)
+                                                                                 One-Time Filter: PartSelected
+                                                                                 ->  Append-only Scan on inventory_1_prt_49  (cost=0.00..183531.00 rows=1527219 width=8)
+                                                                                       Filter: ((inv_quantity_on_hand >= 100) AND (inv_quantity_on_hand <= 500))
+                                                                           ->  Result  (cost=0.00..183534.00 rows=1517588 width=8)
+                                                                                 One-Time Filter: PartSelected
+                                                                                 ->  Append-only Scan on inventory_1_prt_50  (cost=0.00..183534.00 rows=1517588 width=8)
+                                                                                       Filter: ((inv_quantity_on_hand >= 100) AND (inv_quantity_on_hand <= 500))
+                                                                           ->  Result  (cost=0.00..183529.00 rows=1531861 width=8)
+                                                                                 One-Time Filter: PartSelected
+                                                                                 ->  Append-only Scan on inventory_1_prt_51  (cost=0.00..183529.00 rows=1531861 width=8)
+                                                                                       Filter: ((inv_quantity_on_hand >= 100) AND (inv_quantity_on_hand <= 500))
+                                                                           ->  Result  (cost=0.00..183530.00 rows=1532344 width=8)
+                                                                                 One-Time Filter: PartSelected
+                                                                                 ->  Append-only Scan on inventory_1_prt_52  (cost=0.00..183530.00 rows=1532344 width=8)
+                                                                                       Filter: ((inv_quantity_on_hand >= 100) AND (inv_quantity_on_hand <= 500))
+                                                                           ->  Result  (cost=0.00..183533.00 rows=1561895 width=8)
+                                                                                 One-Time Filter: PartSelected
+                                                                                 ->  Append-only Scan on inventory_1_prt_53  (cost=0.00..183533.00 rows=1561895 width=8)
+                                                                                       Filter: ((inv_quantity_on_hand >= 100) AND (inv_quantity_on_hand <= 500))
+                                                                           ->  Result  (cost=0.00..183537.00 rows=1531367 width=8)
+                                                                                 One-Time Filter: PartSelected
+                                                                                 ->  Append-only Scan on inventory_1_prt_54  (cost=0.00..183537.00 rows=1531367 width=8)
+                                                                                       Filter: ((inv_quantity_on_hand >= 100) AND (inv_quantity_on_hand <= 500))
+                                                                           ->  Result  (cost=0.00..183539.00 rows=1506256 width=8)
+                                                                                 One-Time Filter: PartSelected
+                                                                                 ->  Append-only Scan on inventory_1_prt_55  (cost=0.00..183539.00 rows=1506256 width=8)
+                                                                                       Filter: ((inv_quantity_on_hand >= 100) AND (inv_quantity_on_hand <= 500))
+                                                                           ->  Result  (cost=0.00..183534.00 rows=1502278 width=8)
+                                                                                 One-Time Filter: PartSelected
+                                                                                 ->  Append-only Scan on inventory_1_prt_56  (cost=0.00..183534.00 rows=1502278 width=8)
+                                                                                       Filter: ((inv_quantity_on_hand >= 100) AND (inv_quantity_on_hand <= 500))
+                                                                           ->  Result  (cost=0.00..183535.00 rows=1515567 width=8)
+                                                                                 One-Time Filter: PartSelected
+                                                                                 ->  Append-only Scan on inventory_1_prt_57  (cost=0.00..183535.00 rows=1515567 width=8)
+                                                                                       Filter: ((inv_quantity_on_hand >= 100) AND (inv_quantity_on_hand <= 500))
+                                                                           ->  Result  (cost=0.00..183537.00 rows=1521027 width=8)
+                                                                                 One-Time Filter: PartSelected
+                                                                                 ->  Append-only Scan on inventory_1_prt_58  (cost=0.00..183537.00 rows=1521027 width=8)
+                                                                                       Filter: ((inv_quantity_on_hand >= 100) AND (inv_quantity_on_hand <= 500))
+                                                                           ->  Result  (cost=0.00..183534.00 rows=1503773 width=8)
+                                                                                 One-Time Filter: PartSelected
+                                                                                 ->  Append-only Scan on inventory_1_prt_59  (cost=0.00..183534.00 rows=1503773 width=8)
+                                                                                       Filter: ((inv_quantity_on_hand >= 100) AND (inv_quantity_on_hand <= 500))
+                                                                           ->  Result  (cost=0.00..183535.00 rows=1509458 width=8)
+                                                                                 One-Time Filter: PartSelected
+                                                                                 ->  Append-only Scan on inventory_1_prt_60  (cost=0.00..183535.00 rows=1509458 width=8)
+                                                                                       Filter: ((inv_quantity_on_hand >= 100) AND (inv_quantity_on_hand <= 500))
+                                                                           ->  Result  (cost=0.00..183539.00 rows=1522097 width=8)
+                                                                                 One-Time Filter: PartSelected
+                                                                                 ->  Append-only Scan on inventory_1_prt_61  (cost=0.00..183539.00 rows=1522097 width=8)
+                                                                                       Filter: ((inv_quantity_on_hand >= 100) AND (inv_quantity_on_hand <= 500))
+                                                                           ->  Result  (cost=0.00..183541.00 rows=1513805 width=8)
+                                                                                 One-Time Filter: PartSelected
+                                                                                 ->  Append-only Scan on inventory_1_prt_62  (cost=0.00..183541.00 rows=1513805 width=8)
+                                                                                       Filter: ((inv_quantity_on_hand >= 100) AND (inv_quantity_on_hand <= 500))
+                                                                           ->  Result  (cost=0.00..183540.00 rows=1515236 width=8)
+                                                                                 One-Time Filter: PartSelected
+                                                                                 ->  Append-only Scan on inventory_1_prt_63  (cost=0.00..183540.00 rows=1515236 width=8)
+                                                                                       Filter: ((inv_quantity_on_hand >= 100) AND (inv_quantity_on_hand <= 500))
+                                                                           ->  Result  (cost=0.00..183540.00 rows=1525315 width=8)
+                                                                                 One-Time Filter: PartSelected
+                                                                                 ->  Append-only Scan on inventory_1_prt_64  (cost=0.00..183540.00 rows=1525315 width=8)
+                                                                                       Filter: ((inv_quantity_on_hand >= 100) AND (inv_quantity_on_hand <= 500))
+                                                                           ->  Result  (cost=0.00..183537.00 rows=1521320 width=8)
+                                                                                 One-Time Filter: PartSelected
+                                                                                 ->  Append-only Scan on inventory_1_prt_65  (cost=0.00..183537.00 rows=1521320 width=8)
+                                                                                       Filter: ((inv_quantity_on_hand >= 100) AND (inv_quantity_on_hand <= 500))
+                                                                           ->  Result  (cost=0.00..183539.00 rows=1522228 width=8)
+                                                                                 One-Time Filter: PartSelected
+                                                                                 ->  Append-only Scan on inventory_1_prt_66  (cost=0.00..183539.00 rows=1522228 width=8)
+                                                                                       Filter: ((inv_quantity_on_hand >= 100) AND (inv_quantity_on_hand <= 500))
+                                                                           ->  Result  (cost=0.00..45896.00 rows=378452 width=8)
+                                                                                 One-Time Filter: PartSelected
+                                                                                 ->  Append-only Scan on inventory_1_prt_67  (cost=0.00..45896.00 rows=378452 width=8)
+                                                                                       Filter: ((inv_quantity_on_hand >= 100) AND (inv_quantity_on_hand <= 500))
+                                                                           ->  Result  (cost=0.00..32.00 rows=1 width=8)
+                                                                                 One-Time Filter: PartSelected
+                                                                                 ->  Append-only Scan on inventory_1_prt_68  (cost=0.00..32.00 rows=1 width=8)
+                                                                                       Filter: ((inv_quantity_on_hand >= 100) AND (inv_quantity_on_hand <= 500))
+                                                                           ->  Result  (cost=0.00..32.00 rows=1 width=8)
+                                                                                 One-Time Filter: PartSelected
+                                                                                 ->  Append-only Scan on inventory_1_prt_69  (cost=0.00..32.00 rows=1 width=8)
+                                                                                       Filter: ((inv_quantity_on_hand >= 100) AND (inv_quantity_on_hand <= 500))
+                                                                           ->  Result  (cost=0.00..32.00 rows=1 width=8)
+                                                                                 One-Time Filter: PartSelected
+                                                                                 ->  Append-only Scan on inventory_1_prt_70  (cost=0.00..32.00 rows=1 width=8)
+                                                                                       Filter: ((inv_quantity_on_hand >= 100) AND (inv_quantity_on_hand <= 500))
+                                                                           ->  Result  (cost=0.00..32.00 rows=1 width=8)
+                                                                                 One-Time Filter: PartSelected
+                                                                                 ->  Append-only Scan on inventory_1_prt_71  (cost=0.00..32.00 rows=1 width=8)
+                                                                                       Filter: ((inv_quantity_on_hand >= 100) AND (inv_quantity_on_hand <= 500))
+                                                                           ->  Result  (cost=0.00..32.00 rows=1 width=8)
+                                                                                 One-Time Filter: PartSelected
+                                                                                 ->  Append-only Scan on inventory_1_prt_72  (cost=0.00..32.00 rows=1 width=8)
+                                                                                       Filter: ((inv_quantity_on_hand >= 100) AND (inv_quantity_on_hand <= 500))
+                                                                           ->  Result  (cost=0.00..32.00 rows=1 width=8)
+                                                                                 One-Time Filter: PartSelected
+                                                                                 ->  Append-only Scan on inventory_1_prt_73  (cost=0.00..32.00 rows=1 width=8)
+                                                                                       Filter: ((inv_quantity_on_hand >= 100) AND (inv_quantity_on_hand <= 500))
+                                                                           ->  Result  (cost=0.00..32.00 rows=1 width=8)
+                                                                                 One-Time Filter: PartSelected
+                                                                                 ->  Append-only Scan on inventory_1_prt_74  (cost=0.00..32.00 rows=1 width=8)
+                                                                                       Filter: ((inv_quantity_on_hand >= 100) AND (inv_quantity_on_hand <= 500))
+                                                                           ->  Result  (cost=0.00..32.00 rows=1 width=8)
+                                                                                 One-Time Filter: PartSelected
+                                                                                 ->  Append-only Scan on inventory_1_prt_75  (cost=0.00..32.00 rows=1 width=8)
+                                                                                       Filter: ((inv_quantity_on_hand >= 100) AND (inv_quantity_on_hand <= 500))
+                                                                           ->  Result  (cost=0.00..32.00 rows=1 width=8)
+                                                                                 One-Time Filter: PartSelected
+                                                                                 ->  Append-only Scan on inventory_1_prt_76  (cost=0.00..32.00 rows=1 width=8)
+                                                                                       Filter: ((inv_quantity_on_hand >= 100) AND (inv_quantity_on_hand <= 500))
+                                                                           ->  Result  (cost=0.00..32.00 rows=1 width=8)
+                                                                                 One-Time Filter: PartSelected
+                                                                                 ->  Append-only Scan on inventory_1_prt_77  (cost=0.00..32.00 rows=1 width=8)
+                                                                                       Filter: ((inv_quantity_on_hand >= 100) AND (inv_quantity_on_hand <= 500))
+                                                                           ->  Result  (cost=0.00..32.00 rows=1 width=8)
+                                                                                 One-Time Filter: PartSelected
+                                                                                 ->  Append-only Scan on inventory_1_prt_78  (cost=0.00..32.00 rows=1 width=8)
+                                                                                       Filter: ((inv_quantity_on_hand >= 100) AND (inv_quantity_on_hand <= 500))
+                                                                           ->  Result  (cost=0.00..32.00 rows=1 width=8)
+                                                                                 One-Time Filter: PartSelected
+                                                                                 ->  Append-only Scan on inventory_1_prt_79  (cost=0.00..32.00 rows=1 width=8)
+                                                                                       Filter: ((inv_quantity_on_hand >= 100) AND (inv_quantity_on_hand <= 500))
+                                                                           ->  Result  (cost=0.00..32.00 rows=1 width=8)
+                                                                                 One-Time Filter: PartSelected
+                                                                                 ->  Append-only Scan on inventory_1_prt_80  (cost=0.00..32.00 rows=1 width=8)
+                                                                                       Filter: ((inv_quantity_on_hand >= 100) AND (inv_quantity_on_hand <= 500))
+                                                                     ->  Hash  (cost=1454.24..1454.24 rows=63 width=4)
+                                                                           ->  Partition Selector for inventory (dynamic scan id: 1)  (cost=0.00..1454.24 rows=63 width=4)
+                                                                                 Filter: date_dim.d_date_sk
+                                                                                 ->  Broadcast Motion 3:3  (slice1; segments: 3)  (cost=0.00..1454.24 rows=63 width=4)
+                                                                                       ->  Seq Scan on date_dim  (cost=0.00..1451.73 rows=21 width=4)
+                                                                                             Filter: ((d_date >= '05-30-2002'::date) AND (d_date <= '07-29-2002'::date))
+                                                               ->  Hash  (cost=8984.26..8984.26 rows=259 width=129)
+                                                                     ->  Broadcast Motion 3:3  (slice2; segments: 3)  (cost=0.00..8984.26 rows=259 width=129)
+                                                                           ->  Seq Scan on item  (cost=0.00..8973.94 rows=87 width=129)
+                                                                                 Filter: ((i_current_price >= 30::numeric) AND (i_current_price <= 60::numeric) AND (i_manufact_id = ANY ('{437,129,727,663}'::integer[])))
+ Planning time: 28.563 ms
+ Optimizer: legacy query optimizer
+(434 rows)
+
+-- end query 1 in stream 0 using template query82.tpl

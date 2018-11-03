@@ -1,0 +1,55 @@
+-- start query 1 in stream 0 using template query93.tpl
+explain
+select  ss_customer_sk
+            ,sum(act_sales) sumsales
+      from (select ss_item_sk
+                  ,ss_ticket_number
+                  ,ss_customer_sk
+                  ,case when sr_return_quantity is not null then (ss_quantity-sr_return_quantity)*ss_sales_price
+                                                            else (ss_quantity*ss_sales_price) end act_sales
+            from store_sales left outer join store_returns on (sr_item_sk = ss_item_sk
+                                                               and sr_ticket_number = ss_ticket_number)
+                ,reason
+            where sr_reason_sk = r_reason_sk
+              and r_reason_desc = 'Did not like the warranty') t
+      group by ss_customer_sk
+      order by sumsales, ss_customer_sk
+limit 100;
+                                                                                                                                                               QUERY PLAN                                                                                                                                                               
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=0.00..520428.83 rows=34 width=12)
+   ->  Gather Motion 3:1  (slice3; segments: 3)  (cost=0.00..520428.82 rows=100 width=12)
+         Merge Key: (pg_catalog.sum((sum((CASE WHEN (NOT (store_returns.sr_return_quantity IS NULL)) THEN (((store_sales.ss_quantity - store_returns.sr_return_quantity))::numeric * store_sales.ss_sales_price) ELSE ((store_sales.ss_quantity)::numeric * store_sales.ss_sales_price) END))))), store_sales.ss_customer_sk
+         ->  Limit  (cost=0.00..520428.82 rows=34 width=12)
+               ->  Sort  (cost=0.00..520428.82 rows=502994 width=12)
+                     Sort Key: (pg_catalog.sum((sum((CASE WHEN (NOT (store_returns.sr_return_quantity IS NULL)) THEN (((store_sales.ss_quantity - store_returns.sr_return_quantity))::numeric * store_sales.ss_sales_price) ELSE ((store_sales.ss_quantity)::numeric * store_sales.ss_sales_price) END))))), store_sales.ss_customer_sk
+                     ->  HashAggregate  (cost=0.00..519780.62 rows=502994 width=12)
+                           Group Key: store_sales.ss_customer_sk
+                           ->  Redistribute Motion 3:3  (slice2; segments: 3)  (cost=0.00..519716.19 rows=502994 width=12)
+                                 Hash Key: store_sales.ss_customer_sk
+                                 ->  Result  (cost=0.00..519697.30 rows=502994 width=12)
+                                       ->  HashAggregate  (cost=0.00..519697.30 rows=502994 width=12)
+                                             Group Key: store_sales.ss_customer_sk
+                                             ->  Result  (cost=0.00..519632.88 rows=502994 width=12)
+                                                   ->  Hash Join  (cost=0.00..519626.84 rows=502994 width=18)
+                                                         Hash Cond: ((store_sales.ss_item_sk = store_returns.sr_item_sk) AND (store_sales.ss_ticket_number = store_returns.sr_ticket_number))
+                                                         ->  Sequence  (cost=0.00..68542.76 rows=959996672 width=26)
+                                                               ->  Partition Selector for store_sales (dynamic scan id: 1)  (cost=10.00..100.00 rows=34 width=4)
+                                                                     Partitions selected: 80 (out of 80)
+                                                               ->  Dynamic Table Scan on store_sales (dynamic scan id: 1)  (cost=0.00..68542.76 rows=959996672 width=26)
+                                                         ->  Hash  (cost=29939.61..29939.61 rows=1477273 width=16)
+                                                               ->  Hash Join  (cost=0.00..29939.61 rows=1477273 width=16)
+                                                                     Hash Cond: (store_returns.sr_reason_sk = reason.r_reason_sk)
+                                                                     ->  Sequence  (cost=0.00..6080.60 rows=96000000 width=20)
+                                                                           ->  Partition Selector for store_returns (dynamic scan id: 2)  (cost=10.00..100.00 rows=34 width=4)
+                                                                                 Partitions selected: 80 (out of 80)
+                                                                           ->  Dynamic Table Scan on store_returns (dynamic scan id: 2)  (cost=0.00..6080.60 rows=96000000 width=20)
+                                                                     ->  Hash  (cost=431.00..431.00 rows=2 width=4)
+                                                                           ->  Broadcast Motion 3:3  (slice1; segments: 3)  (cost=0.00..431.00 rows=2 width=4)
+                                                                                 ->  Table Scan on reason  (cost=0.00..431.00 rows=1 width=4)
+                                                                                       Filter: ((r_reason_desc)::text = 'Did not like the warranty'::text)
+ Planning time: 242.326 ms
+ Optimizer: PQO version 3.8.0
+(33 rows)
+
+-- end query 1 in stream 0 using template query93.tpl

@@ -1,0 +1,54 @@
+-- start query 1 in stream 0 using template query3.tpl
+explain
+select  dt.d_year 
+       ,item.i_brand_id brand_id 
+       ,item.i_brand brand
+       ,sum(ss_ext_sales_price) sum_agg
+ from  date_dim dt 
+      ,store_sales
+      ,item
+ where dt.d_date_sk = store_sales.ss_sold_date_sk
+   and store_sales.ss_item_sk = item.i_item_sk
+   and item.i_manufact_id = 436
+   and dt.d_moy=12
+ group by dt.d_year
+      ,item.i_brand
+      ,item.i_brand_id
+ order by dt.d_year
+         ,sum_agg desc
+         ,brand_id
+ limit 100;
+                                                                            QUERY PLAN                                                                             
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=0.00..270097.97 rows=34 width=33)
+   ->  Gather Motion 3:1  (slice4; segments: 3)  (cost=0.00..270097.97 rows=100 width=33)
+         Merge Key: date_dim.d_year, (pg_catalog.sum((sum(store_sales.ss_ext_sales_price)))), item.i_brand_id
+         ->  Limit  (cost=0.00..270097.96 rows=34 width=33)
+               ->  Sort  (cost=0.00..270097.96 rows=8838 width=33)
+                     Sort Key: date_dim.d_year, (pg_catalog.sum((sum(store_sales.ss_ext_sales_price)))), item.i_brand_id
+                     ->  HashAggregate  (cost=0.00..270076.28 rows=8838 width=33)
+                           Group Key: date_dim.d_year, item.i_brand_id, item.i_brand
+                           ->  Redistribute Motion 3:3  (slice3; segments: 3)  (cost=0.00..270072.84 rows=8838 width=33)
+                                 Hash Key: date_dim.d_year, item.i_brand_id, item.i_brand
+                                 ->  Result  (cost=0.00..270071.92 rows=8838 width=33)
+                                       ->  HashAggregate  (cost=0.00..270071.92 rows=8838 width=33)
+                                             Group Key: date_dim.d_year, item.i_brand_id, item.i_brand
+                                             ->  Hash Join  (cost=0.00..269777.84 rows=773000 width=31)
+                                                   Hash Cond: (store_sales.ss_sold_date_sk = date_dim.d_date_sk)
+                                                   ->  Hash Join  (cost=0.00..269108.53 rows=773000 width=31)
+                                                         Hash Cond: (store_sales.ss_item_sk = item.i_item_sk)
+                                                         ->  Dynamic Table Scan on store_sales (dynamic scan id: 1)  (cost=0.00..68542.76 rows=959996672 width=14)
+                                                         ->  Hash  (cost=451.07..451.07 rows=236 width=25)
+                                                               ->  Broadcast Motion 3:3  (slice1; segments: 3)  (cost=0.00..451.07 rows=236 width=25)
+                                                                     ->  Table Scan on item  (cost=0.00..450.96 rows=79 width=25)
+                                                                           Filter: (i_manufact_id = 436)
+                                                   ->  Hash  (cost=100.00..100.00 rows=34 width=4)
+                                                         ->  Partition Selector for store_sales (dynamic scan id: 1)  (cost=10.00..100.00 rows=34 width=4)
+                                                               ->  Broadcast Motion 3:3  (slice2; segments: 3)  (cost=0.00..434.69 rows=6227 width=8)
+                                                                     ->  Table Scan on date_dim  (cost=0.00..433.80 rows=2076 width=8)
+                                                                           Filter: (d_moy = 12)
+ Planning time: 261.387 ms
+ Optimizer: PQO version 3.8.0
+(29 rows)
+
+-- end query 1 in stream 0 using template query3.tpl

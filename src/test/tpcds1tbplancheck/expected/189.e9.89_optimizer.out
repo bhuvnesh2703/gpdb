@@ -1,0 +1,77 @@
+-- start query 1 in stream 0 using template query89.tpl
+explain
+select  *
+from(
+select i_category, i_class, i_brand,
+       s_store_name, s_company_name,
+       d_moy,
+       sum(ss_sales_price) sum_sales,
+       avg(sum(ss_sales_price)) over
+         (partition by i_category, i_brand, s_store_name, s_company_name)
+         avg_monthly_sales
+from item, store_sales, date_dim, store
+where ss_item_sk = i_item_sk and
+      ss_sold_date_sk = d_date_sk and
+      ss_store_sk = s_store_sk and
+      d_year in (2000) and
+        ((i_category in ('Home','Books','Electronics') and
+          i_class in ('wallpaper','parenting','musical')
+         )
+      or (i_category in ('Shoes','Jewelry','Men') and
+          i_class in ('womens','birdal','pants') 
+        ))
+group by i_category, i_class, i_brand,
+         s_store_name, s_company_name, d_moy) tmp1
+where case when (avg_monthly_sales <> 0) then (abs(sum_sales - avg_monthly_sales) / avg_monthly_sales) else null end > 0.1
+order by sum_sales - avg_monthly_sales, s_store_name
+limit 100;
+                                                                                                                                                                                                QUERY PLAN                                                                                                                                                                                                 
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Result  (cost=0.00..281145.92 rows=34 width=60)
+   ->  Limit  (cost=0.00..281145.92 rows=34 width=60)
+         ->  Gather Motion 3:1  (slice6; segments: 3)  (cost=0.00..281145.91 rows=100 width=68)
+               Merge Key: (((pg_catalog.sum((sum(store_sales.ss_sales_price)))) - (avg((pg_catalog.sum((sum(store_sales.ss_sales_price))))) OVER (?)))), store.s_store_name
+               ->  Limit  (cost=0.00..281145.89 rows=34 width=68)
+                     ->  Sort  (cost=0.00..281145.89 rows=3351 width=68)
+                           Sort Key: (((pg_catalog.sum((sum(store_sales.ss_sales_price)))) - (avg((pg_catalog.sum((sum(store_sales.ss_sales_price))))) OVER (?)))), store.s_store_name
+                           ->  Result  (cost=0.00..281130.76 rows=3351 width=68)
+                                 ->  Result  (cost=0.00..281130.53 rows=3351 width=60)
+                                       Filter: (CASE WHEN ((avg((pg_catalog.sum((sum(store_sales.ss_sales_price))))) OVER (?)) <> 0::numeric) THEN (abs(((pg_catalog.sum((sum(store_sales.ss_sales_price)))) - (avg((pg_catalog.sum((sum(store_sales.ss_sales_price))))) OVER (?)))) / (avg((pg_catalog.sum((sum(store_sales.ss_sales_price))))) OVER (?))) ELSE NULL::numeric END > 0.1)
+                                       ->  WindowAgg  (cost=0.00..281129.98 rows=8376 width=60)
+                                             Partition By: item.i_category, item.i_brand, store.s_store_name, store.s_company_name
+                                             ->  Sort  (cost=0.00..281129.98 rows=8376 width=55)
+                                                   Sort Key: item.i_category, item.i_brand, store.s_store_name, store.s_company_name
+                                                   ->  Redistribute Motion 3:3  (slice5; segments: 3)  (cost=0.00..281095.94 rows=8376 width=55)
+                                                         Hash Key: item.i_category, item.i_brand, store.s_store_name, store.s_company_name
+                                                         ->  Result  (cost=0.00..281094.50 rows=8376 width=55)
+                                                               ->  HashAggregate  (cost=0.00..281094.50 rows=8376 width=55)
+                                                                     Group Key: item.i_category, item.i_class, item.i_brand, store.s_store_name, store.s_company_name, date_dim.d_moy
+                                                                     ->  Redistribute Motion 3:3  (slice4; segments: 3)  (cost=0.00..281087.90 rows=8376 width=55)
+                                                                           Hash Key: item.i_category, item.i_class, item.i_brand, store.s_store_name, store.s_company_name, date_dim.d_moy
+                                                                           ->  Result  (cost=0.00..281086.46 rows=8376 width=55)
+                                                                                 ->  HashAggregate  (cost=0.00..281086.46 rows=8376 width=55)
+                                                                                       Group Key: item.i_category, item.i_class, item.i_brand, store.s_store_name, store.s_company_name, date_dim.d_moy
+                                                                                       ->  Hash Join  (cost=0.00..280660.51 rows=551306 width=53)
+                                                                                             Hash Cond: (store_sales.ss_store_sk = store.s_store_sk)
+                                                                                             ->  Hash Join  (cost=0.00..280015.51 rows=551306 width=45)
+                                                                                                   Hash Cond: (store_sales.ss_sold_date_sk = date_dim.d_date_sk)
+                                                                                                   ->  Hash Join  (cost=0.00..278942.33 rows=2745620 width=45)
+                                                                                                         Hash Cond: (store_sales.ss_item_sk = item.i_item_sk)
+                                                                                                         ->  Dynamic Table Scan on store_sales (dynamic scan id: 1)  (cost=0.00..68542.76 rows=959996672 width=18)
+                                                                                                         ->  Hash  (cost=454.78..454.78 rows=838 width=35)
+                                                                                                               ->  Broadcast Motion 3:3  (slice1; segments: 3)  (cost=0.00..454.78 rows=838 width=35)
+                                                                                                                     ->  Table Scan on item  (cost=0.00..454.26 rows=280 width=35)
+                                                                                                                           Filter: ((((i_category)::text = ANY ('{Home,Books,Electronics}'::text[])) AND ((i_class)::text = ANY ('{wallpaper,parenting,musical}'::text[]))) OR (((i_category)::text = ANY ('{Shoes,Jewelry,Men}'::text[])) AND ((i_class)::text = ANY ('{womens,birdal,pants}'::text[]))))
+                                                                                                   ->  Hash  (cost=100.00..100.00 rows=34 width=4)
+                                                                                                         ->  Partition Selector for store_sales (dynamic scan id: 1)  (cost=10.00..100.00 rows=34 width=4)
+                                                                                                               ->  Broadcast Motion 3:3  (slice2; segments: 3)  (cost=0.00..433.81 rows=366 width=8)
+                                                                                                                     ->  Table Scan on date_dim  (cost=0.00..433.76 rows=122 width=8)
+                                                                                                                           Filter: (d_year = 2000)
+                                                                                             ->  Hash  (cost=431.35..431.35 rows=1002 width=16)
+                                                                                                   ->  Broadcast Motion 3:3  (slice3; segments: 3)  (cost=0.00..431.35 rows=1002 width=16)
+                                                                                                         ->  Table Scan on store  (cost=0.00..431.05 rows=334 width=16)
+ Planning time: 410.076 ms
+ Optimizer: PQO version 3.8.0
+(45 rows)
+
+-- end query 1 in stream 0 using template query89.tpl

@@ -1,0 +1,123 @@
+-- start query 1 in stream 0 using template query57.tpl
+explain
+with v1 as(
+ select i_category, i_brand,
+        cc_name,
+        d_year, d_moy,
+        sum(cs_sales_price) sum_sales,
+        avg(sum(cs_sales_price)) over
+          (partition by i_category, i_brand,
+                     cc_name, d_year)
+          avg_monthly_sales,
+        rank() over
+          (partition by i_category, i_brand,
+                     cc_name
+           order by d_year, d_moy) rn
+ from item, catalog_sales, date_dim, call_center
+ where cs_item_sk = i_item_sk and
+       cs_sold_date_sk = d_date_sk and
+       cc_call_center_sk= cs_call_center_sk and
+       (
+         d_year = 2000 or
+         ( d_year = 2000-1 and d_moy =12) or
+         ( d_year = 2000+1 and d_moy =1)
+       )
+ group by i_category, i_brand,
+          cc_name , d_year, d_moy),
+ v2 as(
+ select v1.i_category, v1.i_brand
+        ,v1.d_year, v1.d_moy
+        ,v1.avg_monthly_sales
+        ,v1.sum_sales, v1_lag.sum_sales psum, v1_lead.sum_sales nsum
+ from v1, v1 v1_lag, v1 v1_lead
+ where v1.i_category = v1_lag.i_category and
+       v1.i_category = v1_lead.i_category and
+       v1.i_brand = v1_lag.i_brand and
+       v1.i_brand = v1_lead.i_brand and
+       v1. cc_name = v1_lag. cc_name and
+       v1. cc_name = v1_lead. cc_name and
+       v1.rn = v1_lag.rn + 1 and
+       v1.rn = v1_lead.rn - 1)
+  select  *
+ from v2
+ where  d_year = 2000 and
+        avg_monthly_sales > 0 and
+        case when avg_monthly_sales > 0 then abs(sum_sales - avg_monthly_sales) / avg_monthly_sales else null end > 0.1
+ order by sum_sales - avg_monthly_sales, 3
+ limit 100;
+                                                                                                                                                                                 QUERY PLAN                                                                                                                                                                                 
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Result  (cost=0.00..304117.79 rows=34 width=56)
+   ->  Gather Motion 3:1  (slice10; segments: 3)  (cost=0.00..304117.79 rows=100 width=56)
+         Merge Key: ((share0_ref3.sum_sales - share0_ref3.avg_monthly_sales)), share0_ref3.d_year
+         ->  Sort  (cost=0.00..304117.76 rows=34 width=64)
+               Sort Key: ((share0_ref3.sum_sales - share0_ref3.avg_monthly_sales)), share0_ref3.d_year
+               ->  Sequence  (cost=0.00..304117.70 rows=34 width=64)
+                     ->  Shared Scan (share slice:id 10:0)  (cost=0.00..302091.18 rows=148401 width=1)
+                           ->  Materialize  (cost=0.00..302091.18 rows=148401 width=1)
+                                 ->  WindowAgg  (cost=0.00..302091.04 rows=148401 width=56)
+                                       Partition By: item.i_category, item.i_brand, call_center.cc_name
+                                       Order By: date_dim.d_year, date_dim.d_moy
+                                       ->  Sort  (cost=0.00..302076.79 rows=148401 width=48)
+                                             Sort Key: item.i_category, item.i_brand, call_center.cc_name, date_dim.d_year, date_dim.d_moy
+                                             ->  Redistribute Motion 3:3  (slice9; segments: 3)  (cost=0.00..301382.95 rows=148401 width=48)
+                                                   Hash Key: item.i_category, item.i_brand, call_center.cc_name
+                                                   ->  Result  (cost=0.00..301360.65 rows=148401 width=48)
+                                                         ->  WindowAgg  (cost=0.00..301360.65 rows=148401 width=48)
+                                                               Partition By: item.i_category, item.i_brand, call_center.cc_name, date_dim.d_year
+                                                               ->  Sort  (cost=0.00..301360.65 rows=148401 width=53)
+                                                                     Sort Key: item.i_category, item.i_brand, call_center.cc_name, date_dim.d_year
+                                                                     ->  Redistribute Motion 3:3  (slice8; segments: 3)  (cost=0.00..300594.54 rows=148401 width=53)
+                                                                           Hash Key: item.i_category, item.i_brand, call_center.cc_name, date_dim.d_year
+                                                                           ->  Result  (cost=0.00..300569.92 rows=148401 width=53)
+                                                                                 ->  HashAggregate  (cost=0.00..300569.92 rows=148401 width=53)
+                                                                                       Group Key: item.i_category, item.i_brand, call_center.cc_name, date_dim.d_year, date_dim.d_moy
+                                                                                       ->  Redistribute Motion 3:3  (slice7; segments: 3)  (cost=0.00..300472.06 rows=148401 width=53)
+                                                                                             Hash Key: item.i_category, item.i_brand, call_center.cc_name, date_dim.d_year, date_dim.d_moy
+                                                                                             ->  Result  (cost=0.00..300447.45 rows=148401 width=53)
+                                                                                                   ->  HashAggregate  (cost=0.00..300447.45 rows=148401 width=53)
+                                                                                                         Group Key: item.i_category, item.i_brand, call_center.cc_name, date_dim.d_year, date_dim.d_moy
+                                                                                                         ->  Hash Join  (cost=0.00..231159.51 rows=107495320 width=50)
+                                                                                                               Hash Cond: (catalog_sales.cs_item_sk = item.i_item_sk)
+                                                                                                               ->  Hash Join  (cost=0.00..190825.09 rows=107495320 width=31)
+                                                                                                                     Hash Cond: (catalog_sales.cs_call_center_sk = call_center.cc_call_center_sk)
+                                                                                                                     ->  Hash Join  (cost=0.00..158195.81 rows=110054733 width=21)
+                                                                                                                           Hash Cond: (catalog_sales.cs_sold_date_sk = date_dim.d_date_sk)
+                                                                                                                           ->  Dynamic Table Scan on catalog_sales (dynamic scan id: 1)  (cost=0.00..46102.37 rows=479993344 width=17)
+                                                                                                                           ->  Hash  (cost=100.00..100.00 rows=34 width=4)
+                                                                                                                                 ->  Partition Selector for catalog_sales (dynamic scan id: 1)  (cost=10.00..100.00 rows=34 width=4)
+                                                                                                                                       ->  Broadcast Motion 3:3  (slice4; segments: 3)  (cost=0.00..434.65 rows=421 width=12)
+                                                                                                                                             ->  Table Scan on date_dim  (cost=0.00..434.56 rows=141 width=12)
+                                                                                                                                                   Filter: ((d_year = 2000) OR ((d_year = 1999) AND (d_moy = 12)) OR ((d_year = 2001) AND (d_moy = 1)))
+                                                                                                                     ->  Hash  (cost=431.02..431.02 rows=42 width=18)
+                                                                                                                           ->  Broadcast Motion 3:3  (slice5; segments: 3)  (cost=0.00..431.02 rows=42 width=18)
+                                                                                                                                 ->  Table Scan on call_center  (cost=0.00..431.00 rows=14 width=18)
+                                                                                                               ->  Hash  (cost=597.31..597.31 rows=299247 width=27)
+                                                                                                                     ->  Broadcast Motion 3:3  (slice6; segments: 3)  (cost=0.00..597.31 rows=299247 width=27)
+                                                                                                                           ->  Table Scan on item  (cost=0.00..447.68 rows=99749 width=27)
+                     ->  Redistribute Motion 1:3  (slice3)  (cost=0.00..2026.51 rows=100 width=64)
+                           ->  Limit  (cost=0.00..2026.50 rows=34 width=64)
+                                 ->  Gather Motion 3:1  (slice2; segments: 3)  (cost=0.00..2026.49 rows=100 width=64)
+                                       Merge Key: ((share0_ref3.sum_sales - share0_ref3.avg_monthly_sales)), share0_ref3.d_year
+                                       ->  Limit  (cost=0.00..2026.47 rows=34 width=64)
+                                             ->  Sort  (cost=0.00..2026.46 rows=11385 width=64)
+                                                   Sort Key: ((share0_ref3.sum_sales - share0_ref3.avg_monthly_sales)), share0_ref3.d_year
+                                                   ->  Result  (cost=0.00..1970.80 rows=11385 width=64)
+                                                         ->  Hash Join  (cost=0.00..1970.07 rows=11385 width=63)
+                                                               Hash Cond: (((share0_ref3.i_category)::text = (share0_ref2.i_category)::text) AND ((share0_ref3.i_brand)::text = (share0_ref2.i_brand)::text) AND ((share0_ref3.cc_name)::text = (share0_ref2.cc_name)::text) AND (share0_ref3.rn = (share0_ref2.rn + 1)))
+                                                               ->  Redistribute Motion 3:3  (slice1; segments: 3)  (cost=0.00..1169.58 rows=148401 width=77)
+                                                                     Hash Key: share0_ref3.i_category, share0_ref3.i_brand, share0_ref3.cc_name
+                                                                     ->  Hash Join  (cost=0.00..1133.81 rows=148401 width=77)
+                                                                           Hash Cond: (((share0_ref4.i_category)::text = (share0_ref3.i_category)::text) AND ((share0_ref4.i_brand)::text = (share0_ref3.i_brand)::text) AND ((share0_ref4.cc_name)::text = (share0_ref3.cc_name)::text) AND ((share0_ref4.rn - 1) = share0_ref3.rn))
+                                                                           ->  Shared Scan (share slice:id 1:0)  (cost=0.00..449.96 rows=148401 width=53)
+                                                                           ->  Hash  (cost=470.32..470.32 rows=33353 width=69)
+                                                                                 ->  Result  (cost=0.00..470.32 rows=33353 width=69)
+                                                                                       Filter: ((share0_ref3.d_year = 2000) AND (share0_ref3.avg_monthly_sales > 0::numeric) AND (CASE WHEN (share0_ref3.avg_monthly_sales > 0::numeric) THEN (abs((share0_ref3.sum_sales - share0_ref3.avg_monthly_sales)) / share0_ref3.avg_monthly_sales) ELSE NULL::numeric END > 0.1))
+                                                                                       ->  Shared Scan (share slice:id 1:0)  (cost=0.00..455.68 rows=148401 width=69)
+                                                               ->  Hash  (cost=449.96..449.96 rows=148401 width=53)
+                                                                     ->  Shared Scan (share slice:id 2:0)  (cost=0.00..449.96 rows=148401 width=53)
+ Planning time: 826.960 ms
+ Optimizer: PQO version 3.8.0
+(71 rows)
+
+-- end query 1 in stream 0 using template query57.tpl

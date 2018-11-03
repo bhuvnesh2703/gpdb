@@ -1,0 +1,74 @@
+-- start query 1 in stream 0 using template query32.tpl
+explain
+select  sum(cs_ext_discount_amt)  as "excess discount amount" 
+from 
+   catalog_sales 
+   ,item 
+   ,date_dim
+where
+i_manufact_id = 269
+and i_item_sk = cs_item_sk 
+and d_date between '1998-03-18' and 
+        (cast('1998-03-18' as date) + 90 )
+and d_date_sk = cs_sold_date_sk 
+and cs_ext_discount_amt  
+     > ( 
+         select 
+            1.3 * avg(cs_ext_discount_amt) 
+         from 
+            catalog_sales 
+           ,date_dim
+         where 
+              cs_item_sk = i_item_sk 
+          and d_date between '1998-03-18' and
+                             (cast('1998-03-18' as date) + 90 )
+          and d_date_sk = cs_sold_date_sk 
+      ) 
+limit 100;
+                                                                                                          QUERY PLAN                                                                                                           
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=0.00..305019.71 rows=1 width=8)
+   ->  Aggregate  (cost=0.00..305019.71 rows=1 width=8)
+         ->  Gather Motion 3:1  (slice5; segments: 3)  (cost=0.00..305019.71 rows=1 width=8)
+               ->  Aggregate  (cost=0.00..305019.71 rows=1 width=8)
+                     ->  Hash Join  (cost=0.00..305005.90 rows=24664603 width=5)
+                           Hash Cond: (catalog_sales.cs_item_sk = item.i_item_sk)
+                           Join Filter: (catalog_sales.cs_ext_discount_amt > ((1.3 * (pg_catalog.avg((avg(catalog_sales_1.cs_ext_discount_amt)))))))
+                           ->  Hash Join  (cost=0.00..146142.27 rows=24664603 width=9)
+                                 Hash Cond: (catalog_sales.cs_sold_date_sk = date_dim.d_date_sk)
+                                 ->  Dynamic Table Scan on catalog_sales (dynamic scan id: 1)  (cost=0.00..46102.37 rows=479993344 width=13)
+                                 ->  Hash  (cost=100.00..100.00 rows=34 width=4)
+                                       ->  Partition Selector for catalog_sales (dynamic scan id: 1)  (cost=10.00..100.00 rows=34 width=4)
+                                             ->  Broadcast Motion 3:3  (slice1; segments: 3)  (cost=0.00..433.76 rows=95 width=4)
+                                                   ->  Table Scan on date_dim  (cost=0.00..433.76 rows=32 width=4)
+                                                         Filter: ((d_date >= '03-18-1998'::date) AND (d_date <= '06-16-1998'::date))
+                           ->  Hash  (cost=149723.17..149723.17 rows=482 width=12)
+                                 ->  Broadcast Motion 3:3  (slice4; segments: 3)  (cost=0.00..149723.17 rows=482 width=12)
+                                       ->  Result  (cost=0.00..149723.06 rows=161 width=12)
+                                             ->  Result  (cost=0.00..149723.06 rows=161 width=12)
+                                                   ->  Hash Left Join  (cost=0.00..149723.06 rows=161 width=12)
+                                                         Hash Cond: (item.i_item_sk = catalog_sales_1.cs_item_sk)
+                                                         ->  Table Scan on item  (cost=0.00..450.96 rows=99 width=4)
+                                                               Filter: (i_manufact_id = 269)
+                                                         ->  Hash  (cost=149235.82..149235.82 rows=97360 width=12)
+                                                               ->  Result  (cost=0.00..149235.82 rows=97360 width=12)
+                                                                     ->  HashAggregate  (cost=0.00..149234.65 rows=97360 width=12)
+                                                                           Group Key: catalog_sales_1.cs_item_sk
+                                                                           ->  Redistribute Motion 3:3  (slice3; segments: 3)  (cost=0.00..149222.18 rows=97360 width=12)
+                                                                                 Hash Key: catalog_sales_1.cs_item_sk
+                                                                                 ->  Result  (cost=0.00..149218.52 rows=97360 width=12)
+                                                                                       ->  HashAggregate  (cost=0.00..149218.52 rows=97360 width=12)
+                                                                                             Group Key: catalog_sales_1.cs_item_sk
+                                                                                             ->  Hash Join  (cost=0.00..146142.27 rows=24664603 width=9)
+                                                                                                   Hash Cond: (catalog_sales_1.cs_sold_date_sk = date_dim_1.d_date_sk)
+                                                                                                   ->  Dynamic Table Scan on catalog_sales catalog_sales_1 (dynamic scan id: 2)  (cost=0.00..46102.37 rows=479993344 width=13)
+                                                                                                   ->  Hash  (cost=100.00..100.00 rows=34 width=4)
+                                                                                                         ->  Partition Selector for catalog_sales (dynamic scan id: 2)  (cost=10.00..100.00 rows=34 width=4)
+                                                                                                               ->  Broadcast Motion 3:3  (slice2; segments: 3)  (cost=0.00..433.76 rows=95 width=4)
+                                                                                                                     ->  Table Scan on date_dim date_dim_1  (cost=0.00..433.76 rows=32 width=4)
+                                                                                                                           Filter: ((d_date >= '03-18-1998'::date) AND (d_date <= '06-16-1998'::date))
+ Planning time: 478.301 ms
+ Optimizer: PQO version 3.8.0
+(42 rows)
+
+-- end query 1 in stream 0 using template query32.tpl

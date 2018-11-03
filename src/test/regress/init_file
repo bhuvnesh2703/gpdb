@@ -15,6 +15,7 @@ m/^ Optimizer status:.*/
 m/^ Optimizer: PQO version .*/
 m/^ Optimizer: legacy query optimizer/
 m/^ Settings:.*/
+m/^ Planning time:.*/
 
 # There are a number of NOTICE and HINT messages around table distribution,
 # for example to inform the user that the database will pick a particular

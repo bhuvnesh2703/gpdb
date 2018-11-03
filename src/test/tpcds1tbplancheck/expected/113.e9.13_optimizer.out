@@ -1,0 +1,95 @@
+-- start query 1 in stream 0 using template query13.tpl
+explain
+select avg(ss_quantity)
+       ,avg(ss_ext_sales_price)
+       ,avg(ss_ext_wholesale_cost)
+       ,sum(ss_ext_wholesale_cost)
+ from store_sales
+     ,store
+     ,customer_demographics
+     ,household_demographics
+     ,customer_address
+     ,date_dim
+ where s_store_sk = ss_store_sk
+ and  ss_sold_date_sk = d_date_sk and d_year = 2001
+ and((ss_hdemo_sk=hd_demo_sk
+  and cd_demo_sk = ss_cdemo_sk
+  and cd_marital_status = 'M'
+  and cd_education_status = '4 yr Degree'
+  and ss_sales_price between 100.00 and 150.00
+  and hd_dep_count = 3   
+     )or
+     (ss_hdemo_sk=hd_demo_sk
+  and cd_demo_sk = ss_cdemo_sk
+  and cd_marital_status = 'D'
+  and cd_education_status = 'Primary'
+  and ss_sales_price between 50.00 and 100.00   
+  and hd_dep_count = 1
+     ) or 
+     (ss_hdemo_sk=hd_demo_sk
+  and cd_demo_sk = ss_cdemo_sk
+  and cd_marital_status = 'U'
+  and cd_education_status = 'Advanced Degree'
+  and ss_sales_price between 150.00 and 200.00 
+  and hd_dep_count = 1  
+     ))
+ and((ss_addr_sk = ca_address_sk
+  and ca_country = 'United States'
+  and ca_state in ('KY', 'GA', 'NM')
+  and ss_net_profit between 100 and 200  
+     ) or
+     (ss_addr_sk = ca_address_sk
+  and ca_country = 'United States'
+  and ca_state in ('MT', 'OR', 'IN')
+  and ss_net_profit between 150 and 300  
+     ) or
+     (ss_addr_sk = ca_address_sk
+  and ca_country = 'United States'
+  and ca_state in ('WI', 'MO', 'WV')
+  and ss_net_profit between 50 and 250  
+     ))
+;
+                                                                                                                                                                                                                                                                                                                                                                                                                                 QUERY PLAN                                                                                                                                                                                                                                                                                                                                                                                                                                  
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Aggregate  (cost=0.00..165775.40 rows=1 width=32)
+   ->  Gather Motion 3:1  (slice6; segments: 3)  (cost=0.00..165775.40 rows=1 width=32)
+         ->  Aggregate  (cost=0.00..165775.40 rows=1 width=32)
+               ->  Hash Join  (cost=0.00..165775.31 rows=4174 width=16)
+                     Hash Cond: (store_sales.ss_hdemo_sk = household_demographics.hd_demo_sk)
+                     Join Filter: (((customer_demographics.cd_marital_status = 'M'::bpchar) AND ((customer_demographics.cd_education_status)::text = '4 yr Degree'::text) AND (store_sales.ss_sales_price >= 100.00) AND (store_sales.ss_sales_price <= 150.00) AND (household_demographics.hd_dep_count = 3)) OR ((customer_demographics.cd_marital_status = 'D'::bpchar) AND ((customer_demographics.cd_education_status)::text = 'Primary'::text) AND (store_sales.ss_sales_price >= 50.00) AND (store_sales.ss_sales_price <= 100.00) AND (household_demographics.hd_dep_count = 1)) OR ((customer_demographics.cd_marital_status = 'U'::bpchar) AND ((customer_demographics.cd_education_status)::text = 'Advanced Degree'::text) AND (store_sales.ss_sales_price >= 150.00) AND (store_sales.ss_sales_price <= 200.00) AND (household_demographics.hd_dep_count = 1)))
+                     ->  Hash Join  (cost=0.00..165326.31 rows=30691 width=38)
+                           Hash Cond: (store_sales.ss_store_sk = store.s_store_sk)
+                           ->  Hash Join  (cost=0.00..164884.79 rows=30691 width=42)
+                                 Hash Cond: (store_sales.ss_sold_date_sk = date_dim.d_date_sk)
+                                 ->  Hash Join  (cost=0.00..164415.58 rows=152846 width=46)
+                                       Hash Cond: (store_sales.ss_cdemo_sk = customer_demographics.cd_demo_sk)
+                                       ->  Hash Join  (cost=0.00..163459.68 rows=1452764 width=38)
+                                             Hash Cond: (store_sales.ss_addr_sk = customer_address.ca_address_sk)
+                                             Join Filter: ((((customer_address.ca_state)::text = ANY ('{KY,GA,NM}'::text[])) AND (store_sales.ss_net_profit >= 100::numeric) AND (store_sales.ss_net_profit <= 200::numeric)) OR (((customer_address.ca_state)::text = ANY ('{MT,OR,IN}'::text[])) AND (store_sales.ss_net_profit >= 150::numeric) AND (store_sales.ss_net_profit <= 300::numeric)) OR (((customer_address.ca_state)::text = ANY ('{WI,MO,WV}'::text[])) AND (store_sales.ss_net_profit >= 50::numeric) AND (store_sales.ss_net_profit <= 250::numeric)))
+                                             ->  Dynamic Table Scan on store_sales (dynamic scan id: 1)  (cost=0.00..137607.30 rows=66047873 width=48)
+                                                   Filter: ((((ss_sales_price >= 100.00) AND (ss_sales_price <= 150.00)) OR ((ss_sales_price >= 50.00) AND (ss_sales_price <= 100.00)) OR ((ss_sales_price >= 150.00) AND (ss_sales_price <= 200.00))) AND (((ss_net_profit >= 100::numeric) AND (ss_net_profit <= 200::numeric)) OR ((ss_net_profit >= 150::numeric) AND (ss_net_profit <= 300::numeric)) OR ((ss_net_profit >= 50::numeric) AND (ss_net_profit <= 250::numeric))))
+                                             ->  Hash  (cost=729.19..729.19 rows=114311 width=7)
+                                                   ->  Broadcast Motion 3:3  (slice1; segments: 3)  (cost=0.00..729.19 rows=114311 width=7)
+                                                         ->  Table Scan on customer_address  (cost=0.00..714.86 rows=38104 width=7)
+                                                               Filter: (((ca_country)::text = 'United States'::text) AND (((ca_state)::text = ANY ('{KY,GA,NM}'::text[])) OR ((ca_state)::text = ANY ('{MT,OR,IN}'::text[])) OR ((ca_state)::text = ANY ('{WI,MO,WV}'::text[]))))
+                                       ->  Hash  (cost=555.50..555.50 rows=193604 width=16)
+                                             ->  Broadcast Motion 3:3  (slice2; segments: 3)  (cost=0.00..555.50 rows=193604 width=16)
+                                                   ->  Table Scan on customer_demographics  (cost=0.00..500.05 rows=64535 width=16)
+                                                         Filter: (((cd_marital_status = 'M'::bpchar) AND ((cd_education_status)::text = '4 yr Degree'::text)) OR ((cd_marital_status = 'D'::bpchar) AND ((cd_education_status)::text = 'Primary'::text)) OR ((cd_marital_status = 'U'::bpchar) AND ((cd_education_status)::text = 'Advanced Degree'::text)))
+                                 ->  Hash  (cost=100.00..100.00 rows=34 width=4)
+                                       ->  Partition Selector for store_sales (dynamic scan id: 1)  (cost=10.00..100.00 rows=34 width=4)
+                                             ->  Broadcast Motion 3:3  (slice3; segments: 3)  (cost=0.00..433.78 rows=366 width=4)
+                                                   ->  Table Scan on date_dim  (cost=0.00..433.76 rows=122 width=4)
+                                                         Filter: (d_year = 2001)
+                           ->  Hash  (cost=431.13..431.13 rows=1002 width=4)
+                                 ->  Broadcast Motion 3:3  (slice4; segments: 3)  (cost=0.00..431.13 rows=1002 width=4)
+                                       ->  Table Scan on store  (cost=0.00..431.05 rows=334 width=4)
+                     ->  Hash  (cost=431.36..431.36 rows=1440 width=8)
+                           ->  Broadcast Motion 3:3  (slice5; segments: 3)  (cost=0.00..431.36 rows=1440 width=8)
+                                 ->  Table Scan on household_demographics  (cost=0.00..431.16 rows=480 width=8)
+                                       Filter: ((hd_dep_count = 3) OR (hd_dep_count = 1))
+ Planning time: 1690.916 ms
+ Optimizer: PQO version 3.8.0
+(39 rows)
+
+-- end query 1 in stream 0 using template query13.tpl

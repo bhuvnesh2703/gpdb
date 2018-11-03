@@ -1,0 +1,196 @@
+-- start query 1 in stream 0 using template query58.tpl
+explain
+with ss_items as
+ (select i_item_id item_id
+        ,sum(ss_ext_sales_price) ss_item_rev 
+ from store_sales
+     ,item
+     ,date_dim
+ where ss_item_sk = i_item_sk
+   and d_date in (select d_date
+                  from date_dim
+                  where d_week_seq = (select d_week_seq 
+                                      from date_dim
+                                      where d_date = '1998-02-19'))
+   and ss_sold_date_sk   = d_date_sk
+ group by i_item_id),
+ cs_items as
+ (select i_item_id item_id
+        ,sum(cs_ext_sales_price) cs_item_rev
+  from catalog_sales
+      ,item
+      ,date_dim
+ where cs_item_sk = i_item_sk
+  and  d_date in (select d_date
+                  from date_dim
+                  where d_week_seq = (select d_week_seq 
+                                      from date_dim
+                                      where d_date = '1998-02-19'))
+  and  cs_sold_date_sk = d_date_sk
+ group by i_item_id),
+ ws_items as
+ (select i_item_id item_id
+        ,sum(ws_ext_sales_price) ws_item_rev
+  from web_sales
+      ,item
+      ,date_dim
+ where ws_item_sk = i_item_sk
+  and  d_date in (select d_date
+                  from date_dim
+                  where d_week_seq =(select d_week_seq 
+                                     from date_dim
+                                     where d_date = '1998-02-19'))
+  and ws_sold_date_sk   = d_date_sk
+ group by i_item_id)
+  select  ss_items.item_id
+       ,ss_item_rev
+       ,ss_item_rev/(ss_item_rev+cs_item_rev+ws_item_rev)/3 * 100 ss_dev
+       ,cs_item_rev
+       ,cs_item_rev/(ss_item_rev+cs_item_rev+ws_item_rev)/3 * 100 cs_dev
+       ,ws_item_rev
+       ,ws_item_rev/(ss_item_rev+cs_item_rev+ws_item_rev)/3 * 100 ws_dev
+       ,(ss_item_rev+cs_item_rev+ws_item_rev)/3 average
+ from ss_items,cs_items,ws_items
+ where ss_items.item_id=cs_items.item_id
+   and ss_items.item_id=ws_items.item_id 
+   and ss_item_rev between 0.9 * cs_item_rev and 1.1 * cs_item_rev
+   and ss_item_rev between 0.9 * ws_item_rev and 1.1 * ws_item_rev
+   and cs_item_rev between 0.9 * ss_item_rev and 1.1 * ss_item_rev
+   and cs_item_rev between 0.9 * ws_item_rev and 1.1 * ws_item_rev
+   and ws_item_rev between 0.9 * ss_item_rev and 1.1 * ss_item_rev
+   and ws_item_rev between 0.9 * cs_item_rev and 1.1 * cs_item_rev
+ order by item_id
+         ,ss_item_rev
+ limit 100;
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            QUERY PLAN                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Sort  (cost=0.00..491206.05 rows=34 width=64)
+   Sort Key: item_1.i_item_id, (pg_catalog.sum((sum(store_sales.ss_ext_sales_price))))
+   ->  Limit  (cost=0.00..491205.81 rows=34 width=64)
+         ->  Gather Motion 3:1  (slice19; segments: 3)  (cost=0.00..491205.80 rows=100 width=64)
+               Merge Key: item_1.i_item_id, (pg_catalog.sum((sum(store_sales.ss_ext_sales_price))))
+               ->  Limit  (cost=0.00..491205.78 rows=34 width=64)
+                     ->  Result  (cost=0.00..491205.78 rows=3102 width=64)
+                           ->  Sort  (cost=0.00..491205.58 rows=3102 width=41)
+                                 Sort Key: item_1.i_item_id, (pg_catalog.sum((sum(store_sales.ss_ext_sales_price))))
+                                 ->  Hash Join  (cost=0.00..491197.22 rows=3102 width=41)
+                                       Hash Cond: ((item.i_item_id)::text = (item_1.i_item_id)::text)
+                                       Join Filter: (((pg_catalog.sum((sum(store_sales.ss_ext_sales_price)))) >= (0.9 * (pg_catalog.sum((sum(catalog_sales.cs_ext_sales_price)))))) AND ((pg_catalog.sum((sum(store_sales.ss_ext_sales_price)))) <= (1.1 * (pg_catalog.sum((sum(catalog_sales.cs_ext_sales_price)))))) AND ((pg_catalog.sum((sum(catalog_sales.cs_ext_sales_price)))) >= (0.9 * (pg_catalog.sum((sum(store_sales.ss_ext_sales_price)))))) AND ((pg_catalog.sum((sum(catalog_sales.cs_ext_sales_price)))) <= (1.1 * (pg_catalog.sum((sum(store_sales.ss_ext_sales_price)))))) AND ((pg_catalog.sum((sum(catalog_sales.cs_ext_sales_price)))) >= (0.9 * (pg_catalog.sum((sum(web_sales.ws_ext_sales_price)))))) AND ((pg_catalog.sum((sum(catalog_sales.cs_ext_sales_price)))) <= (1.1 * (pg_catalog.sum((sum(web_sales.ws_ext_sales_price)))))) AND ((pg_catalog.sum((sum(web_sales.ws_ext_sales_price)))) >= (0.9 * (pg_catalog.sum((sum(catalog_sales.cs_ext_sales_price)))))) AND ((pg_catalog.sum((sum(web_sales.ws_ext_sales_price)))) <= (1.1 * (pg_catalog.sum((sum(catalog_sales.cs_ext_sales_price)))))))
+                                       ->  HashAggregate  (cost=0.00..146746.63 rows=42635 width=25)
+                                             Group Key: item.i_item_id
+                                             ->  Redistribute Motion 3:3  (slice6; segments: 3)  (cost=0.00..146740.79 rows=42635 width=25)
+                                                   Hash Key: item.i_item_id
+                                                   ->  Result  (cost=0.00..146737.46 rows=42635 width=25)
+                                                         ->  HashAggregate  (cost=0.00..146737.46 rows=42635 width=25)
+                                                               Group Key: item.i_item_id
+                                                               ->  Hash Join  (cost=0.00..146731.17 rows=46109 width=22)
+                                                                     Hash Cond: (item.i_item_sk = catalog_sales.cs_item_sk)
+                                                                     ->  Table Scan on item  (cost=0.00..447.68 rows=99749 width=21)
+                                                                     ->  Hash  (cost=146243.40..146243.40 rows=46109 width=9)
+                                                                           ->  Redistribute Motion 3:3  (slice5; segments: 3)  (cost=0.00..146243.40 rows=46109 width=9)
+                                                                                 Hash Key: catalog_sales.cs_item_sk
+                                                                                 ->  Hash Join  (cost=0.00..146242.11 rows=46109 width=9)
+                                                                                       Hash Cond: (catalog_sales.cs_sold_date_sk = date_dim.d_date_sk)
+                                                                                       ->  Dynamic Table Scan on catalog_sales (dynamic scan id: 2)  (cost=0.00..46102.37 rows=479993344 width=13)
+                                                                                       ->  Hash  (cost=100.00..100.00 rows=34 width=4)
+                                                                                             ->  Partition Selector for catalog_sales (dynamic scan id: 2)  (cost=10.00..100.00 rows=34 width=4)
+                                                                                                   ->  Broadcast Motion 3:3  (slice4; segments: 3)  (cost=0.00..1309.10 rows=8 width=4)
+                                                                                                         ->  Hash Semi Join  (cost=0.00..1309.10 rows=3 width=4)
+                                                                                                               Hash Cond: (date_dim.d_date = date_dim_1.d_date)
+                                                                                                               ->  Table Scan on date_dim  (cost=0.00..432.96 rows=24350 width=8)
+                                                                                                               ->  Hash  (cost=871.43..871.43 rows=8 width=4)
+                                                                                                                     ->  Broadcast Motion 3:3  (slice3; segments: 3)  (cost=0.00..871.43 rows=8 width=4)
+                                                                                                                           ->  Hash Join  (cost=0.00..871.43 rows=3 width=4)
+                                                                                                                                 Hash Cond: (date_dim_1.d_week_seq = date_dim_2.d_week_seq)
+                                                                                                                                 ->  Table Scan on date_dim date_dim_1  (cost=0.00..432.96 rows=24350 width=8)
+                                                                                                                                 ->  Hash  (cost=433.76..433.76 rows=1 width=4)
+                                                                                                                                       ->  Assert  (cost=0.00..433.76 rows=1 width=4)
+                                                                                                                                             Assert Cond: ((row_number() OVER (?)) = 1)
+                                                                                                                                             ->  Broadcast Motion 1:3  (slice2)  (cost=0.00..433.76 rows=3 width=12)
+                                                                                                                                                   ->  Result  (cost=0.00..433.76 rows=1 width=12)
+                                                                                                                                                         ->  WindowAgg  (cost=0.00..433.76 rows=1 width=12)
+                                                                                                                                                               ->  Gather Motion 3:1  (slice1; segments: 3)  (cost=0.00..433.76 rows=1 width=4)
+                                                                                                                                                                     ->  Table Scan on date_dim date_dim_2  (cost=0.00..433.76 rows=1 width=4)
+                                                                                                                                                                           Filter: (d_date = '02-19-1998'::date)
+                                       ->  Hash  (cost=344419.48..344419.48 rows=11499 width=33)
+                                             ->  Hash Join  (cost=0.00..344419.48 rows=11499 width=33)
+                                                   Hash Cond: ((item_1.i_item_id)::text = (item_2.i_item_id)::text)
+                                                   Join Filter: (((pg_catalog.sum((sum(store_sales.ss_ext_sales_price)))) >= (0.9 * (pg_catalog.sum((sum(web_sales.ws_ext_sales_price)))))) AND ((pg_catalog.sum((sum(store_sales.ss_ext_sales_price)))) <= (1.1 * (pg_catalog.sum((sum(web_sales.ws_ext_sales_price)))))) AND ((pg_catalog.sum((sum(web_sales.ws_ext_sales_price)))) >= (0.9 * (pg_catalog.sum((sum(store_sales.ss_ext_sales_price)))))) AND ((pg_catalog.sum((sum(web_sales.ws_ext_sales_price)))) <= (1.1 * (pg_catalog.sum((sum(store_sales.ss_ext_sales_price)))))))
+                                                   ->  HashAggregate  (cost=0.00..270417.85 rows=42635 width=25)
+                                                         Group Key: item_1.i_item_id
+                                                         ->  Redistribute Motion 3:3  (slice12; segments: 3)  (cost=0.00..270412.01 rows=42635 width=25)
+                                                               Hash Key: item_1.i_item_id
+                                                               ->  Result  (cost=0.00..270408.68 rows=42635 width=25)
+                                                                     ->  HashAggregate  (cost=0.00..270408.68 rows=42635 width=25)
+                                                                           Group Key: item_1.i_item_id
+                                                                           ->  Hash Join  (cost=0.00..270396.41 rows=92219 width=23)
+                                                                                 Hash Cond: (item_1.i_item_sk = store_sales.ss_item_sk)
+                                                                                 ->  Table Scan on item item_1  (cost=0.00..447.68 rows=99749 width=21)
+                                                                                 ->  Hash  (cost=269888.64..269888.64 rows=92219 width=10)
+                                                                                       ->  Redistribute Motion 3:3  (slice11; segments: 3)  (cost=0.00..269888.64 rows=92219 width=10)
+                                                                                             Hash Key: store_sales.ss_item_sk
+                                                                                             ->  Hash Join  (cost=0.00..269885.76 rows=92219 width=10)
+                                                                                                   Hash Cond: (store_sales.ss_sold_date_sk = date_dim_3.d_date_sk)
+                                                                                                   ->  Dynamic Table Scan on store_sales (dynamic scan id: 1)  (cost=0.00..68542.76 rows=959996672 width=14)
+                                                                                                   ->  Hash  (cost=100.00..100.00 rows=34 width=4)
+                                                                                                         ->  Partition Selector for store_sales (dynamic scan id: 1)  (cost=10.00..100.00 rows=34 width=4)
+                                                                                                               ->  Broadcast Motion 3:3  (slice10; segments: 3)  (cost=0.00..1309.10 rows=8 width=4)
+                                                                                                                     ->  Hash Semi Join  (cost=0.00..1309.10 rows=3 width=4)
+                                                                                                                           Hash Cond: (date_dim_3.d_date = date_dim_4.d_date)
+                                                                                                                           ->  Table Scan on date_dim date_dim_3  (cost=0.00..432.96 rows=24350 width=8)
+                                                                                                                           ->  Hash  (cost=871.43..871.43 rows=8 width=4)
+                                                                                                                                 ->  Broadcast Motion 3:3  (slice9; segments: 3)  (cost=0.00..871.43 rows=8 width=4)
+                                                                                                                                       ->  Hash Join  (cost=0.00..871.43 rows=3 width=4)
+                                                                                                                                             Hash Cond: (date_dim_4.d_week_seq = date_dim_5.d_week_seq)
+                                                                                                                                             ->  Table Scan on date_dim date_dim_4  (cost=0.00..432.96 rows=24350 width=8)
+                                                                                                                                             ->  Hash  (cost=433.76..433.76 rows=1 width=4)
+                                                                                                                                                   ->  Assert  (cost=0.00..433.76 rows=1 width=4)
+                                                                                                                                                         Assert Cond: ((row_number() OVER (?)) = 1)
+                                                                                                                                                         ->  Broadcast Motion 1:3  (slice8)  (cost=0.00..433.76 rows=3 width=12)
+                                                                                                                                                               ->  Result  (cost=0.00..433.76 rows=1 width=12)
+                                                                                                                                                                     ->  WindowAgg  (cost=0.00..433.76 rows=1 width=12)
+                                                                                                                                                                           ->  Gather Motion 3:1  (slice7; segments: 3)  (cost=0.00..433.76 rows=1 width=4)
+                                                                                                                                                                                 ->  Table Scan on date_dim date_dim_5  (cost=0.00..433.76 rows=1 width=4)
+                                                                                                                                                                                       Filter: (d_date = '02-19-1998'::date)
+                                                   ->  Hash  (cost=73952.12..73952.12 rows=42635 width=25)
+                                                         ->  HashAggregate  (cost=0.00..73952.12 rows=42635 width=25)
+                                                               Group Key: item_2.i_item_id
+                                                               ->  Redistribute Motion 3:3  (slice18; segments: 3)  (cost=0.00..73948.69 rows=23055 width=25)
+                                                                     Hash Key: item_2.i_item_id
+                                                                     ->  Result  (cost=0.00..73946.88 rows=23055 width=25)
+                                                                           ->  HashAggregate  (cost=0.00..73946.88 rows=23055 width=25)
+                                                                                 Group Key: item_2.i_item_id
+                                                                                 ->  Hash Join  (cost=0.00..73943.73 rows=23055 width=22)
+                                                                                       Hash Cond: (item_2.i_item_sk = web_sales.ws_item_sk)
+                                                                                       ->  Table Scan on item item_2  (cost=0.00..447.68 rows=99749 width=21)
+                                                                                       ->  Hash  (cost=73464.75..73464.75 rows=23055 width=9)
+                                                                                             ->  Redistribute Motion 3:3  (slice17; segments: 3)  (cost=0.00..73464.75 rows=23055 width=9)
+                                                                                                   Hash Key: web_sales.ws_item_sk
+                                                                                                   ->  Hash Join  (cost=0.00..73464.10 rows=23055 width=9)
+                                                                                                         Hash Cond: (web_sales.ws_sold_date_sk = date_dim_6.d_date_sk)
+                                                                                                         ->  Dynamic Table Scan on web_sales (dynamic scan id: 3)  (cost=0.00..22739.00 rows=240000000 width=13)
+                                                                                                         ->  Hash  (cost=100.00..100.00 rows=34 width=4)
+                                                                                                               ->  Partition Selector for web_sales (dynamic scan id: 3)  (cost=10.00..100.00 rows=34 width=4)
+                                                                                                                     ->  Broadcast Motion 3:3  (slice16; segments: 3)  (cost=0.00..1309.10 rows=8 width=4)
+                                                                                                                           ->  Hash Semi Join  (cost=0.00..1309.10 rows=3 width=4)
+                                                                                                                                 Hash Cond: (date_dim_6.d_date = date_dim_7.d_date)
+                                                                                                                                 ->  Table Scan on date_dim date_dim_6  (cost=0.00..432.96 rows=24350 width=8)
+                                                                                                                                 ->  Hash  (cost=871.43..871.43 rows=8 width=4)
+                                                                                                                                       ->  Broadcast Motion 3:3  (slice15; segments: 3)  (cost=0.00..871.43 rows=8 width=4)
+                                                                                                                                             ->  Hash Join  (cost=0.00..871.43 rows=3 width=4)
+                                                                                                                                                   Hash Cond: (date_dim_7.d_week_seq = date_dim_8.d_week_seq)
+                                                                                                                                                   ->  Table Scan on date_dim date_dim_7  (cost=0.00..432.96 rows=24350 width=8)
+                                                                                                                                                   ->  Hash  (cost=433.76..433.76 rows=1 width=4)
+                                                                                                                                                         ->  Assert  (cost=0.00..433.76 rows=1 width=4)
+                                                                                                                                                               Assert Cond: ((row_number() OVER (?)) = 1)
+                                                                                                                                                               ->  Broadcast Motion 1:3  (slice14)  (cost=0.00..433.76 rows=3 width=12)
+                                                                                                                                                                     ->  Result  (cost=0.00..433.76 rows=1 width=12)
+                                                                                                                                                                           ->  WindowAgg  (cost=0.00..433.76 rows=1 width=12)
+                                                                                                                                                                                 ->  Gather Motion 3:1  (slice13; segments: 3)  (cost=0.00..433.76 rows=1 width=4)
+                                                                                                                                                                                       ->  Table Scan on date_dim date_dim_8  (cost=0.00..433.76 rows=1 width=4)
+                                                                                                                                                                                             Filter: (d_date = '02-19-1998'::date)
+ Planning time: 2082.709 ms
+ Optimizer: PQO version 3.8.0
+(127 rows)
+
+-- end query 1 in stream 0 using template query58.tpl

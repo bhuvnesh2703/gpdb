@@ -1,0 +1,102 @@
+-- start query 1 in stream 0 using template query16.tpl
+explain
+select  
+   count(distinct cs_order_number) as "order count"
+  ,sum(cs_ext_ship_cost) as "total shipping cost"
+  ,sum(cs_net_profit) as "total net profit"
+from
+   catalog_sales cs1
+  ,date_dim
+  ,customer_address
+  ,call_center
+where
+    d_date between '2002-4-01' and 
+           (cast('2002-4-01' as date) + 60 )
+and cs1.cs_ship_date_sk = d_date_sk
+and cs1.cs_ship_addr_sk = ca_address_sk
+and ca_state = 'TN'
+and cs1.cs_call_center_sk = cc_call_center_sk
+and cc_county in ('Walker County','Oglethorpe County','Huron County','Wadena County',
+                  'Ziebach County'
+)
+and exists (select *
+            from catalog_sales cs2
+            where cs1.cs_order_number = cs2.cs_order_number
+              and cs1.cs_warehouse_sk <> cs2.cs_warehouse_sk)
+and not exists(select *
+               from catalog_returns cr1
+               where cs1.cs_order_number = cr1.cr_order_number)
+order by count(distinct cs_order_number)
+limit 100;
+                                                                                                                                                                                                   QUERY PLAN                                                                                                                                                                                                    
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=0.00..472073.77 rows=1 width=24)
+   ->  Sort  (cost=0.00..472073.77 rows=1 width=24)
+         Sort Key: (count(catalog_sales_1.cs_order_number))
+         ->  Aggregate  (cost=0.00..472073.77 rows=1 width=24)
+               ->  Gather Motion 3:1  (slice9; segments: 3)  (cost=0.00..472072.92 rows=35384 width=24)
+                     ->  Result  (cost=0.00..472069.75 rows=11795 width=24)
+                           ->  HashAggregate  (cost=0.00..472069.75 rows=11795 width=24)
+                                 Group Key: catalog_sales_1.cs_order_number
+                                 ->  Redistribute Motion 3:3  (slice8; segments: 3)  (cost=0.00..472068.15 rows=11795 width=24)
+                                       Hash Key: catalog_sales_1.cs_order_number
+                                       ->  Result  (cost=0.00..472067.26 rows=11795 width=24)
+                                             ->  HashAggregate  (cost=0.00..472067.26 rows=11795 width=24)
+                                                   Group Key: catalog_sales_1.cs_order_number
+                                                   ->  GroupAggregate  (cost=0.00..472065.66 rows=11795 width=18)
+                                                         Group Key: catalog_sales_1.cs_order_number, catalog_sales_1.cs_ext_ship_cost, catalog_sales_1.cs_net_profit, catalog_sales_1.ctid, catalog_sales_1.tableoid, catalog_sales_1.gp_segment_id, date_dim.ctid, date_dim.gp_segment_id, customer_address.ctid, customer_address.gp_segment_id, call_center.ctid, call_center.gp_segment_id
+                                                         ->  Sort  (cost=0.00..472055.85 rows=156199 width=62)
+                                                               Sort Key: catalog_sales_1.ctid, catalog_sales_1.tableoid, catalog_sales_1.gp_segment_id, date_dim.ctid, date_dim.gp_segment_id, customer_address.ctid, customer_address.gp_segment_id, call_center.ctid, call_center.gp_segment_id
+                                                               ->  Redistribute Motion 3:3  (slice7; segments: 3)  (cost=0.00..471108.49 rows=156199 width=62)
+                                                                     Hash Key: catalog_sales_1.ctid, catalog_sales_1.tableoid, catalog_sales_1.gp_segment_id, date_dim.ctid, date_dim.gp_segment_id, customer_address.ctid, customer_address.gp_segment_id, call_center.ctid, call_center.gp_segment_id
+                                                                     ->  GroupAggregate  (cost=0.00..471078.18 rows=156199 width=62)
+                                                                           Group Key: catalog_sales_1.cs_order_number, catalog_sales_1.cs_ext_ship_cost, catalog_sales_1.cs_net_profit, catalog_sales_1.ctid, catalog_sales_1.tableoid, catalog_sales_1.gp_segment_id, date_dim.ctid, date_dim.gp_segment_id, customer_address.ctid, customer_address.gp_segment_id, call_center.ctid, call_center.gp_segment_id
+                                                                           ->  Sort  (cost=0.00..471063.06 rows=156199 width=62)
+                                                                                 Sort Key: catalog_sales_1.ctid, catalog_sales_1.tableoid, catalog_sales_1.gp_segment_id, date_dim.ctid, date_dim.gp_segment_id, customer_address.ctid, customer_address.gp_segment_id, call_center.ctid, call_center.gp_segment_id
+                                                                                 ->  Hash Join  (cost=0.00..470115.70 rows=156199 width=62)
+                                                                                       Hash Cond: (catalog_sales.cs_order_number = catalog_sales_1.cs_order_number)
+                                                                                       Join Filter: (catalog_sales_1.cs_warehouse_sk <> catalog_sales.cs_warehouse_sk)
+                                                                                       ->  Sequence  (cost=0.00..46102.37 rows=479993344 width=12)
+                                                                                             ->  Partition Selector for catalog_sales (dynamic scan id: 2)  (cost=10.00..100.00 rows=34 width=4)
+                                                                                                   Partitions selected: 80 (out of 80)
+                                                                                             ->  Dynamic Table Scan on catalog_sales (dynamic scan id: 2)  (cost=0.00..46102.37 rows=479993344 width=12)
+                                                                                       ->  Hash  (cost=237092.53..237092.53 rows=35366 width=66)
+                                                                                             ->  Broadcast Motion 3:3  (slice6; segments: 3)  (cost=0.00..237092.53 rows=35366 width=66)
+                                                                                                   ->  Hash Anti Join  (cost=0.00..237050.75 rows=11789 width=66)
+                                                                                                         Hash Cond: (catalog_sales_1.cs_order_number = catalog_returns.cr_order_number)
+                                                                                                         ->  Redistribute Motion 3:3  (slice4; segments: 3)  (cost=0.00..215451.85 rows=29471 width=66)
+                                                                                                               Hash Key: catalog_sales_1.cs_order_number
+                                                                                                               ->  Hash Join  (cost=0.00..215445.76 rows=29471 width=66)
+                                                                                                                     Hash Cond: (catalog_sales_1.cs_call_center_sk = call_center.cc_call_center_sk)
+                                                                                                                     ->  Hash Join  (cost=0.00..214934.41 rows=349587 width=60)
+                                                                                                                           Hash Cond: (catalog_sales_1.cs_ship_date_sk = date_dim.d_date_sk)
+                                                                                                                           ->  Hash Join  (cost=0.00..212206.09 rows=10746339 width=54)
+                                                                                                                                 Hash Cond: (catalog_sales_1.cs_ship_addr_sk = customer_address.ca_address_sk)
+                                                                                                                                 ->  Sequence  (cost=0.00..46102.37 rows=479993344 width=48)
+                                                                                                                                       ->  Partition Selector for catalog_sales (dynamic scan id: 1)  (cost=10.00..100.00 rows=34 width=4)
+                                                                                                                                             Partitions selected: 80 (out of 80)
+                                                                                                                                       ->  Dynamic Table Scan on catalog_sales catalog_sales_1 (dynamic scan id: 1)  (cost=0.00..46102.37 rows=479993344 width=48)
+                                                                                                                                 ->  Hash  (cost=677.41..677.41 rows=114309 width=14)
+                                                                                                                                       ->  Broadcast Motion 3:3  (slice1; segments: 3)  (cost=0.00..677.41 rows=114309 width=14)
+                                                                                                                                             ->  Table Scan on customer_address  (cost=0.00..648.76 rows=38103 width=14)
+                                                                                                                                                   Filter: ((ca_state)::text = 'TN'::text)
+                                                                                                                           ->  Hash  (cost=433.77..433.77 rows=63 width=14)
+                                                                                                                                 ->  Broadcast Motion 3:3  (slice2; segments: 3)  (cost=0.00..433.77 rows=63 width=14)
+                                                                                                                                       ->  Table Scan on date_dim  (cost=0.00..433.76 rows=21 width=14)
+                                                                                                                                             Filter: ((d_date >= '04-01-2002'::date) AND (d_date <= '05-31-2002'::date))
+                                                                                                                     ->  Hash  (cost=431.00..431.00 rows=4 width=14)
+                                                                                                                           ->  Broadcast Motion 3:3  (slice3; segments: 3)  (cost=0.00..431.00 rows=4 width=14)
+                                                                                                                                 ->  Table Scan on call_center  (cost=0.00..431.00 rows=2 width=14)
+                                                                                                                                       Filter: ((cc_county)::text = ANY ('{"Walker County","Oglethorpe County","Huron County","Wadena County","Ziebach County"}'::text[]))
+                                                                                                         ->  Hash  (cost=6295.04..6295.04 rows=47998998 width=8)
+                                                                                                               ->  Redistribute Motion 3:3  (slice5; segments: 3)  (cost=0.00..6295.04 rows=47998998 width=8)
+                                                                                                                     Hash Key: catalog_returns.cr_order_number
+                                                                                                                     ->  Sequence  (cost=0.00..3994.93 rows=47998998 width=8)
+                                                                                                                           ->  Partition Selector for catalog_returns (dynamic scan id: 3)  (cost=10.00..100.00 rows=34 width=4)
+                                                                                                                                 Partitions selected: 80 (out of 80)
+                                                                                                                           ->  Dynamic Table Scan on catalog_returns (dynamic scan id: 3)  (cost=0.00..3994.93 rows=47998998 width=8)
+ Planning time: 2207.097 ms
+ Optimizer: PQO version 3.8.0
+(67 rows)
+
+-- end query 1 in stream 0 using template query16.tpl
