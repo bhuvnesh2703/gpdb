@@ -78,7 +78,12 @@ eval_part_qual(ExprState *exprstate, PartitionSelectorState *node, TupleTableSlo
 
 	List *qualList = list_make1(exprstate);
 
-	return ExecQual(qualList, econtext, false /* result is not for null */);
+	bool result = ExecQual(qualList, econtext, false /* result is not for null */);
+
+	/* once the qual is evaluated, free the memory */
+	list_free(qualList);
+
+	return result;
 }
 
 /* ----------------------------------------------------------------
