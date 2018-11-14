@@ -574,6 +574,7 @@ CTranslatorRelcacheToDXL::RetrieveRel
 	BOOL has_oids = false;
 	BOOL is_partitioned = false;
 	IMDRelation *md_rel = NULL;
+	BOOL has_unsupported_storage_children = false;
 
 
 	GPOS_TRY
@@ -617,7 +618,7 @@ CTranslatorRelcacheToDXL::RetrieveRel
 		if (is_partitioned && IMDRelation::ErelstorageAppendOnlyParquet != rel_storage_type && IMDRelation::ErelstorageExternal != rel_storage_type)
 		{
 			// mark relation as Parquet if one of its children is parquet
-			if (gpdb::HasParquetChildren(oid))
+			if (gpdb::HasMatchingStorageTypeChildren(oid, RELSTORAGE_PARQUET))
 			{
 				rel_storage_type = IMDRelation::ErelstorageAppendOnlyParquet;
 			}
@@ -627,6 +628,7 @@ CTranslatorRelcacheToDXL::RetrieveRel
 		if (gpdb::RelPartIsRoot(oid))
 		{
 			num_leaf_partitions = gpdb::CountLeafPartTables(oid);
+			has_unsupported_storage_children = gpdb::HasMatchingStorageTypeChildren(oid, RELSTORAGE_VIRTUAL);
 		}
 
 		// get key sets
@@ -651,6 +653,11 @@ CTranslatorRelcacheToDXL::RetrieveRel
 
 	GPOS_ASSERT(IMDRelation::ErelstorageSentinel != rel_storage_type);
 	GPOS_ASSERT(IMDRelation::EreldistrSentinel != dist);
+
+	if (has_unsupported_storage_children)
+	{
+		GPOS_RAISE(gpdxl::ExmaMD, gpdxl::ExmiMDObjUnsupported, GPOS_WSZ_LIT("plan contains range table with relstorage='v'"));
+	}
 
 	mdid->AddRef();
 

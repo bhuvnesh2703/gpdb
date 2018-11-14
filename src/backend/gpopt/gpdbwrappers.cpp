@@ -2246,17 +2246,17 @@ gpdb::FHasSubclass
 	return false;
 }
 
-
 bool
-gpdb::HasParquetChildren
+gpdb::HasMatchingStorageTypeChildren
 	(
-	Oid rel_oid
+	Oid rel_oid,
+	char storage_type
 	)
 {
 	GP_WRAP_START;
 	{
 		/* catalog tables: pg_inherits, pg_class */
-		return has_parquet_children(rel_oid);
+		return has_matching_storage_type_children(rel_oid, storage_type);
 	}
 	GP_WRAP_END;
 	return false;

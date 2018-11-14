@@ -4024,11 +4024,11 @@ get_index_opfamilies(Oid oidIndex)
 }
 
 /*
- *  has_parquet_children
- *  Check if relation has a Parquet child relation
+ *  has_matching_storage_type_children
+ *  Check if relation has a given storage type child relation
  */
 bool
-has_parquet_children(Oid relationId)
+has_matching_storage_type_children(Oid relationId, char storagetype)
 {
 	Assert(InvalidOid != relationId);
 	List *child_oids = find_all_inheritors(relationId);
@@ -4039,7 +4039,7 @@ has_parquet_children(Oid relationId)
 		Oid oidChild = lfirst_oid(lc);
 		Relation rel = RelationIdGetRelation(oidChild);
 		Assert(NULL != rel);
-		if (RELSTORAGE_PARQUET == rel->rd_rel->relstorage)
+		if (storagetype == rel->rd_rel->relstorage)
 		{
 			list_free(child_oids);
 			RelationClose(rel);
@@ -4084,7 +4084,7 @@ child_distribution_mismatch(Relation rel)
 	GpPolicy *rootPolicy = rel->rd_cdbpolicy;
 	Assert(NULL != rootPolicy && "Partitioned tables cannot be master-only");
 
-	if (POLICYTYPE_PARTITIONED == rootPolicy->ptype && 0 == rootPolicy->nattrs)
+	if (GpPolicyIsRandomly(rootPolicy))
 	{
 		/* root partition policy already marked as Random, no mismatch possible as
 		 * all children must be random as well */
@@ -4101,7 +4101,7 @@ child_distribution_mismatch(Relation rel)
 		Assert(NULL != relChild);
 
 		GpPolicy *childPolicy = relChild->rd_cdbpolicy;
-		if (POLICYTYPE_PARTITIONED == childPolicy->ptype && 0 == childPolicy->nattrs)
+		if (GpPolicyIsRandomly(childPolicy))
 		{
 			/* child partition is Random, and parent is not */
 			RelationClose(relChild);

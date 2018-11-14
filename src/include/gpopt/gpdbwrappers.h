@@ -488,7 +488,7 @@ namespace gpdb {
 	bool FHasSubclass(Oid rel_oid);
 
     // check whether a relation has parquet children
-    bool HasParquetChildren(Oid rel_oid);
+    bool HasMatchingStorageTypeChildren(Oid rel_oid, char storage_type);
     
     // return the distribution policy of a relation; if the table is partitioned
     // and the parts are distributed differently, return Random distribution

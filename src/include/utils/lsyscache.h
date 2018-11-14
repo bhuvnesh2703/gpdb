@@ -204,7 +204,7 @@ Oid get_check_constraint_relid(Oid oidCheckconstraint);
 
 extern bool has_subclass_fast(Oid relationId);
 extern bool has_subclass(Oid relationId);
-extern bool has_parquet_children(Oid relationId);
+extern bool has_matching_storage_type_children(Oid relationId, char storageType);
 extern GpPolicy *relation_policy(Relation rel);
 extern bool child_distribution_mismatch(Relation rel);
 extern bool child_triggers(Oid relationId, int32 triggerType);
