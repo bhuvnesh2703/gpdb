@@ -209,7 +209,7 @@ RESET ALL;
 ----------------------------------------------------------------
 create table mpp8014 (i int) distributed by (i);
 create index mpp8014_bitmap_idx on mpp8014 using bitmap(i);
-select localoid::regclass, attrnums from gp_distribution_policy where localoid='mpp8014'::regclass order by localoid::regclass;
+select localoid::regclass, distkey from gp_distribution_policy where localoid='mpp8014'::regclass order by localoid::regclass;
 RESET ALL;
 
 -- ----------------------------------------------------------------------
