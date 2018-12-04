@@ -92,7 +92,7 @@ hll_unpack(HLLCounter hloglog){
     HLLCounter htemp;
     
     if (hloglog->format == UNPACKED || hloglog->format == UNPACKED_UNPACKED){
-	return hloglog;
+	return hll_copy(hloglog);
     }
 
     /* use decompress to handle compressed unpacking */
@@ -120,12 +120,10 @@ hll_unpack(HLLCounter hloglog){
 	    htemp->data[i] = entry;
 	}
 
-    hloglog = htemp;
-
     /* set the varsize to the appropriate length  */
-    SET_VARSIZE(hloglog, sizeof(HLLData) + m);
+    SET_VARSIZE(htemp, sizeof(HLLData) + m);
 
-	return hloglog;
+	return htemp;
 }
 
 
@@ -134,7 +132,7 @@ hll_decompress_unpacked(HLLCounter hloglog)
 {
 	/* make sure the data is compressed */
 	if (hloglog->b > 0) {
-		return hloglog;
+		return hll_copy(hloglog);
 	}
 
 	hloglog = hll_decompress_dense_unpacked(hloglog);
@@ -818,10 +816,12 @@ hyperloglog_merge_counters(HLLCounter counter1, HLLCounter counter2)
 		/* ok, we already have the estimator - merge the second one into it */
 		/* unpack if needed */
 		counter1 = hll_unpack(counter1);
+//		HLLCounter counbter11 = hll_copy(counter1);
 		counter2 = hll_unpack(counter2);
 		
 		/* perform the merge */
 		counter1 = hll_merge(counter1, counter2);
+		pfree(counter2);
 	}
 	
 	/* return the updated HLLCounter */

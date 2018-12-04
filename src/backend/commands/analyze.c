@@ -3262,7 +3262,10 @@ merge_leaf_stats(VacAttrStatsP stats,
 			nMultiples[i] = (float) hllcounters[i]->nmultiples;
 			samplerows += hllcounters[i]->samplerows;
 			hllcounters_copy[i] = hll_copy(hllcounters[i]);
-			finalHLL = hyperloglog_merge_counters(finalHLL, hllcounters[i]);
+			HLLCounter hllTemp = finalHLL;
+			finalHLL = hyperloglog_merge_counters(hllTemp, hllcounters[i]);
+			if(hllTemp != NULL)
+				pfree(hllTemp);
 			free_attstatsslot(&hllSlot);
 			samplehll_count++;
 			totalhll_count++;
@@ -3337,10 +3340,12 @@ merge_leaf_stats(VacAttrStatsP stats,
 						// except the current partition (i)
 						if (i != j && hllcounters_copy[j] != NULL)
 						{
-							HLLCounter temp_hll_counter =
-								hll_copy(hllcounters_copy[j]);
-							finalHLL_temp =
-								hyperloglog_merge_counters(finalHLL_temp, temp_hll_counter);
+							HLLCounter temp_hll_counter = hll_copy(hllcounters_copy[j]);
+							HLLCounter finalHLLtemp = finalHLL_temp;
+							finalHLL_temp = hyperloglog_merge_counters(finalHLLtemp, temp_hll_counter);
+							if (finalHLLtemp != NULL)
+								pfree(finalHLLtemp);
+							pfree(temp_hll_counter);
 						}
 					}
 					if (finalHLL_temp != NULL)
@@ -3375,6 +3380,8 @@ merge_leaf_stats(VacAttrStatsP stats,
 			pfree(nDistincts);
 			pfree(nMultiples);
 			pfree(nUniques);
+			if (finalHLL != NULL)
+				pfree(finalHLL);
 			ereport(ERROR,
 					 (errmsg("ANALYZE cannot merge since not all non-empty leaf partitions have consistent hyperloglog statistics for merge"),
 					 errhint("Re-run ANALYZE")));
@@ -3385,6 +3392,8 @@ merge_leaf_stats(VacAttrStatsP stats,
 	pfree(nDistincts);
 	pfree(nMultiples);
 	pfree(nUniques);
+	if (finalHLL != NULL)
+		pfree(finalHLL);
 
 	if (allDistinct || (!OidIsValid(eqopr) && !OidIsValid(ltopr)))
 	{
