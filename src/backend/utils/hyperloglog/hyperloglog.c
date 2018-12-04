@@ -91,41 +91,46 @@ hll_unpack(HLLCounter hloglog){
     int i, m;
     HLLCounter htemp;
     
-    if (hloglog->format == UNPACKED || hloglog->format == UNPACKED_UNPACKED){
-	return hloglog;
-    }
-
-    /* use decompress to handle compressed unpacking */
-    if (hloglog->b < 0){
-	return hll_decompress_unpacked(hloglog);
-    }
-
-    /* set format to unpacked*/
-    if (hloglog->format == PACKED_UNPACKED){
-	hloglog->format = UNPACKED_UNPACKED;
-    } else if (hloglog->format == PACKED){
-	hloglog->format = UNPACKED;
-    }
-
-
-
-    /* allocate and zero an array large enough to hold all the decompressed
-    * bins */
-    m = POW2(hloglog->b);
-    htemp = palloc(sizeof(HLLData) + m);
-    memcpy(htemp, hloglog, sizeof(HLLData));
-
-	for(i=0; i < m; i++){
-	    HLL_DENSE_GET_REGISTER(entry,hloglog->data,i,hloglog->binbits);
-	    htemp->data[i] = entry;
+	if (hloglog->format == UNPACKED || hloglog->format == UNPACKED_UNPACKED)
+	{
+		return hll_copy(hloglog);
 	}
 
-    hloglog = htemp;
+	/* use decompress to handle compressed unpacking */
+	if (hloglog->b < 0)
+	{
+		return hll_decompress_unpacked(hloglog);
+	}
 
-    /* set the varsize to the appropriate length  */
-    SET_VARSIZE(hloglog, sizeof(HLLData) + m);
+    /* set format to unpacked*/
+	if (hloglog->format == PACKED_UNPACKED)
+	{
+		hloglog->format = UNPACKED_UNPACKED;
+	}
+	else if (hloglog->format == PACKED){
+		hloglog->format = UNPACKED;
+	}
 
-	return hloglog;
+
+
+	/*
+	 allocate and zero an array large enough to hold all the decompressed
+	 bins
+	*/
+	m = POW2(hloglog->b);
+	htemp = palloc(sizeof(HLLData) + m);
+	memcpy(htemp, hloglog, sizeof(HLLData));
+
+	for(i=0; i < m; i++)
+	{
+		HLL_DENSE_GET_REGISTER(entry,hloglog->data,i,hloglog->binbits);
+		htemp->data[i] = entry;
+	}
+
+	/* set the varsize to the appropriate length  */
+	SET_VARSIZE(htemp, sizeof(HLLData) + m);
+
+	return htemp;
 }
 
 
@@ -810,25 +815,31 @@ hyperloglog_merge_counters(HLLCounter counter1, HLLCounter counter2)
 	{
 		/* if first counter is null just copy the second estimator into the
 		 * first one */
-		counter1 = hll_copy(counter2);
+		return hll_copy(counter2);
 	}
 	else if (counter2 == NULL) {
 		/* if second counter is null just return the the first estimator */
-		counter1 = hll_copy(counter1);
+		return hll_copy(counter1);
 	}
 	else
 	{
 		/* ok, we already have the estimator - merge the second one into it */
 		/* unpack if needed */
-		counter1 = hll_unpack(counter1);
-		counter2 = hll_unpack(counter2);
-		
-		/* perform the merge */
-		counter1 = hll_merge(counter1, counter2);
+		HLLCounter counter1_new = hll_unpack(counter1);
+		HLLCounter counter2_new = hll_unpack(counter2);
+
+		/*
+		 perform the merge, merge returns the first object
+		 merged with the second argument.
+		 */
+		counter1_new = hll_merge(counter1_new, counter2_new);
+
+		/* free the 2nd argument as it's not required after merge*/
+		pfree(counter2_new);
+
+		/* return the updated HLLCounter */
+		return counter1_new;
 	}
-	
-	/* return the updated HLLCounter */
-	return counter1;
 }
 
 

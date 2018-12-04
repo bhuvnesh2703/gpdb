@@ -4000,7 +4000,13 @@ merge_leaf_stats(VacAttrStatsP stats,
 			nMultiples[i] = (float) hllcounters[i]->nmultiples;
 			sampleCount += hllcounters[i]->samplerows;
 			hllcounters_copy[i] = hll_copy(hllcounters[i]);
-			finalHLL = hyperloglog_merge_counters(finalHLL, hllcounters[i]);
+			HLLCounter hllIntermediate = finalHLL;
+			finalHLL = hyperloglog_merge_counters(hllIntermediate, hllcounters[i]);
+			if (hllIntermediate != NULL)
+			{
+				/* free the intermediate hll counter as its not needed anymore */
+				pfree(hllIntermediate);
+			}
 			free_attstatsslot(&hllSlot);
 			samplehll_count++;
 			totalhll_count++;
@@ -4088,24 +4094,27 @@ merge_leaf_stats(VacAttrStatsP stats,
 					if (nDistincts[i] == 0)
 						continue;
 
-					HLLCounter finalHLL_temp = NULL;
+					HLLCounter finalHLL_NDV = NULL;
 					for (j = 0; j < numPartitions; j++)
 					{
 						// merge the HLL counters for each partition
 						// except the current partition (i)
 						if (i != j && hllcounters_copy[j] != NULL)
 						{
-							HLLCounter temp_hll_counter =
-								hll_copy(hllcounters_copy[j]);
-							finalHLL_temp =
-								hyperloglog_merge_counters(finalHLL_temp, temp_hll_counter);
+							HLLCounter hll_intermediate = finalHLL_NDV;
+							finalHLL_NDV = hyperloglog_merge_counters(hll_intermediate, hllcounters_copy[j]);
+							if (hll_intermediate != NULL)
+							{
+								/* free the intermediate hll counter as its not needed anymore */
+								pfree(hll_intermediate);
+							}
 						}
 					}
-					if (finalHLL_temp != NULL)
+					if (finalHLL_NDV != NULL)
 					{
 						// Calculating uniques in each partition
 						nUniques[i] =
-							ndistinct - hyperloglog_estimate(finalHLL_temp);
+							ndistinct - hyperloglog_estimate(finalHLL_NDV);
 						nUnique += nUniques[i];
 						nmultiple += nMultiples[i] * (nUniques[i] / nDistincts[i]);
 					}
@@ -4114,6 +4123,7 @@ merge_leaf_stats(VacAttrStatsP stats,
 						nUnique = ndistinct;
 						break;
 					}
+					pfree(finalHLL_NDV);
 				}
 
 				// nmultiples for the ROOT
