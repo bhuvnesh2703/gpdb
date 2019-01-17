@@ -1,0 +1,19 @@
+platform: linux
+image_resource:
+  type: docker-image
+  source:
+    repository: bchaudhary/gpdb-ms-mrvdb
+    tag: final
+inputs:
+  - name: gporca-commits-to-test
+  - name: bin_gpdb
+  - name: gpdb_main_src
+  - name: gpdb_tarball
+  - name: gporca-misc
+outputs:
+  - name: icg_output
+run:
+  path: gpdb_main_src/concourse/scripts/test-ext-suite.sh
+params:
+  TEST_SUITE: ms-suite
+  PGOPTIONS: -c optimizer=on -c statement_mem=250MB
