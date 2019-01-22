@@ -1,4 +1,5 @@
 #!/bin/bash
+set -eo pipefail
 
 GPDB_ENV_CMD="source ~/.bash_profile && source /usr/local/gpdb/greenplum_path.sh"
 
