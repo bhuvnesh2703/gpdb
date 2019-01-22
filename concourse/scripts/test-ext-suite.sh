@@ -59,9 +59,9 @@ _main() {
     start_ssh
     untar_gpdb_src
     copy_ms_suite
-    configure_gpdb
     remove_old_gpdb_binary
     untar_new_gpdb_binary
+    configure_gpdb
     start_gpdb
     make_regress
     start_test_suite
