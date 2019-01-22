@@ -22,9 +22,8 @@ copy_ms_suite() {
 }
 configure_gpdb() {
     pushd gpdb_src
-    CONFIGURE_CMD="./configure --with-libxml --with-python --without-zstd --with-libs=/usr/local/gpdb/lib --with-includes=/usr/local/gpdb/include --prefix=/usr/local/gpdb"
-    echo $CONFIGURE_CMD
-    su gpadmin -c "$CONFIGURE_CMD"
+    ./configure --with-libxml --with-python --without-zstd --with-libs=/usr/local/gpdb/lib --with-includes=/usr/local/gpdb/include --prefix=/usr/local/gpdb
+    chown -R gpadmin:gpadmin .
     popd
 }
 
