@@ -15,5 +15,6 @@ outputs:
 run:
   path: gpdb_main_src/concourse/scripts/test-ext-suite.sh
 params:
-  TEST_SUITE: ms-suite
-  PGOPTIONS: -c optimizer=on -c statement_mem=250MB -c fsync=off
+  TEST_SUITE:
+  PGOPTIONS:
+  SCHEDULE_FILE:
