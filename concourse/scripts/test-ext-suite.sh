@@ -51,7 +51,7 @@ make_regress() {
 
 start_test_suite() {
         pushd gpdb_src/src/test/$TEST_SUITE
-        su gpadmin -c "$GPDB_ENV_CMD && env PGOPTIONS=\"$PGOPTIONS\" ../regress/pg_regress --use-existing --init-file=init_file --schedule=./$SCHEDULE_FILE --dbname=mrvdb"
+        su gpadmin -c "$GPDB_ENV_CMD && env PGOPTIONS=\"$PGOPTIONS\" ../regress/pg_regress --use-existing --init-file=init_file --schedule=./$SCHEDULE_FILE --dbname=mrvdb || true"
         popd
 }
 
