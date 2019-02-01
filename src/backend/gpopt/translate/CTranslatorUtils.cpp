@@ -2840,4 +2840,13 @@ CTranslatorUtils::GetNumNonSystemColumns
 	return num_non_system_cols;
 }
 
+// for text, char, varchar, bpchar, we don't convert histograms to stats bucket
+BOOL
+CTranslatorUtils::ShouldCreateStatsBucketsUsingHistogram
+	(
+	OID att_type_oid
+	)
+{
+	return !(att_type_oid == TEXTOID || att_type_oid == CHAROID || att_type_oid == VARCHAROID || att_type_oid == BPCHAROID);
+}
 // EOF

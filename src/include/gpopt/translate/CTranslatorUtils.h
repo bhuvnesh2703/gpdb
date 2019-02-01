@@ -412,6 +412,10 @@ namespace gpdxl
 			static
 			ULONG GetNumNonSystemColumns(const IMDRelation *mdrel);
 
+			// check if we need to create stats bucket considering Histograms
+			static
+			BOOL ShouldCreateStatsBucketsUsingHistogram(OID att_type_oid);
+
 	};
 }
 

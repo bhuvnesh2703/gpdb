@@ -2881,10 +2881,12 @@ CTranslatorRelcacheToDXL::TransformStatsToDXLBucketArray
 	{
 		hist_freq = CDouble(1.0) - null_freq - mcv_freq;
 	}
-	BOOL has_hist = 1 < num_hist_values && CStatistics::Epsilon < hist_freq;
-	
-	if (att_type == TEXTOID && att_type == CHAROID && att_type == VARCHAROID && att_type == BPCHAROID)
-		has_hist = false;
+
+	BOOL has_hist = false;
+	if (CTranslatorUtils::ShouldCreateStatsBucketsUsingHistogram(att_type))
+	{
+		has_hist = 1 < num_hist_values && CStatistics::Epsilon < hist_freq;
+	}
 
 	CHistogram *histogram = NULL;
 
