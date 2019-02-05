@@ -2529,40 +2529,48 @@ CTranslatorRelcacheToDXL::RetrieveColStats
 
 	// transform all the bits and pieces from pg_statistic
 	// to a single bucket structure
-	CDXLBucketArray *dxl_stats_bucket_array_transformed =
-	TransformStatsToDXLBucketArray
-	(
-	 mp,
-	 att_type,
-	 num_distinct,
-	 null_freq,
-	 mcv_slot.values,
-	 mcv_slot.numbers,
-	 ULONG(mcv_slot.nvalues),
-	 hist_slot.values,
-	 ULONG(hist_slot.nvalues)
-	 );
-
-	GPOS_ASSERT(NULL != dxl_stats_bucket_array_transformed);
-
-	const ULONG num_buckets = dxl_stats_bucket_array_transformed->Size();
-	for (ULONG ul = 0; ul < num_buckets; ul++)
+	if (CTranslatorUtils::ShouldCreateStatsBucketsUsingMCV(att_type))
 	{
-		CDXLBucket *dxl_bucket = (*dxl_stats_bucket_array_transformed)[ul];
-		num_ndv_buckets = num_ndv_buckets + dxl_bucket->GetNumDistinct();
-		num_freq_buckets = num_freq_buckets + dxl_bucket->GetFrequency();
+		CDXLBucketArray *dxl_stats_bucket_array_transformed =
+		TransformStatsToDXLBucketArray
+		(
+		 mp,
+		 att_type,
+		 num_distinct,
+		 null_freq,
+		 mcv_slot.values,
+		 mcv_slot.numbers,
+		 ULONG(mcv_slot.nvalues),
+		 hist_slot.values,
+		 ULONG(hist_slot.nvalues)
+		 );
+		
+		GPOS_ASSERT(NULL != dxl_stats_bucket_array_transformed);
+		
+		const ULONG num_buckets = dxl_stats_bucket_array_transformed->Size();
+		for (ULONG ul = 0; ul < num_buckets; ul++)
+		{
+			CDXLBucket *dxl_bucket = (*dxl_stats_bucket_array_transformed)[ul];
+			num_ndv_buckets = num_ndv_buckets + dxl_bucket->GetNumDistinct();
+			num_freq_buckets = num_freq_buckets + dxl_bucket->GetFrequency();
+		}
+		
+		CUtils::AddRefAppend(dxl_stats_bucket_array, dxl_stats_bucket_array_transformed);
+		dxl_stats_bucket_array_transformed->Release();
+		
+		// there will be remaining tuples if the merged histogram and the NULLS do not cover
+		// the total number of distinct values
+		if ((1 - CStatistics::Epsilon > num_freq_buckets + null_freq) &&
+			(0 < num_distinct - num_ndv_buckets))
+		{
+			distinct_remaining = std::max(CDouble(0.0), (num_distinct - num_ndv_buckets));
+			freq_remaining = std::max(CDouble(0.0), (1 - num_freq_buckets - null_freq));
+		}
 	}
-
-	CUtils::AddRefAppend(dxl_stats_bucket_array, dxl_stats_bucket_array_transformed);
-	dxl_stats_bucket_array_transformed->Release();
-
-	// there will be remaining tuples if the merged histogram and the NULLS do not cover
-	// the total number of distinct values
-	if ((1 - CStatistics::Epsilon > num_freq_buckets + null_freq) &&
-		(0 < num_distinct - num_ndv_buckets))
+	else
 	{
-		distinct_remaining = std::max(CDouble(0.0), (num_distinct - num_ndv_buckets));
-		freq_remaining = std::max(CDouble(0.0), (1 - num_freq_buckets - null_freq));
+		distinct_remaining = num_distinct;
+		freq_remaining = 1 - null_freq;
 	}
 
 	// free up allocated datum and float4 arrays

@@ -79,6 +79,7 @@ using namespace gpopt;
 
 extern bool optimizer_enable_master_only_queries;
 extern bool optimizer_multilevel_partitioning;
+extern bool optimizer_enable_text_cardinality_estimation;
 
 //---------------------------------------------------------------------------
 //	@function:
@@ -2848,5 +2849,18 @@ CTranslatorUtils::ShouldCreateStatsBucketsUsingHistogram
 	)
 {
 	return !(att_type_oid == TEXTOID || att_type_oid == CHAROID || att_type_oid == VARCHAROID || att_type_oid == BPCHAROID);
+}
+
+BOOL
+CTranslatorUtils::ShouldCreateStatsBucketsUsingMCV
+	(
+	OID att_type_oid
+	)
+{
+	if (att_type_oid == TEXTOID || att_type_oid == CHAROID || att_type_oid == VARCHAROID || att_type_oid == BPCHAROID)
+	{
+		return optimizer_enable_text_cardinality_estimation;
+	}
+	return true;
 }
 // EOF

@@ -416,6 +416,8 @@ namespace gpdxl
 			static
 			BOOL ShouldCreateStatsBucketsUsingHistogram(OID att_type_oid);
 
+			static
+			BOOL ShouldCreateStatsBucketsUsingMCV(OID att_type_oid);
 	};
 }
 

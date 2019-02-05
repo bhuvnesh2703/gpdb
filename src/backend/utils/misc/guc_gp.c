@@ -580,6 +580,7 @@ bool		optimizer_array_constraints;
 bool		optimizer_cte_inlining;
 bool		optimizer_enable_space_pruning;
 bool		optimizer_enable_associativity;
+bool		optimizer_enable_text_cardinality_estimation;
 
 /* Analyze related GUCs for Optimizer */
 bool		optimizer_analyze_root_partition;
@@ -3322,6 +3323,15 @@ struct config_bool ConfigureNamesBool_gp[] =
 		},
 		&optimizer_enable_associativity,
 		false, NULL, NULL
+	},
+	
+	{
+		{"optimizer_enable_text_cardinality_estimation", PGC_USERSET, QUERY_TUNING_METHOD,
+			gettext_noop("Use Text Cardinality Estimation"),
+			NULL
+		},
+		&optimizer_enable_text_cardinality_estimation,
+		true, NULL, NULL
 	},
 
 	{

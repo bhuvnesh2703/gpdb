@@ -237,6 +237,13 @@ CConfigParamMapping::SConfigMappingElem CConfigParamMapping::m_elements[] =
 		},
 
 		{
+		EopttraceEnableTextCardEstimation,
+		&optimizer_enable_text_cardinality_estimation,
+		false, // m_negate_param
+		GPOS_WSZ_LIT("Enable Text Cardinality Estimation.")
+		},
+
+		{
 		EopttraceExtractDXLStatsAllNodes,
 		&optimizer_extract_dxl_stats_all_nodes,
 		false, // m_negate_param
