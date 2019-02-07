@@ -2462,14 +2462,30 @@ CTranslatorScalarToDXL::ExtractLintValueFromDatum
 		}
 		else
 		{
-			hash = gpos::HashValue<BYTE>(bytes);
-			for (ULONG ul = 1; ul < length; ul++)
+			ULONG true_length = length;
+			BYTE *arg = bytes;
+			/*
+			 * For text related types, only hash the actual data and exclude the
+			 * header and padded blanks
+			 */
+			if (mdid->Equals(&CMDIdGPDB::m_mdid_bpchar))
 			{
-				hash = gpos::CombineHashes(hash, gpos::HashValue<BYTE>(&bytes[ul]));
+				arg = (BYTE *)VARDATA_ANY(bytes);
+				true_length = gpdb::BpCharLen((Datum) bytes);
+			}
+			else if (mdid->Equals(&CMDIdGPDB::m_mdid_varchar) || mdid->Equals(&CMDIdGPDB::m_mdid_text))
+			{
+				arg = (BYTE *)VARDATA_ANY(bytes);
+				true_length -= ((char *)arg - (char *)bytes);
+			}
+			hash = gpos::HashValue<BYTE>(arg);
+			for (ULONG ul = 1; ul < true_length; ul++)
+			{
+				hash = gpos::CombineHashes(hash, gpos::HashValue<BYTE>(&arg[ul]));
 			}
 		}
 
-		lint_value = (LINT) (hash / 4);
+		lint_value = (LINT) hash;
 	}
 
 	return lint_value;

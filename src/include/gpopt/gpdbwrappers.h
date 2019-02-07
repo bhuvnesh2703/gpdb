@@ -655,6 +655,8 @@ namespace gpdb {
 	GpPolicy *MakeGpPolicy(GpPolicyType ptype, int nattrs,
 						   int numsegments);
 
+	int BpCharLen(Datum d);
+
 } //namespace gpdb
 
 #define ForEach(cell, l)	\

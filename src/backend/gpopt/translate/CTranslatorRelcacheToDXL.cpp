@@ -2878,7 +2878,11 @@ CTranslatorRelcacheToDXL::TransformStatsToDXLBucketArray
 	{
 		hist_freq = CDouble(1.0) - null_freq - mcv_freq;
 	}
-	BOOL has_hist = 1 < num_hist_values && CStatistics::Epsilon < hist_freq;
+	
+	BOOL is_text_type = mdid_atttype->Equals(&CMDIdGPDB::m_mdid_varchar)
+			 || mdid_atttype->Equals(&CMDIdGPDB::m_mdid_bpchar)
+			 || mdid_atttype->Equals(&CMDIdGPDB::m_mdid_text);
+	BOOL has_hist = !is_text_type && 1 < num_hist_values && CStatistics::Epsilon < hist_freq;
 
 	CHistogram *histogram = NULL;
 

@@ -3220,4 +3220,16 @@ gpdb::MakeGpPolicy
 	}
 	GP_WRAP_END;
 }
+
+int
+gpdb::BpCharLen(Datum d)
+{
+	GP_WRAP_START;
+	{
+		return DirectFunctionCall1(bpcharlen, d);
+	}
+	GP_WRAP_END;
+	return 0;
+}
+
 // EOF

@@ -2750,12 +2750,8 @@ BOOL
 CTranslatorUtils::ShouldCreateStatsBucket
 	(
 	OID att_type_oid
-	)
+	 )
 {
-	if (att_type_oid != TEXTOID && att_type_oid != CHAROID && att_type_oid != VARCHAROID && att_type_oid != BPCHAROID)
-		return true;
-
-	return false;
+	return true;
 }
-
 // EOF
