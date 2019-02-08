@@ -2434,6 +2434,16 @@ CTranslatorScalarToDXL::ExtractByteArrayFromDatum
 	return bytes;
 }
 
+ULONG
+get_length_without_padding(BYTE *bytes, ULONG length)
+{
+	length--;
+	while (length > 0 && bytes[length] == ' ')
+	{
+		length--;
+	}
+	return length + 1;
+}
 
 //---------------------------------------------------------------------------
 //	@function:
@@ -2478,8 +2488,13 @@ CTranslatorScalarToDXL::ExtractLintValueFromDatum
 		}
 		else
 		{
+			ULONG real_length = 0;
+			if (mdid->Equals(&CMDIdGPDB::m_mdid_bpchar))
+			{
+				real_length = get_length_without_padding(bytes, length);
+			}
 			hash = gpos::HashValue<BYTE>(bytes);
-			for (ULONG ul = 1; ul < length; ul++)
+			for (ULONG ul = 1; ul < real_length; ul++)
 			{
 				hash = gpos::CombineHashes(hash, gpos::HashValue<BYTE>(&bytes[ul]));
 			}
