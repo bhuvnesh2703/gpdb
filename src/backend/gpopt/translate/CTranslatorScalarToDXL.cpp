@@ -2153,12 +2153,13 @@ CTranslatorScalarToDXL::TranslateDatumToDXL
 ULONG
 get_length_without_padding(BYTE *bytes, ULONG length)
 {
-	length--;
+	length --;
 	while (length > 0 && bytes[length] == ' ')
 	{
 		length--;
 	}
-	return length + 1;
+	ULONG start = VARDATA_ANY(bytes) - (char *)bytes;
+	return length - start + 1;
 }
 
 //---------------------------------------------------------------------------
@@ -2201,11 +2202,7 @@ CTranslatorScalarToDXL::TranslateGenericDatumToDXL
 
 	if (md_type->MDId()->Equals(&CMDIdGPDB::m_mdid_bpchar))
 	{
-		//ULONG real_length = get_length_without_padding(bytes, length);
-		//bytes[real_length] = '\0';
-		//char *arg = VARDATA_ANY(bytes);
-		//real_length -= 3;
-		lint_value = ExtractLintValueFromDatum(mdid, is_null, (BYTE *)VARDATA_ANY(bytes), VARSIZE_ANY(bytes));
+		lint_value = ExtractLintValueFromDatum(mdid, is_null, bytes, length);
 	}
 	else if (CMDTypeGenericGPDB::HasByte2IntMapping(mdid))
 	{
