@@ -2153,13 +2153,13 @@ CTranslatorScalarToDXL::TranslateDatumToDXL
 ULONG
 get_length_without_padding(BYTE *bytes, ULONG length)
 {
-	length --;
+	length--;
 	while (length > 0 && bytes[length] == ' ')
 	{
 		length--;
 	}
-	ULONG start = VARDATA_ANY(bytes) - (char *)bytes;
-	return length - start + 1;
+
+	return length + 1;
 }
 
 //---------------------------------------------------------------------------
@@ -2497,10 +2497,12 @@ CTranslatorScalarToDXL::ExtractLintValueFromDatum
 			{
 				real_length = get_length_without_padding(bytes, length);
 			}
-			hash = gpos::HashValue<BYTE>(bytes);
+			BYTE *arg = (BYTE *)VARDATA_ANY(bytes);
+			real_length -= (VARDATA_ANY(bytes) - (char *)bytes);
+			hash = gpos::HashValue<BYTE>(arg);
 			for (ULONG ul = 1; ul < real_length; ul++)
 			{
-				hash = gpos::CombineHashes(hash, gpos::HashValue<BYTE>(&bytes[ul]));
+				hash = gpos::CombineHashes(hash, gpos::HashValue<BYTE>(&arg[ul]));
 			}
 		}
 
