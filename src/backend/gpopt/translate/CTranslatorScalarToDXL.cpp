@@ -2200,11 +2200,7 @@ CTranslatorScalarToDXL::TranslateGenericDatumToDXL
 
 	LINT lint_value = 0;
 
-	if (md_type->MDId()->Equals(&CMDIdGPDB::m_mdid_bpchar))
-	{
-		lint_value = ExtractLintValueFromDatum(mdid, is_null, bytes, length);
-	}
-	else if (CMDTypeGenericGPDB::HasByte2IntMapping(mdid))
+	if (CMDTypeGenericGPDB::HasByte2IntMapping(mdid))
 	{
 		lint_value = ExtractLintValueFromDatum(mdid, is_null, bytes, length);
 	}
@@ -2496,7 +2492,11 @@ CTranslatorScalarToDXL::ExtractLintValueFromDatum
 		}
 		else
 		{
-			ULONG real_length = get_length_without_padding(bytes, length);
+			ULONG real_length = length;
+			if (mdid->Equals(&CMDIdGPDB::m_mdid_bpchar))
+			{
+				real_length = get_length_without_padding(bytes, length);
+			}
 			hash = gpos::HashValue<BYTE>(bytes);
 			for (ULONG ul = 1; ul < real_length; ul++)
 			{
@@ -2535,22 +2535,6 @@ CTranslatorScalarToDXL::CreateIDatumFromGpdbDatum
 	}
 	GPOS_ASSERT(is_null || length > 0);
 
-//	IMDId *mdid = md_type->MDId();
-//	if (mdid->Equals(&CMDIdGPDB::m_mdid_bpchar))
-//	{
-//		ULONG real_length = 0;
-//		char *arg = NULL;
-//		BYTE *bytes = ExtractByteArrayFromDatum(mp, md_type, is_null, length, gpdb_datum);
-//		real_length = get_length_without_padding(bytes, length);
-//		bytes[real_length] = '\0';
-//		arg = VARDATA_ANY(bytes);
-//		real_length = strlen(arg);
-//
-//		CDXLDatum *datum_dxl = CTranslatorScalarToDXL::TranslateDatumToDXL(mp, md_type, gpmd::default_type_modifier, is_null, real_length, arg);
-//		IDatum *datum = md_type->GetDatumForDXLDatum(mp, datum_dxl);
-//		datum_dxl->Release();
-//		return datum;
-//	}
 	CDXLDatum *datum_dxl = CTranslatorScalarToDXL::TranslateDatumToDXL(mp, md_type, gpmd::default_type_modifier, is_null, length, gpdb_datum);
 	IDatum *datum = md_type->GetDatumForDXLDatum(mp, datum_dxl);
 	datum_dxl->Release();
