@@ -3221,12 +3221,53 @@ gpdb::MakeGpPolicy
 	GP_WRAP_END;
 }
 
-int
-gpdb::BpCharLen(Datum d)
+uint32
+gpdb::HashBpChar(Datum d)
 {
 	GP_WRAP_START;
 	{
-		return DirectFunctionCall1(bpcharlen, d);
+		return DatumGetUInt32(DirectFunctionCall1(hashbpchar, d));
+	}
+	GP_WRAP_END;
+}
+
+uint32
+gpdb::HashText(Datum d)
+{
+	GP_WRAP_START;
+	{
+		return DatumGetUInt32(DirectFunctionCall1(hashtext, d));
+	}
+	GP_WRAP_END;
+}
+
+uint32
+gpdb::HashVarlena(Datum d)
+{
+	GP_WRAP_START;
+	{
+		return DatumGetUInt32(DirectFunctionCall1(hashvarlena, d));
+	}
+	GP_WRAP_END;
+}
+
+int
+gpdb::BcTrueLen(Datum d)
+{
+	GP_WRAP_START;
+	{
+		BpChar	*arg = PG_DETOAST_DATUM_PACKED(d);
+		char	   *s = VARDATA_ANY(arg);
+		int			i;
+		int			len;
+		
+		len = VARSIZE_ANY_EXHDR(arg);
+		for (i = len - 1; i >= 0; i--)
+		{
+			if (s[i] != ' ')
+				break;
+		}
+		return i + 1;
 	}
 	GP_WRAP_END;
 	return 0;

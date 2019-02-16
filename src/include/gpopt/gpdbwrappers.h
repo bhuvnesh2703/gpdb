@@ -17,6 +17,7 @@
 
 #include "postgres.h"
 #include "access/attnum.h"
+#include "access/hash.h"
 #include "utils/faultinjector.h"
 #include "parser/parse_coerce.h"
 #include "utils/lsyscache.h"
@@ -655,8 +656,13 @@ namespace gpdb {
 	GpPolicy *MakeGpPolicy(GpPolicyType ptype, int nattrs,
 						   int numsegments);
 
-	int BpCharLen(Datum d);
+	int BcTrueLen(Datum d);
 
+	uint32 HashBpChar(Datum d);
+
+	uint32 HashText(Datum d);
+
+	uint32 HashVarlena(Datum d);
 } //namespace gpdb
 
 #define ForEach(cell, l)	\
