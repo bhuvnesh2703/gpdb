@@ -1097,6 +1097,7 @@ leaf_parts_analyzed(Oid attrelid, Oid relid_exclude, List *va_cols, int elevel)
 
 		all_parts_empty = false;
 
+		List *columns = NIL;
 		foreach(lc_col, va_cols)
 		{
 			/*
@@ -1104,7 +1105,7 @@ leaf_parts_analyzed(Oid attrelid, Oid relid_exclude, List *va_cols, int elevel)
 			 * analyzed.
 			 */
 			AttrNumber	attnum = lfirst_int(lc_col);
-			const char *attname = get_relid_attribute_name(attrelid, attnum);
+			char *attname = get_relid_attribute_name(attrelid, attnum);
 			AttrNumber	child_attno = get_attnum(partRelid, attname);
 
 			HeapTuple	heaptupleStats = get_att_stats(partRelid, child_attno);
@@ -1113,16 +1114,38 @@ leaf_parts_analyzed(Oid attrelid, Oid relid_exclude, List *va_cols, int elevel)
 			if (!HeapTupleIsValid(heaptupleStats) || relpages == 0)
 			{
 				if (relid_exclude == InvalidOid)
+				{
 					ereport(elevel,
 							(errmsg("column %s of partition %s is not analyzed, so ANALYZE will collect sample for stats calculation",
 									attname, get_rel_name(partRelid))));
+					return false;
+				}
 				else
-					ereport(elevel,
-							(errmsg("auto merging of leaf partition stats to calculate root partition stats is not possible because column %s of partition %s is not analyzed",
-									attname, get_rel_name(partRelid))));
-				return false;
+					columns = lappend(columns, makeString(attname));
 			}
-			heap_freetuple(heaptupleStats);
+
+			if (HeapTupleIsValid(heaptupleStats))
+				heap_freetuple(heaptupleStats);
+		}
+
+		if (columns != NIL)
+		{
+			ereport(NOTICE,
+					(errmsg("auto merging of leaf partition stats to calculate root partition stats is not possible because one or more columns of partition %s is not analyzed", get_rel_name(partRelid)),
+					 errhint("Please look at the log files to find out the columns that need to be analyzed")
+					 ));
+			ListCell   *c;
+			StringInfo columns_str = makeStringInfo();
+			foreach(c, columns)
+			{
+				char *attname = strVal(lfirst(c));
+				appendStringInfo(columns_str, "%s", attname);
+				if (lnext(c))
+					appendStringInfo(columns_str, ", ");
+			}
+				ereport(LOG,
+						(errmsg("Incremental analyze of root partition failed to merge leaf statistics since the following columns have not been analyzed in leaf partitions: %s", columns_str->data)));
+			return false;
 		}
 	}
 

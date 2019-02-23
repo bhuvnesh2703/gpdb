@@ -1572,6 +1572,8 @@ NOTICE:  CREATE TABLE will create partition "foo_1_prt_1" for table "foo"
 NOTICE:  CREATE TABLE will create partition "foo_1_prt_2" for table "foo"
 INSERT INTO foo SELECT i, i%6, i%6 FROM generate_series(1,100)i; 
 ANALYZE foo_1_prt_1;
+NOTICE:  auto merging of leaf partition stats to calculate root partition stats is not possible because one or more columns of partition foo_1_prt_2 is not analyzed
+HINT:  Please look at the log files to find out the columns that need to be analyzed
 SELECT tablename, attname, null_frac, n_distinct, most_common_vals, most_common_freqs, histogram_bounds FROM pg_stats WHERE tablename like 'foo%' ORDER BY attname,tablename;
   tablename  | attname | null_frac | n_distinct | most_common_vals | most_common_freqs | histogram_bounds 
 -------------+---------+-----------+------------+------------------+-------------------+------------------
@@ -1589,6 +1591,8 @@ NOTICE:  CREATE TABLE will create partition "foo_1_prt_1" for table "foo"
 NOTICE:  CREATE TABLE will create partition "foo_1_prt_2" for table "foo"
 INSERT INTO foo SELECT i, i%6, i%6 FROM generate_series(1,100)i; 
 ANALYZE foo_1_prt_1;
+NOTICE:  auto merging of leaf partition stats to calculate root partition stats is not possible because one or more columns of partition foo_1_prt_2 is not analyzed
+HINT:  Please look at the log files to find out the columns that need to be analyzed
 ANALYZE foo_1_prt_2;
 SELECT tablename, attname, null_frac, n_distinct, most_common_vals, most_common_freqs, histogram_bounds FROM pg_stats WHERE tablename like 'foo%' ORDER BY attname,tablename;
   tablename  | attname | null_frac | n_distinct | most_common_vals | most_common_freqs | histogram_bounds 
@@ -1612,6 +1616,8 @@ HINT:  The 'DISTRIBUTED BY' clause determines the distribution of data. Make sur
 NOTICE:  CREATE TABLE will create partition "foo_1_prt_1" for table "foo"
 NOTICE:  CREATE TABLE will create partition "foo_1_prt_2" for table "foo"
 ANALYZE foo_1_prt_1;
+NOTICE:  auto merging of leaf partition stats to calculate root partition stats is not possible because one or more columns of partition foo_1_prt_2 is not analyzed
+HINT:  Please look at the log files to find out the columns that need to be analyzed
 ANALYZE foo_1_prt_2;
 SELECT tablename, attname, null_frac, n_distinct, most_common_vals, most_common_freqs, histogram_bounds FROM pg_stats WHERE tablename like 'foo%' ORDER BY attname,tablename;
  tablename | attname | null_frac | n_distinct | most_common_vals | most_common_freqs | histogram_bounds 
@@ -1629,7 +1635,11 @@ INSERT INTO foo SELECT i, i%6, i%6 FROM generate_series(1,100)i;
 SET allow_system_table_mods=true;
 UPDATE pg_attribute SET attstattarget=0 WHERE attrelid = 'foo_1_prt_1'::regclass and ATTNAME in ('a','b','c');
 ANALYZE foo_1_prt_1;
+NOTICE:  auto merging of leaf partition stats to calculate root partition stats is not possible because one or more columns of partition foo_1_prt_2 is not analyzed
+HINT:  Please look at the log files to find out the columns that need to be analyzed
 ANALYZE foo_1_prt_2;
+NOTICE:  auto merging of leaf partition stats to calculate root partition stats is not possible because one or more columns of partition foo_1_prt_1 is not analyzed
+HINT:  Please look at the log files to find out the columns that need to be analyzed
 SELECT tablename, attname, null_frac, n_distinct, most_common_vals, most_common_freqs, histogram_bounds FROM pg_stats WHERE tablename like 'foo%' ORDER BY attname,tablename;
   tablename  | attname | null_frac | n_distinct | most_common_vals | most_common_freqs | histogram_bounds 
 -------------+---------+-----------+------------+------------------+-------------------+------------------
@@ -1647,6 +1657,8 @@ NOTICE:  CREATE TABLE will create partition "foo_1_prt_1" for table "foo"
 NOTICE:  CREATE TABLE will create partition "foo_1_prt_2" for table "foo"
 INSERT INTO foo SELECT i, i%6, i%6 FROM generate_series(1,100)i; 
 ANALYZE foo_1_prt_1(c);
+NOTICE:  auto merging of leaf partition stats to calculate root partition stats is not possible because one or more columns of partition foo_1_prt_2 is not analyzed
+HINT:  Please look at the log files to find out the columns that need to be analyzed
 SELECT tablename, attname, null_frac, n_distinct, most_common_vals, most_common_freqs, histogram_bounds FROM pg_stats WHERE tablename like 'foo%' ORDER BY attname,tablename;
   tablename  | attname | null_frac | n_distinct | most_common_vals | most_common_freqs | histogram_bounds 
 -------------+---------+-----------+------------+------------------+-------------------+------------------
@@ -1663,6 +1675,8 @@ NOTICE:  CREATE TABLE will create partition "foo_1_prt_1" for table "foo"
 NOTICE:  CREATE TABLE will create partition "foo_1_prt_2" for table "foo"
 INSERT INTO FOO SELECT i,i%6 FROM generate_series(1,1000)i;
 ANALYZE foo_1_prt_1;
+NOTICE:  auto merging of leaf partition stats to calculate root partition stats is not possible because one or more columns of partition foo_1_prt_2 is not analyzed
+HINT:  Please look at the log files to find out the columns that need to be analyzed
 ANALYZE FULLSCAN foo_1_prt_2;
 ERROR:  ANALYZE cannot merge since not all non-empty leaf partitions have consistent hyperloglog statistics for merge (analyze.c:4005)
 HINT:  Re-run ANALYZE or ANALYZE FULLSCAN
@@ -1718,8 +1732,17 @@ NOTICE:  CREATE TABLE will create partition "foo_1_prt_new_part" for table "foo"
 NOTICE:  CREATE TABLE will create partition "foo_1_prt_def_part" for table "foo"
 set client_min_messages to 'log';
 ANALYZE foo_1_prt_2;
+NOTICE:  auto merging of leaf partition stats to calculate root partition stats is not possible because one or more columns of partition foo_1_prt_3 is not analyzed
+HINT:  Please look at the log files to find out the columns that need to be analyzed
+LOG:  Incremental analyze of root partition failed to merge leaf statistics since the following columns have not been analyzed in leaf partitions: a, c, d
 ANALYZE foo_1_prt_3;
+NOTICE:  auto merging of leaf partition stats to calculate root partition stats is not possible because one or more columns of partition foo_1_prt_new_part is not analyzed
+HINT:  Please look at the log files to find out the columns that need to be analyzed
+LOG:  Incremental analyze of root partition failed to merge leaf statistics since the following columns have not been analyzed in leaf partitions: a, c, d
 ANALYZE foo_1_prt_new_part;
+NOTICE:  auto merging of leaf partition stats to calculate root partition stats is not possible because one or more columns of partition foo_1_prt_def_part is not analyzed
+HINT:  Please look at the log files to find out the columns that need to be analyzed
+LOG:  Incremental analyze of root partition failed to merge leaf statistics since the following columns have not been analyzed in leaf partitions: a, c, d
 ANALYZE foo_1_prt_def_part;
 reset client_min_messages;
 SELECT tablename, attname, null_frac, n_distinct, most_common_vals, most_common_freqs, histogram_bounds FROM pg_stats WHERE tablename like 'foo%' ORDER BY attname,tablename;
@@ -1763,8 +1786,17 @@ NOTICE:  CREATE TABLE will create partition "foo_1_prt_new_part" for table "foo"
 NOTICE:  CREATE TABLE will create partition "foo_1_prt_def_part" for table "foo"
 set client_min_messages to 'log';
 ANALYZE foo_1_prt_2(a);
+NOTICE:  auto merging of leaf partition stats to calculate root partition stats is not possible because one or more columns of partition foo_1_prt_3 is not analyzed
+HINT:  Please look at the log files to find out the columns that need to be analyzed
+LOG:  Incremental analyze of root partition failed to merge leaf statistics since the following columns have not been analyzed in leaf partitions: a
 ANALYZE foo_1_prt_3(a);
+NOTICE:  auto merging of leaf partition stats to calculate root partition stats is not possible because one or more columns of partition foo_1_prt_new_part is not analyzed
+HINT:  Please look at the log files to find out the columns that need to be analyzed
+LOG:  Incremental analyze of root partition failed to merge leaf statistics since the following columns have not been analyzed in leaf partitions: a
 ANALYZE foo_1_prt_new_part(a);
+NOTICE:  auto merging of leaf partition stats to calculate root partition stats is not possible because one or more columns of partition foo_1_prt_def_part is not analyzed
+HINT:  Please look at the log files to find out the columns that need to be analyzed
+LOG:  Incremental analyze of root partition failed to merge leaf statistics since the following columns have not been analyzed in leaf partitions: a
 ANALYZE foo_1_prt_def_part(a);
 reset client_min_messages;
 SELECT tablename, attname, null_frac, n_distinct, most_common_vals, most_common_freqs, histogram_bounds FROM pg_stats WHERE tablename like 'foo%' ORDER BY attname,tablename;
@@ -1798,8 +1830,17 @@ NOTICE:  CREATE TABLE will create partition "foo_1_prt_new_part" for table "foo"
 NOTICE:  CREATE TABLE will create partition "foo_1_prt_def_part" for table "foo"
 set client_min_messages to 'log';
 ANALYZE foo_1_prt_2(d);
+NOTICE:  auto merging of leaf partition stats to calculate root partition stats is not possible because one or more columns of partition foo_1_prt_3 is not analyzed
+HINT:  Please look at the log files to find out the columns that need to be analyzed
+LOG:  Incremental analyze of root partition failed to merge leaf statistics since the following columns have not been analyzed in leaf partitions: d
 ANALYZE foo_1_prt_3(d);
+NOTICE:  auto merging of leaf partition stats to calculate root partition stats is not possible because one or more columns of partition foo_1_prt_new_part is not analyzed
+HINT:  Please look at the log files to find out the columns that need to be analyzed
+LOG:  Incremental analyze of root partition failed to merge leaf statistics since the following columns have not been analyzed in leaf partitions: d
 ANALYZE foo_1_prt_new_part(d);
+NOTICE:  auto merging of leaf partition stats to calculate root partition stats is not possible because one or more columns of partition foo_1_prt_def_part is not analyzed
+HINT:  Please look at the log files to find out the columns that need to be analyzed
+LOG:  Incremental analyze of root partition failed to merge leaf statistics since the following columns have not been analyzed in leaf partitions: d
 ANALYZE foo_1_prt_def_part(d);
 reset client_min_messages;
 SELECT tablename, attname, null_frac, n_distinct, most_common_vals, most_common_freqs, histogram_bounds FROM pg_stats WHERE tablename like 'foo%' ORDER BY attname,tablename;
