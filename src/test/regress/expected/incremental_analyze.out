@@ -1567,6 +1567,7 @@ NOTICE:  CREATE TABLE will create partition "foo_1_prt_1" for table "foo"
 NOTICE:  CREATE TABLE will create partition "foo_1_prt_2" for table "foo"
 INSERT INTO foo SELECT i, i%6, i%6 FROM generate_series(1,100)i; 
 ANALYZE foo_1_prt_1;
+NOTICE:  Auto merging of leaf partition stats to calculate root partition stats is not possible because column a of partition foo_1_prt_2 is not analyzed
 SELECT tablename, attname, null_frac, n_distinct, most_common_vals, most_common_freqs, histogram_bounds FROM pg_stats WHERE tablename like 'foo%' ORDER BY attname,tablename;
   tablename  | attname | null_frac | n_distinct | most_common_vals | most_common_freqs | histogram_bounds 
 -------------+---------+-----------+------------+------------------+-------------------+------------------
@@ -1584,6 +1585,7 @@ NOTICE:  CREATE TABLE will create partition "foo_1_prt_1" for table "foo"
 NOTICE:  CREATE TABLE will create partition "foo_1_prt_2" for table "foo"
 INSERT INTO foo SELECT i, i%6, i%6 FROM generate_series(1,100)i; 
 ANALYZE foo_1_prt_1;
+NOTICE:  Auto merging of leaf partition stats to calculate root partition stats is not possible because column a of partition foo_1_prt_2 is not analyzed
 ANALYZE foo_1_prt_2;
 SELECT tablename, attname, null_frac, n_distinct, most_common_vals, most_common_freqs, histogram_bounds FROM pg_stats WHERE tablename like 'foo%' ORDER BY attname,tablename;
   tablename  | attname | null_frac | n_distinct | most_common_vals | most_common_freqs | histogram_bounds 
@@ -1607,6 +1609,7 @@ HINT:  The 'DISTRIBUTED BY' clause determines the distribution of data. Make sur
 NOTICE:  CREATE TABLE will create partition "foo_1_prt_1" for table "foo"
 NOTICE:  CREATE TABLE will create partition "foo_1_prt_2" for table "foo"
 ANALYZE foo_1_prt_1;
+NOTICE:  Auto merging of leaf partition stats to calculate root partition stats is not possible because column a of partition foo_1_prt_2 is not analyzed
 ANALYZE foo_1_prt_2;
 SELECT tablename, attname, null_frac, n_distinct, most_common_vals, most_common_freqs, histogram_bounds FROM pg_stats WHERE tablename like 'foo%' ORDER BY attname,tablename;
  tablename | attname | null_frac | n_distinct | most_common_vals | most_common_freqs | histogram_bounds 
@@ -1624,6 +1627,7 @@ INSERT INTO foo SELECT i, i%6, i%6 FROM generate_series(1,100)i;
 SET allow_system_table_mods = 'DML';
 UPDATE pg_attribute SET attstattarget=0 WHERE attrelid = 'foo_1_prt_1'::regclass and ATTNAME in ('a','b','c');
 ANALYZE foo_1_prt_1;
+NOTICE:  Auto merging of leaf partition stats to calculate root partition stats is not possible because column a of partition foo_1_prt_2 is not analyzed
 ANALYZE foo_1_prt_2;
 SELECT tablename, attname, null_frac, n_distinct, most_common_vals, most_common_freqs, histogram_bounds FROM pg_stats WHERE tablename like 'foo%' ORDER BY attname,tablename;
   tablename  | attname | null_frac | n_distinct | most_common_vals | most_common_freqs | histogram_bounds 
@@ -1642,6 +1646,7 @@ NOTICE:  CREATE TABLE will create partition "foo_1_prt_1" for table "foo"
 NOTICE:  CREATE TABLE will create partition "foo_1_prt_2" for table "foo"
 INSERT INTO foo SELECT i, i%6, i%6 FROM generate_series(1,100)i; 
 ANALYZE foo_1_prt_1(c);
+NOTICE:  Auto merging of leaf partition stats to calculate root partition stats is not possible because column c of partition foo_1_prt_2 is not analyzed
 SELECT tablename, attname, null_frac, n_distinct, most_common_vals, most_common_freqs, histogram_bounds FROM pg_stats WHERE tablename like 'foo%' ORDER BY attname,tablename;
   tablename  | attname | null_frac | n_distinct | most_common_vals | most_common_freqs | histogram_bounds 
 -------------+---------+-----------+------------+------------------+-------------------+------------------
@@ -1697,17 +1702,17 @@ NOTICE:  CREATE TABLE will create partition "foo_1_prt_new_part" for table "foo"
 NOTICE:  CREATE TABLE will create partition "foo_1_prt_def_part" for table "foo"
 set client_min_messages to 'log';
 ANALYZE foo_1_prt_2;
-LOG:  Auto merging of leaf partition stats to calculate root partition stats is not possible because column a of partition foo_1_prt_3 is not analyzed
+NOTICE:  Auto merging of leaf partition stats to calculate root partition stats is not possible because column a of partition foo_1_prt_3 is not analyzed
 LOG:  Computing Scalar Stats : column a
 LOG:  Computing Scalar Stats : column c
 LOG:  Computing Scalar Stats : column d
 ANALYZE foo_1_prt_3;
-LOG:  Auto merging of leaf partition stats to calculate root partition stats is not possible because column a of partition foo_1_prt_new_part is not analyzed
+NOTICE:  Auto merging of leaf partition stats to calculate root partition stats is not possible because column a of partition foo_1_prt_new_part is not analyzed
 LOG:  Computing Scalar Stats : column a
 LOG:  Computing Scalar Stats : column c
 LOG:  Computing Scalar Stats : column d
 ANALYZE foo_1_prt_new_part;
-LOG:  Auto merging of leaf partition stats to calculate root partition stats is not possible because column a of partition foo_1_prt_def_part is not analyzed
+NOTICE:  Auto merging of leaf partition stats to calculate root partition stats is not possible because column a of partition foo_1_prt_def_part is not analyzed
 LOG:  Computing Scalar Stats : column a
 LOG:  Computing Scalar Stats : column c
 LOG:  Computing Scalar Stats : column d
@@ -1760,13 +1765,13 @@ NOTICE:  CREATE TABLE will create partition "foo_1_prt_new_part" for table "foo"
 NOTICE:  CREATE TABLE will create partition "foo_1_prt_def_part" for table "foo"
 set client_min_messages to 'log';
 ANALYZE foo_1_prt_2(a);
-LOG:  Auto merging of leaf partition stats to calculate root partition stats is not possible because column a of partition foo_1_prt_3 is not analyzed
+NOTICE:  Auto merging of leaf partition stats to calculate root partition stats is not possible because column a of partition foo_1_prt_3 is not analyzed
 LOG:  Computing Scalar Stats : column a
 ANALYZE foo_1_prt_3(a);
-LOG:  Auto merging of leaf partition stats to calculate root partition stats is not possible because column a of partition foo_1_prt_new_part is not analyzed
+NOTICE:  Auto merging of leaf partition stats to calculate root partition stats is not possible because column a of partition foo_1_prt_new_part is not analyzed
 LOG:  Computing Scalar Stats : column a
 ANALYZE foo_1_prt_new_part(a);
-LOG:  Auto merging of leaf partition stats to calculate root partition stats is not possible because column a of partition foo_1_prt_def_part is not analyzed
+NOTICE:  Auto merging of leaf partition stats to calculate root partition stats is not possible because column a of partition foo_1_prt_def_part is not analyzed
 LOG:  Computing Scalar Stats : column a
 ANALYZE foo_1_prt_def_part(a);
 LOG:  Computing Scalar Stats : column a
@@ -1803,13 +1808,13 @@ NOTICE:  CREATE TABLE will create partition "foo_1_prt_new_part" for table "foo"
 NOTICE:  CREATE TABLE will create partition "foo_1_prt_def_part" for table "foo"
 set client_min_messages to 'log';
 ANALYZE foo_1_prt_2(d);
-LOG:  Auto merging of leaf partition stats to calculate root partition stats is not possible because column d of partition foo_1_prt_3 is not analyzed
+NOTICE:  Auto merging of leaf partition stats to calculate root partition stats is not possible because column d of partition foo_1_prt_3 is not analyzed
 LOG:  Computing Scalar Stats : column d
 ANALYZE foo_1_prt_3(d);
-LOG:  Auto merging of leaf partition stats to calculate root partition stats is not possible because column d of partition foo_1_prt_new_part is not analyzed
+NOTICE:  Auto merging of leaf partition stats to calculate root partition stats is not possible because column d of partition foo_1_prt_new_part is not analyzed
 LOG:  Computing Scalar Stats : column d
 ANALYZE foo_1_prt_new_part(d);
-LOG:  Auto merging of leaf partition stats to calculate root partition stats is not possible because column d of partition foo_1_prt_def_part is not analyzed
+NOTICE:  Auto merging of leaf partition stats to calculate root partition stats is not possible because column d of partition foo_1_prt_def_part is not analyzed
 LOG:  Computing Scalar Stats : column d
 ANALYZE foo_1_prt_def_part(d);
 LOG:  Computing Scalar Stats : column d
@@ -1857,6 +1862,7 @@ SELECT tablename, attname, null_frac, n_distinct, most_common_vals, most_common_
 (3 rows)
 
 ANALYZE foo_1_prt_1;
+NOTICE:  Auto merging of leaf partition stats to calculate root partition stats is not possible because column a of partition foo_1_prt_2 is not analyzed
 ANALYZE foo_1_prt_2;
 set client_min_messages to 'log';
 -- ANALYZE ROOT PARTITION will piggyback on the stats collected from the leaf and merge them
@@ -1893,6 +1899,7 @@ NOTICE:  CREATE TABLE will create partition "foo_1_prt_2" for table "foo"
 INSERT INTO foo SELECT i%130, i%8, 'something'||i::text FROM generate_series(1,1000)i;
 set optimizer_analyze_root_partition=off;
 ANALYZE foo_1_prt_1;
+NOTICE:  Auto merging of leaf partition stats to calculate root partition stats is not possible because column a of partition foo_1_prt_2 is not analyzed
 ANALYZE foo_1_prt_2;
 SELECT tablename, attname, null_frac, n_distinct, most_common_vals, most_common_freqs, histogram_bounds FROM pg_stats WHERE tablename like 'foo%' ORDER BY attname,tablename;
   tablename  | attname | null_frac | n_distinct | most_common_vals |   most_common_freqs   |                          histogram_bounds                          
