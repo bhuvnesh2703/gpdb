@@ -1160,7 +1160,7 @@ leaf_parts_analyzed(Oid attrelid, Oid relid_exclude, List *va_cols)
 				if(relid_exclude == InvalidOid)
 					elog(LOG, "column %s of partition %s is not analyzed, so ANALYZE will collect sample for stats calculation", attname, get_rel_name(partRelid));
 				else
-					elog(LOG, "Auto merging of leaf partition stats to calculate root partition stats is not possible because column %s of partition %s is not analyzed", attname, get_rel_name(partRelid));
+					elog(NOTICE, "Auto merging of leaf partition stats to calculate root partition stats is not possible because column %s of partition %s is not analyzed", attname, get_rel_name(partRelid));
 				return false;
 			}
 			heap_freetuple(heaptupleStats);
