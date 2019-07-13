@@ -1,6 +1,9 @@
 test: lockmodes
 
 test: ao_partition_lock
+test: dml_on_root_locks_all_parts
+test: delete-deadlock-root-leaf-concurrent-op
+test: planner_insert_while_vacuum_drop
 
 test: select_dropped_table
 # test update hash col under utility mode
