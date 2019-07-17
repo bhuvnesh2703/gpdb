@@ -1712,6 +1712,16 @@ InitPlan(QueryDesc *queryDesc, int eflags)
 			resultRelationOid = getrelid(resultRelationIndex, rangeTable);
 			if (operation == CMD_UPDATE || operation == CMD_DELETE)
 			{
+				// On QD, the lock on the table has already been taken during parsing, so if it's a child
+				// partition, we don't need to take a lock. If there a a deadlock GDD will come in place
+				// and resolve the deadlock. ORCA Update / Delete plans only contains the root relation, so
+				// no locks on leaf partition are taken here. The below changes makes planner as well to not
+				// take locks on leaf partitions with GDD on.
+				// Note: With GDD off, ORCA and planner both will acquire locks on the leaf partitions.
+				if (Gp_role == GP_ROLE_DISPATCH && rel_is_child_partition(resultRelationOid) && gp_enable_global_deadlock_detector)
+				{
+					lockmode = NoLock;
+				}
 				resultRelation = CdbOpenRelation(resultRelationOid,
 													 lockmode,
 													 false, /* noWait */

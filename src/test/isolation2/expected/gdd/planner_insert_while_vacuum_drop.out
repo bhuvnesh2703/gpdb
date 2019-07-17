@@ -1,13 +1,22 @@
--- @Description Ensures that deadlock between an INSERT with planner and
--- appendonly VACUUM drop phase can be detected
---
+-- Ensures that deadlock between an INSERT with planner and
+-- appendonly VACUUM drop phase can be detected.
+-- ORCA during translation of INSERT statement tries to get AccessShareLock on
+-- leaf partition but Vacuum already has AccessExclusiveLock on the leaf
+-- partition so it keeps waiting and the deadlock is not observed.
 CREATE EXTENSION IF NOT EXISTS gp_inject_fault;
 CREATE
-select gp_inject_fault('all', 'reset', 1);
- gp_inject_fault 
------------------
- t               
-(1 row)
+select gp_inject_fault2('all', 'reset', dbid, hostname, port) from gp_segment_configuration;
+ gp_inject_fault2 
+------------------
+ Success:         
+ Success:         
+ Success:         
+ Success:         
+ Success:         
+ Success:         
+ Success:         
+ Success:         
+(8 rows)
 
 -- Helper function
 CREATE or REPLACE FUNCTION wait_until_acquired_lock_on_rel (rel_name text, lmode text, segment_id integer) RETURNS /*in func*/ bool AS $$ /*in func*/ declare /*in func*/ result bool; /*in func*/ begin /*in func*/ result := false; /*in func*/ -- Wait until lock is acquired /*in func*/ while result IS NOT true loop /*in func*/ select l.granted INTO result /*in func*/ from pg_locks l /*in func*/ where l.relation::regclass = rel_name::regclass /*in func*/ and l.mode=lmode /*in func*/ and l.gp_segment_id=segment_id; /*in func*/ perform pg_sleep(0.1); /*in func*/ end loop; /*in func*/ return result; /*in func*/ end; /*in func*/ $$ language plpgsql;
@@ -30,17 +39,17 @@ show gp_enable_global_deadlock_detector;
 (1 row)
 
 -- VACUUM drop phase is blocked before it opens the child relation on the primary
-SELECT gp_inject_fault('vacuum_relation_open_relation_during_drop_phase', 'suspend', dbid) FROM gp_segment_configuration WHERE content = 1 AND role = 'p';
- gp_inject_fault 
------------------
- t               
+SELECT gp_inject_fault2('vacuum_relation_open_relation_during_drop_phase', 'suspend', dbid, hostname, port) FROM gp_segment_configuration WHERE content = 1 AND role = 'p';
+ gp_inject_fault2 
+------------------
+ Success:         
 (1 row)
 -- VACUUM takes AccessExclusiveLock on the leaf partition on QD
 1&: VACUUM ao_part_tbl;  <waiting ...>
-SELECT gp_wait_until_triggered_fault('vacuum_relation_open_relation_during_drop_phase', 1, dbid) FROM gp_segment_configuration WHERE content = 1 AND role = 'p';
- gp_wait_until_triggered_fault 
--------------------------------
- t                             
+SELECT gp_wait_until_triggered_fault2('vacuum_relation_open_relation_during_drop_phase', 1, dbid, hostname, port) FROM gp_segment_configuration WHERE content = 1 AND role = 'p';
+ gp_wait_until_triggered_fault2 
+--------------------------------
+ Success:                       
 (1 row)
 
 -- And INSERT is blocked until it acquires the RowExclusiveLock on the child relation
@@ -55,10 +64,10 @@ SELECT wait_until_acquired_lock_on_rel('ao_part_tbl_1_prt_1', 'RowExclusiveLock'
 (1 row)
 
 -- Reset the fault on VACUUM.
-SELECT gp_inject_fault('vacuum_relation_open_relation_during_drop_phase', 'reset', dbid) FROM gp_segment_configuration WHERE content = 1 AND role = 'p';
- gp_inject_fault 
------------------
- t               
+SELECT gp_inject_fault2('vacuum_relation_open_relation_during_drop_phase', 'reset', dbid, hostname, port) FROM gp_segment_configuration WHERE content = 1 AND role = 'p';
+ gp_inject_fault2 
+------------------
+ Success:         
 (1 row)
 -- VACUUM waits for AccessExclusiveLock on the leaf table on QE
 1<:  <... completed>
