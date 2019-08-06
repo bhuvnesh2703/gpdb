@@ -110,8 +110,14 @@ SyncRepWaitForLSN(XLogRecPtr XactCommitLSN)
 	 */
 	if (AmIInSIGUSR1Handler())
 	{
+		ereport(debug_walrepl_syncrep,
+				(errmsg("canceling wait for synchronous replication as we are in SIGUSR1 handler"),
+						errdetail(
+								"SIGUSR1 handlers are not re-entrant, if we go ahead to WaitLatch the process will be stuck forever.")));
 		return;
 	}
+
+	SIMPLE_FAULT_INJECTOR("sync_rep_wait_for_lsn_after_in_sigusr1_check");
 	Assert(!am_walsender);
 	elogif(debug_walrepl_syncrep, LOG,
 			"syncrep wait -- This backend's commit LSN for syncrep is %X/%X.",
