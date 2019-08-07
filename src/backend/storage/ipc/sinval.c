@@ -178,49 +178,6 @@ HandleCatchupInterrupt(void)
 }
 
 /*
- * EnableCatchupInterrupt
- *
- * This is called by the PostgresMain main loop just before waiting
- * for a frontend command.  We process any pending catchup events,
- * and enable the signal handler to process future events directly.
- *
- * NOTE: the signal handler starts out disabled, and stays so until
- * PostgresMain calls this the first time.
- */
-void
-EnableCatchupInterrupt(void)
-{
-	/*
-	 * This code is tricky because we are communicating with a signal handler
-	 * that could interrupt us at any point.  If we just checked
-	 * catchupInterruptOccurred and then set catchupInterruptEnabled, we could
-	 * fail to respond promptly to a signal that happens in between those two
-	 * steps.  (A very small time window, perhaps, but Murphy's Law says you
-	 * can hit it...)  Instead, we first set the enable flag, then test the
-	 * occurred flag.  If we see an unserviced interrupt has occurred, we
-	 * re-clear the enable flag before going off to do the service work. (That
-	 * prevents re-entrant invocation of ProcessCatchupEvent() if another
-	 * interrupt occurs.) If an interrupt comes in between the setting and
-	 * clearing of catchupInterruptEnabled, then it will have done the service
-	 * work and left catchupInterruptOccurred zero, so we have to check again
-	 * after clearing enable.  The whole thing has to be in a loop in case
-	 * another interrupt occurs while we're servicing the first. Once we get
-	 * out of the loop, enable is set and we know there is no unserviced
-	 * interrupt.
-	 *
-	 * NB: an overenthusiastic optimizing compiler could easily break this
-	 * code. Hopefully, they all understand what "volatile" means these days.
-	 */
-	for (;;)
-	{
-		catchupInterruptEnabled = 1;
-		if (!catchupInterruptOccurred)
-			break;
-		catchupInterruptEnabled = 0;
-		if (catchupInterruptOccurred)
-			ProcessCatchupEvent();
-	}
-}/*
  * ProcessCatchupInterrupt
  *
  * The portion of catchup interrupt handling that runs outside of the signal
@@ -232,59 +189,28 @@ ProcessCatchupInterrupt(void)
 	while (catchupInterruptPending)
 	{
 		/*
-		 * Funny indentation to keep the code inside identical to upstream
-		 * while at the same time supporting CMockery which has problems with
-		 * multiple bracing on column 1.
+		 * What we need to do here is cause ReceiveSharedInvalidMessages() to
+		 * run, which will do the necessary work and also reset the
+		 * catchupInterruptPending flag.  If we are inside a transaction we
+		 * can just call AcceptInvalidationMessages() to do this.  If we
+		 * aren't, we start and immediately end a transaction; the call to
+		 * AcceptInvalidationMessages() happens down inside transaction start.
+		 *
+		 * It is awfully tempting to just call AcceptInvalidationMessages()
+		 * without the rest of the xact start/stop overhead, and I think that
+		 * would actually work in the normal case; but I am not sure that things
+		 * would clean up nicely if we got an error partway through.
 		 */
-		PG_TRY();
-				{
-					in_process_catchup_event = 1;
-
-					/*
-					 * What we need to do here is cause ReceiveSharedInvalidMessages() to
-					 * run, which will do the necessary work and also reset the
-					 * catchupInterruptPending flag.  If we are inside a transaction we
-					 * can just call AcceptInvalidationMessages() to do this.  If we
-					 * aren't, we start and immediately end a transaction; the call to
-					 * AcceptInvalidationMessages() happens down inside transaction start.
-					 *
-					 * It is awfully tempting to just call AcceptInvalidationMessages()
-					 * without the rest of the xact start/stop overhead, and I think that
-					 * would actually work in the normal case; but I am not sure that
-					 * things would clean up nicely if we got an error partway through.
-					 */
-					if (IsTransactionOrTransactionBlock())
-					{
-						elog(DEBUG4, "ProcessCatchupEvent inside transaction");
-						AcceptInvalidationMessages();
-					}
-					else
-					{
-						elog(DEBUG4, "ProcessCatchupEvent outside transaction");
-
-						/*
-						 * GPDB disallow a new transaction if the distributed transaction
-						 * is undering certain states like DTX_CONTEXT_QE_PREPARED, here
-						 * temporarily set context to DTX_CONTEXT_LOCAL_ONLY to workaround
-						 * the restriction.
-						 */
-						DtxContext  saveDistributedTransactionContext;
-						saveDistributedTransactionContext = DistributedTransactionContext;
-						DistributedTransactionContext = DTX_CONTEXT_LOCAL_ONLY;
-
-						StartTransactionCommand();
-						CommitTransactionCommand();
-
-						DistributedTransactionContext = saveDistributedTransactionContext;
-					}
-
-					in_process_catchup_event = 0;
-				}
-			PG_CATCH();
-				{
-					in_process_catchup_event = 0;
-					PG_RE_THROW();
-				}
-		PG_END_TRY();
+		if (IsTransactionOrTransactionBlock())
+		{
+			elog(DEBUG4, "ProcessCatchupEvent inside transaction");
+			AcceptInvalidationMessages();
+		}
+		else
+		{
+			elog(DEBUG4, "ProcessCatchupEvent outside transaction");
+			StartTransactionCommand();
+			CommitTransactionCommand();
+		}
 	}
 }
