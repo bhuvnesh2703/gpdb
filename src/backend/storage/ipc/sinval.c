@@ -38,17 +38,12 @@ uint64		SharedInvalidMessageCounter;
  * through a cache reset exercise.  This is done by sending
  * PROCSIG_CATCHUP_INTERRUPT to any backend that gets too far behind.
  *
- * State for catchup events consists of two flags: one saying whether
- * the signal handler is currently allowed to call ProcessCatchupEvent
- * directly, and one saying whether the signal has occurred but the handler
- * was not allowed to call ProcessCatchupEvent at the time.
- *
- * NB: the "volatile" on these declarations is critical!  If your compiler
- * does not grok "volatile", you'd be best advised to compile this file
- * with all optimization turned off.
+ * The signal handler will set an interrupt pending flag and will set the
+ * processes latch. Whenever starting to read from the client, or when
+ * interrupted while doing so, ProcessClientReadInterrupt() will call
+ * ProcessCatchupEvent().
  */
-static volatile int catchupInterruptEnabled = 0;
-static volatile int catchupInterruptOccurred = 0;
+volatile sig_atomic_t catchupInterruptPending = false;
 
 /* Are we currently processing a catchup event? */
 volatile int in_process_catchup_event = 0;
@@ -150,9 +145,9 @@ ReceiveSharedInvalidMessages(
 	 * catchup signal this way avoids creating spikes in system load for what
 	 * should be just a background maintenance activity.
 	 */
-	if (catchupInterruptOccurred)
+	if (catchupInterruptPending)
 	{
-		catchupInterruptOccurred = 0;
+		catchupInterruptPending = false;
 		elog(DEBUG4, "sinval catchup complete, cleaning queue");
 		SICleanupQueue(false, 0);
 	}
@@ -164,12 +159,9 @@ ReceiveSharedInvalidMessages(
  *
  * This is called when PROCSIG_CATCHUP_INTERRUPT is received.
  *
- * If we are idle (catchupInterruptEnabled is set), we can safely
- * invoke ProcessCatchupEvent directly.  Otherwise, just set a flag
- * to do it later.  (Note that it's quite possible for normal processing
- * of the current transaction to cause ReceiveSharedInvalidMessages()
- * to be run later on; in that case the flag will get cleared again,
- * since there's no longer any reason to do anything.)
+ * We used to directly call ProcessCatchupEvent directly when idle. These days
+ * we just set a flag to do it later and notify the process of that fact by
+ * setting the process's latch.
  */
 void
 HandleCatchupInterrupt(void)
@@ -179,63 +171,10 @@ HandleCatchupInterrupt(void)
 	 * you do here.
 	 */
 
-	/* Don't joggle the elbow of proc_exit */
-	if (proc_exit_inprogress)
-		return;
+	catchupInterruptPending = true;
 
-	if (catchupInterruptEnabled)
-	{
-		bool		save_ImmediateInterruptOK = ImmediateInterruptOK;
-
-		/*
-		 * We may be called while ImmediateInterruptOK is true; turn it off
-		 * while messing with the catchup state.  This prevents problems if
-		 * SIGINT or similar arrives while we're working.  Just to be real
-		 * sure, bump the interrupt holdoff counter as well.  That way, even
-		 * if something inside ProcessCatchupEvent() transiently sets
-		 * ImmediateInterruptOK (eg while waiting on a lock), we won't get
-		 * interrupted until we're done with the catchup interrupt.
-		 */
-		ImmediateInterruptOK = false;
-		HOLD_INTERRUPTS();
-
-		/*
-		 * I'm not sure whether some flavors of Unix might allow another
-		 * SIGUSR1 occurrence to recursively interrupt this routine. To cope
-		 * with the possibility, we do the same sort of dance that
-		 * EnableCatchupInterrupt must do --- see that routine for comments.
-		 */
-		catchupInterruptEnabled = 0;	/* disable any recursive signal */
-		catchupInterruptOccurred = 1;	/* do at least one iteration */
-		for (;;)
-		{
-			catchupInterruptEnabled = 1;
-			if (!catchupInterruptOccurred)
-				break;
-			catchupInterruptEnabled = 0;
-			if (catchupInterruptOccurred)
-			{
-				/* Here, it is finally safe to do stuff. */
-				ProcessCatchupEvent();
-			}
-		}
-
-		/*
-		 * Restore the holdoff level and ImmediateInterruptOK, and check for
-		 * interrupts if needed.
-		 */
-		RESUME_INTERRUPTS();
-		ImmediateInterruptOK = save_ImmediateInterruptOK;
-		if (save_ImmediateInterruptOK)
-			CHECK_FOR_INTERRUPTS();
-	}
-	else
-	{
-		/*
-		 * In this path it is NOT SAFE to do much of anything, except this:
-		 */
-		catchupInterruptOccurred = 1;
-	}
+	/* make sure the event is processed in due course */
+	SetLatch(&MyProc->procLatch);
 }
 
 /*
@@ -281,105 +220,71 @@ EnableCatchupInterrupt(void)
 		if (catchupInterruptOccurred)
 			ProcessCatchupEvent();
 	}
-}
-
-/*
- * DisableCatchupInterrupt
+}/*
+ * ProcessCatchupInterrupt
  *
- * This is called by the PostgresMain main loop just after receiving
- * a frontend command.  Signal handler execution of catchup events
- * is disabled until the next EnableCatchupInterrupt call.
- *
- * The PROCSIG_NOTIFY_INTERRUPT signal handler also needs to call this,
- * so as to prevent conflicts if one signal interrupts the other.  So we
- * must return the previous state of the flag.
+ * The portion of catchup interrupt handling that runs outside of the signal
+ * handler, which allows it to actually process pending invalidations.
  */
-bool
-DisableCatchupInterrupt(void)
+void
+ProcessCatchupInterrupt(void)
 {
-	bool		result = (catchupInterruptEnabled != 0);
-
-	catchupInterruptEnabled = 0;
-
-	return result;
-}
-
-/*
- * ProcessCatchupEvent
- *
- * Respond to a catchup event (PROCSIG_CATCHUP_INTERRUPT) from another
- * backend.
- *
- * This is called either directly from the PROCSIG_CATCHUP_INTERRUPT
- * signal handler, or the next time control reaches the outer idle loop
- * (assuming there's still anything to do by then).
- */
-static void
-ProcessCatchupEvent(void)
-{
-	bool		notify_enabled;
-	bool		client_wait_timeout_enabled;
-	DtxContext  saveDistributedTransactionContext;
-
-	/*
-	 * Funny indentation to keep the code inside identical to upstream
-	 * while at the same time supporting CMockery which has problems with
-	 * multiple bracing on column 1.
-	 */
-	PG_TRY();
+	while (catchupInterruptPending)
 	{
-	in_process_catchup_event = 1;
-
-	/* Must prevent notify and SIGALRM(for IdleSessionGangTimeout) interrupt while I am running */
-	notify_enabled = DisableNotifyInterrupt();
-	client_wait_timeout_enabled = DisableClientWaitTimeoutInterrupt();
-
-	/*
-	 * What we need to do here is cause ReceiveSharedInvalidMessages() to run,
-	 * which will do the necessary work and also reset the
-	 * catchupInterruptOccurred flag.  If we are inside a transaction we can
-	 * just call AcceptInvalidationMessages() to do this.  If we aren't, we
-	 * start and immediately end a transaction; the call to
-	 * AcceptInvalidationMessages() happens down inside transaction start.
-	 *
-	 * It is awfully tempting to just call AcceptInvalidationMessages()
-	 * without the rest of the xact start/stop overhead, and I think that
-	 * would actually work in the normal case; but I am not sure that things
-	 * would clean up nicely if we got an error partway through.
-	 */
-	if (IsTransactionOrTransactionBlock())
-	{
-		elog(DEBUG1, "ProcessCatchupEvent inside transaction");
-		AcceptInvalidationMessages();
-	}
-	else
-	{
-		elog(DEBUG1, "ProcessCatchupEvent outside transaction");
-
 		/*
-		 * Save distributed transaction context first.
+		 * Funny indentation to keep the code inside identical to upstream
+		 * while at the same time supporting CMockery which has problems with
+		 * multiple bracing on column 1.
 		 */
-		saveDistributedTransactionContext = DistributedTransactionContext;
-		DistributedTransactionContext = DTX_CONTEXT_LOCAL_ONLY;
+		PG_TRY();
+				{
+					in_process_catchup_event = 1;
 
-		StartTransactionCommand();
-		CommitTransactionCommand();
+					/*
+					 * What we need to do here is cause ReceiveSharedInvalidMessages() to
+					 * run, which will do the necessary work and also reset the
+					 * catchupInterruptPending flag.  If we are inside a transaction we
+					 * can just call AcceptInvalidationMessages() to do this.  If we
+					 * aren't, we start and immediately end a transaction; the call to
+					 * AcceptInvalidationMessages() happens down inside transaction start.
+					 *
+					 * It is awfully tempting to just call AcceptInvalidationMessages()
+					 * without the rest of the xact start/stop overhead, and I think that
+					 * would actually work in the normal case; but I am not sure that
+					 * things would clean up nicely if we got an error partway through.
+					 */
+					if (IsTransactionOrTransactionBlock())
+					{
+						elog(DEBUG4, "ProcessCatchupEvent inside transaction");
+						AcceptInvalidationMessages();
+					}
+					else
+					{
+						elog(DEBUG4, "ProcessCatchupEvent outside transaction");
 
-		DistributedTransactionContext = saveDistributedTransactionContext;
+						/*
+						 * GPDB disallow a new transaction if the distributed transaction
+						 * is undering certain states like DTX_CONTEXT_QE_PREPARED, here
+						 * temporarily set context to DTX_CONTEXT_LOCAL_ONLY to workaround
+						 * the restriction.
+						 */
+						DtxContext  saveDistributedTransactionContext;
+						saveDistributedTransactionContext = DistributedTransactionContext;
+						DistributedTransactionContext = DTX_CONTEXT_LOCAL_ONLY;
+
+						StartTransactionCommand();
+						CommitTransactionCommand();
+
+						DistributedTransactionContext = saveDistributedTransactionContext;
+					}
+
+					in_process_catchup_event = 0;
+				}
+			PG_CATCH();
+				{
+					in_process_catchup_event = 0;
+					PG_RE_THROW();
+				}
+		PG_END_TRY();
 	}
-
-	if (notify_enabled)
-		EnableNotifyInterrupt();
-
-	if (client_wait_timeout_enabled)
-		EnableClientWaitTimeoutInterrupt();
-
-	in_process_catchup_event = 0;
-	}
-	PG_CATCH();
-	{
-		in_process_catchup_event = 0;
-		PG_RE_THROW();
-	}
-	PG_END_TRY();
 }

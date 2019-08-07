@@ -68,8 +68,7 @@ extern void StatementCancelHandler(SIGNAL_ARGS);
 extern void FloatExceptionHandler(SIGNAL_ARGS) __attribute__((noreturn));
 extern void RecoveryConflictInterrupt(ProcSignalReason reason); /* called from SIGUSR1
 																 * handler */
-extern void prepare_for_client_read(void);
-extern void client_read_ended(void);
+extern void ProcessClientReadInterrupt(void);
 extern void prepare_for_client_write(void);
 extern void client_write_ended(void);
 extern void process_postgres_switches(int argc, char *argv[],

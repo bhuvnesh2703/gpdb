@@ -14,6 +14,8 @@
 #ifndef SINVAL_H
 #define SINVAL_H
 
+#include <signal.h>
+
 #include "storage/relfilenode.h"
 
 
@@ -123,6 +125,8 @@ typedef union
 /* Counter of messages processed; don't worry about overflow. */
 extern uint64 SharedInvalidMessageCounter;
 
+extern volatile sig_atomic_t catchupInterruptPending;
+
 
 extern void SendSharedInvalidMessages(const SharedInvalidationMessage *msgs,
 						  int n);
@@ -138,8 +142,7 @@ extern void HandleCatchupInterrupt(void);
  * The enable routine first performs processing of any catchup events that
  * have occurred since the last disable.
  */
-extern void EnableCatchupInterrupt(void);
-extern bool DisableCatchupInterrupt(void);
+extern void ProcessCatchupInterrupt(void);
 
 extern volatile int in_process_catchup_event;
 

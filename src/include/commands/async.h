@@ -48,12 +48,4 @@ extern void ProcessCompletedNotifies(void);
 /* signal handler for inbound notifies (PROCSIG_NOTIFY_INTERRUPT) */
 extern void HandleNotifyInterrupt(void);
 
-/*
- * enable/disable processing of inbound notifies directly from signal handler.
- * The enable routine first performs processing of any inbound notifies that
- * have occurred since the last disable.
- */
-extern void EnableNotifyInterrupt(void);
-extern bool DisableNotifyInterrupt(void);
-
 #endif   /* ASYNC_H */
