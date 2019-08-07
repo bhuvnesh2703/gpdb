@@ -668,44 +668,6 @@ ProcessClientReadInterrupt(void)
 }
 
 /*
- * ProcessClientWriteInterrupt() - Process interrupts specific to client writes
- *
- * This is called just after low-level writes. That might be after the read
- * finished successfully, or it was interrupted via interrupt. 'blocked' tells
- * us whether the
- *
- * Must preserve errno!
- */
-void
-ProcessClientWriteInterrupt(bool blocked)
-{
-	int			save_errno = errno;
-
-	/*
-	 * We only want to process the interrupt here if socket writes are
-	 * blocking to increase the chance to get an error message to the client.
-	 * If we're not blocked there'll soon be a CHECK_FOR_INTERRUPTS(). But if
-	 * we're blocked we'll never get out of that situation if the client has
-	 * died.
-	 */
-	if (ProcDiePending && blocked)
-	{
-		/*
-		 * We're dying. It's safe (and sane) to handle that now. But we don't
-		 * want to send the client the error message as that a) would possibly
-		 * block again b) would possibly lead to sending an error message to
-		 * the client, while we already started to send something else.
-		 */
-		if (whereToSendOutput == DestRemote)
-			whereToSendOutput = DestNone;
-
-		CHECK_FOR_INTERRUPTS();
-	}
-
-	errno = save_errno;
-}
-
-/*
  * prepare_for_client_write -- set up to possibly block on client output
  *
  * Like prepare_for_client_read, but for writing.
