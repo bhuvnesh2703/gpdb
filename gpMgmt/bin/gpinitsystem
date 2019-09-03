@@ -993,7 +993,6 @@ CREATE_QE_ARRAY () {
 		fi
 	fi 
 	((TOTAL_SEG=${#QE_PRIMARY_ARRAY[@]}))
-	# Now re-order the array so that it is ordered by PORT to spread out the number of parallel processes initiated on each host
 	LOG_MSG "[INFO]:-End Function $FUNCNAME"
 }
 
@@ -1021,6 +1020,21 @@ ARRAY_REORDER() {
     if [ $MIRROR_TYPE -eq 1 ];then
 	QE_REORDER_ARRAY=(`$ECHO ${QE_MIRROR_ARRAY[@]}|$TR ' ' '\n'|$SORT -t$S -n -k2,2|$TR '\n' ' '`)
 	QE_MIRROR_ARRAY=(${QE_REORDER_ARRAY[@]})
+    fi
+    LOG_MSG "[INFO]:-End Function $FUNCNAME"
+}
+
+
+CREATE_ARRAY_SORTED_ON_CONTENT_ID() {
+    LOG_MSG "[INFO]:-Start Function $FUNCNAME"
+
+    local REORDERING_ON_CONTENT
+
+    REORDERING_ON_CONTENT=(`$ECHO ${QE_PRIMARY_ARRAY[@]}|$TR ' ' '\n'|$SORT -t$S -n -k5,5|$TR '\n' ' '`)
+    QE_PRIMARY_ARRAY_SORTED_ON_CONTENT_ID=(${REORDERING_ON_CONTENT[@]})
+    if [ $MIRRORING -ne 0 ] ; then
+      REORDERING_ON_CONTENT=(`$ECHO ${QE_MIRROR_ARRAY[@]}|$TR ' ' '\n'|$SORT -t$S -n -k5,5|$TR '\n' ' '`)
+      QE_MIRROR_ARRAY_SORTED_ON_CONTENT_ID=(${REORDERING_ON_CONTENT[@]})
     fi
     LOG_MSG "[INFO]:-End Function $FUNCNAME"
 }
@@ -1370,15 +1384,10 @@ CREATE_QES_PRIMARY () {
 		LOG_MSG "[INFO]:-Commencing parallel build of primary segment instances" 1
 		BATCH_LIMIT=${#QE_PRIMARY_ARRAY[@]}
 		PARALLEL_SETUP  $PARALLEL_STATUS_FILE
-		REORDERING=(`$ECHO ${QE_PRIMARY_ARRAY[@]}|$TR ' ' '\n'|$SORT -t$S -n -k5,5|$TR '\n' ' '`)
-		PRIMARIES_ORDERED_BY_CONTENT_ID=(${REORDERING[@]})
-
 		if [ $MIRRORING -ne 0 ]; then
-			REORDERING=(`$ECHO ${QE_MIRROR_ARRAY[@]}|$TR ' ' '\n'|$SORT -t$S -n -k5,5|$TR '\n' ' '`)
-			MIRRORS_ORDERED_BY_CONTENT_ID=(${REORDERING[@]})
 			I_INDEX=0
 		fi
-		for I in "${PRIMARIES_ORDERED_BY_CONTENT_ID[@]}"
+		for PRIMARY_SEGMENT_INFO in "${QE_PRIMARY_ARRAY_SORTED_ON_CONTENT_ID[@]}"
 		do
 			export PG_CONF_ADD_FILE
 			export STANDBY_HOSTNAME
@@ -1399,20 +1408,23 @@ CREATE_QES_PRIMARY () {
 			    FLAG="-p $PG_CONF_ADD_FILE"
 			fi
 
-            HAS_MIRRORS_OPTION=
-            if [ $MIRRORING -ne 0 ]; then
-                HAS_MIRRORS_OPTION=yes
-                MIRROR_LINE=${MIRRORS_ORDERED_BY_CONTENT_ID[$I_INDEX]}
-                MIRROR_HOST="$($CUT -d"~" -f1 <<<$MIRROR_LINE)"
-            else
-                HAS_MIRRORS_OPTION=no
-                MIRROR_HOST=""
-            fi
+					HAS_MIRRORS_OPTION=
+					if [ $MIRRORING -ne 0 ]; then
+						HAS_MIRRORS_OPTION=yes
+						# ex: MIRROR_LINE: mirror_hostname~mirror_port~mirror_datadir~mirror_dbid~mirror_content
+						MIRROR_SEGMENT_INFO=${QE_MIRROR_ARRAY_SORTED_ON_CONTENT_ID[$I_INDEX]}
+					else
+						HAS_MIRRORS_OPTION=no
+						MIRROR_SEGMENT_INFO=""
+					fi
 
-
-
-      ((I_INDEX++))
-			MASTER_HOSTNAME=${MASTER_HOSTNAME} HBA_HOSTNAMES=${HBA_HOSTNAMES} $GPCREATESEG $FLAG $$ 1 $I IS_PRIMARY "${MIRROR_HOST}" $INST_COUNT  $LOG_FILE $HEAP_CHECKSUM \
+			((I_INDEX++))
+			# 1: Hardcoded value
+			# FLAG: -p clusterConfigPostgresAddonsFile
+			# SEGMENT_INFO: ~ separated value, ex: primary_host~primary_port~primary_data_dir~primary_dbid~primary_content
+			# MIRROR_SEGMENT_INFO: empty or corresponding mirror value, ex: mirror_host~mirror_port~mirror_data_dir~mirror_dbid~mirror_content
+			# INST_COUNT: Number of parallel script count
+			MASTER_HOSTNAME=${MASTER_HOSTNAME} HBA_HOSTNAMES=${HBA_HOSTNAMES} $GPCREATESEG $FLAG $$ 1 IS_PRIMARY $PRIMARY_SEGMENT_INFO "${MIRROR_SEGMENT_INFO}" $INST_COUNT  $LOG_FILE $HEAP_CHECKSUM \
 `$ECHO ${MASTER_IP_ADDRESS[@]}|$TR ' ' '~'` \
 `$ECHO ${STANDBY_IP_ADDRESS[@]}|$TR ' ' '~'` &
 			PARALLEL_COUNT $BATCH_LIMIT $BATCH_DEFAULT
@@ -1444,28 +1456,9 @@ CREATE_QES_MIRROR () {
 	LOG_MSG "[INFO]:-Start Function $FUNCNAME"
 	LOG_MSG "[INFO]:-Commencing parallel build of mirror segment instances" 1
 	BATCH_LIMIT=${#QE_MIRROR_ARRAY[@]}
-
-        # MPP-13617: If segment contains a ~, we assume ~ is the field delimiter.
-        # Otherwise we assume : is the delimiter.  This allows us to easily 
-        # handle IPv6 addresses which may contain a : by using a ~ as a delimiter. 
-        # 
-	case `$ECHO ${QE_PRIMARY_ARRAY[@]}` in 
-            *~*)
-		S="~"
-		;;
-            *)
-		S=":"
-		;;
-	esac
-
-	REORDERING=(`$ECHO ${QE_PRIMARY_ARRAY[@]}|$TR ' ' '\n'|$SORT -t$S -n -k5,5|$TR '\n' ' '`)
-	PRIMARIES_ORDERED_BY_CONTENT_ID=(${REORDERING[@]})
-
-	REORDERING=(`$ECHO ${QE_MIRROR_ARRAY[@]}|$TR ' ' '\n'|$SORT -t$S -n -k5,5|$TR '\n' ' '`)
-	MIRRORS_ORDERED_BY_CONTENT_ID=(${REORDERING[@]})
-
 	PARALLEL_SETUP  $PARALLEL_STATUS_FILE
-                for ((I_INDEX=0; I_INDEX < $CONTENT_COUNT; I_INDEX++))
+
+  for ((I_INDEX=0; I_INDEX < $CONTENT_COUNT; I_INDEX++))
 	do
 		export PG_CONF_ADD_FILE
 		export STANDBY_HOSTNAME
@@ -1485,7 +1478,10 @@ CREATE_QES_MIRROR () {
 		    FLAG="-p $PG_CONF_ADD_FILE"
 		fi
 
-		MASTER_HOSTNAME=${MASTER_HOSTNAME} HBA_HOSTNAMES=${HBA_HOSTNAMES} $GPCREATESEG $FLAG $$ 1 ${MIRRORS_ORDERED_BY_CONTENT_ID[$I_INDEX]} ${PRIMARIES_ORDERED_BY_CONTENT_ID[$I_INDEX]} IS_MIRROR $INST_COUNT  $LOG_FILE $HEAP_CHECKSUM \
+    # primary and mirror segment info: ~ separated value, ex: host~port~data_dir~dbid~content
+    MIRROR_SEGMENT_INFO=${QE_MIRROR_ARRAY_SORTED_ON_CONTENT_ID[$I_INDEX]}
+    PRIMARY_SEGMENT_INFO=${QE_PRIMARY_ARRAY_SORTED_ON_CONTENT_ID[$I_INDEX]}
+		MASTER_HOSTNAME=${MASTER_HOSTNAME} HBA_HOSTNAMES=${HBA_HOSTNAMES} $GPCREATESEG $FLAG $$ 1 IS_MIRROR ${MIRROR_SEGMENT_INFO} ${PRIMARY_SEGMENT_INFO} $INST_COUNT  $LOG_FILE $HEAP_CHECKSUM \
 `$ECHO ${MASTER_IP_ADDRESS[@]}|$TR ' ' '~'` \
 `$ECHO ${STANDBY_IP_ADDRESS[@]}|$TR ' ' '~'` &
 		PARALLEL_COUNT $BATCH_LIMIT $BATCH_DEFAULT
@@ -1979,8 +1975,8 @@ if [ x"$INPUT_CONFIG" != x"" ] ; then
     CHK_QES_FROM_INPUTFILE
 
     if [ x"" != x"$OUTPUT_CONFIG" ] ; then
-	DUMP_OUTPUT_CONFIG
-	exit 0
+        DUMP_OUTPUT_CONFIG
+        exit 0
     fi
 
     DISPLAY_CONFIG
@@ -1994,15 +1990,17 @@ else
     CHK_QES
 
     if [ x"" != x"$OUTPUT_CONFIG" ] ; then
-	DUMP_OUTPUT_CONFIG
-	exit 0
+        DUMP_OUTPUT_CONFIG
+        exit 0
     fi
 
     DISPLAY_CONFIG
     ARRAY_REORDER
 fi
 
-CREATE_QD_DB		
+CREATE_QD_DB
+
+CREATE_ARRAY_SORTED_ON_CONTENT_ID
 
 CREATE_QES_PRIMARY
 if [ $REPORT_FAIL -ne 0 ];then
