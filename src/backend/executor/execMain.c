@@ -2863,8 +2863,7 @@ ExecPartitionCheckEmitError(ResultRelInfo *resultRelInfo,
 
 		old_tupdesc = RelationGetDescr(resultRelInfo->ri_RelationDesc);
 		/* a reverse map */
-		map = convert_tuples_by_name_map_if_req(old_tupdesc, tupdesc,
-												gettext_noop("could not convert row type"));
+		map = convert_tuples_by_name_map_if_req(old_tupdesc, tupdesc);
 
 		/*
 		 * Partition-specific slot's tupdesc can't be changed, so allocate a
@@ -2949,8 +2948,7 @@ ExecConstraints(ResultRelInfo *resultRelInfo,
 					tupdesc = RelationGetDescr(rel);
 					/* a reverse map */
 					map = convert_tuples_by_name_map_if_req(orig_tupdesc,
-															tupdesc,
-															gettext_noop("could not convert row type"));
+															tupdesc);
 
 					/*
 					 * Partition-specific slot's tupdesc can't be changed, so
@@ -2999,8 +2997,7 @@ ExecConstraints(ResultRelInfo *resultRelInfo,
 				tupdesc = RelationGetDescr(rel);
 				/* a reverse map */
 				map = convert_tuples_by_name_map_if_req(old_tupdesc,
-														tupdesc,
-														gettext_noop("could not convert row type"));
+														tupdesc);
 
 				/*
 				 * Partition-specific slot's tupdesc can't be changed, so
@@ -3107,8 +3104,7 @@ ExecWithCheckOptions(WCOKind kind, ResultRelInfo *resultRelInfo,
 						tupdesc = RelationGetDescr(rel);
 						/* a reverse map */
 						map = convert_tuples_by_name_map_if_req(old_tupdesc,
-																tupdesc,
-																gettext_noop("could not convert row type"));
+																tupdesc);
 
 						/*
 						 * Partition-specific slot's tupdesc can't be changed,
