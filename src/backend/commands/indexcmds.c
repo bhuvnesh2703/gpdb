@@ -1365,8 +1365,7 @@ DefineIndex(Oid relationId,
 				childidxs = RelationGetIndexList(childrel);
 				attmap =
 					convert_tuples_by_name_map(RelationGetDescr(childrel),
-											   parentDesc,
-											   gettext_noop("could not convert row type"));
+											   parentDesc);
 				maplen = parentDesc->natts;
 
 				foreach(cell, childidxs)
