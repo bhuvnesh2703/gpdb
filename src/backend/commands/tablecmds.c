@@ -1316,8 +1316,7 @@ DefineRelation(CreateStmt *stmt, char relkind, Oid ownerId,
 			}
 
 			attmap = convert_tuples_by_name_map(RelationGetDescr(rel),
-												RelationGetDescr(parent),
-												gettext_noop("could not convert row type"));
+												RelationGetDescr(parent));
 			idxstmt =
 				generateClonedIndexStmt(NULL, idxRel,
 										attmap, RelationGetDescr(parent)->natts,
@@ -9840,8 +9839,7 @@ addFkRecurseReferenced(List **wqueue, Constraint *fkconstraint, Relation rel,
 			 * definition to match the partition's column layout.
 			 */
 			map = convert_tuples_by_name_map_if_req(RelationGetDescr(partRel),
-													RelationGetDescr(pkrel),
-													gettext_noop("could not convert row type"));
+													RelationGetDescr(pkrel));
 			if (map)
 			{
 				mapped_pkattnum = palloc(sizeof(AttrNumber) * numfks);
@@ -9983,8 +9981,7 @@ addFkRecurseReferencing(List **wqueue, Constraint *fkconstraint, Relation rel,
 			CheckTableNotInUse(partition, "ALTER TABLE");
 
 			attmap = convert_tuples_by_name_map(RelationGetDescr(partition),
-												RelationGetDescr(rel),
-												gettext_noop("could not convert row type"));
+												RelationGetDescr(rel));
 			for (int j = 0; j < numfks; j++)
 				mapped_fkattnum[j] = attmap[fkattnum[j] - 1];
 
@@ -10174,8 +10171,7 @@ CloneFkReferenced(Relation parentRel, Relation partitionRel)
 	table_close(pg_constraint, RowShareLock);
 
 	attmap = convert_tuples_by_name_map(RelationGetDescr(partitionRel),
-										RelationGetDescr(parentRel),
-										gettext_noop("could not convert row type"));
+										RelationGetDescr(parentRel));
 	foreach(cell, clone)
 	{
 		Oid			constrOid = lfirst_oid(cell);
@@ -10311,8 +10307,7 @@ CloneFkReferencing(List **wqueue, Relation parentRel, Relation partRel)
 	 * different.  This map is used to convert them.
 	 */
 	attmap = convert_tuples_by_name_map(RelationGetDescr(partRel),
-										RelationGetDescr(parentRel),
-										gettext_noop("could not convert row type"));
+										RelationGetDescr(parentRel));
 
 	partFKs = copyObject(RelationGetFKeyList(partRel));
 
@@ -12251,8 +12246,7 @@ ATPrepAlterColumnType(List **wqueue,
 				cmd = copyObject(cmd);
 
 				attmap = convert_tuples_by_name_map(RelationGetDescr(childrel),
-													RelationGetDescr(rel),
-													gettext_noop("could not convert row type"));
+													RelationGetDescr(rel));
 				((ColumnDef *) cmd->def)->cooked_default =
 					map_variable_attnos(def->cooked_default,
 										1, 0,
@@ -19569,8 +19563,7 @@ AttachPartitionEnsureIndexes(Relation rel, Relation attachrel)
 		/* construct an indexinfo to compare existing indexes against */
 		info = BuildIndexInfo(idxRel);
 		attmap = convert_tuples_by_name_map(RelationGetDescr(attachrel),
-											RelationGetDescr(rel),
-											gettext_noop("could not convert row type"));
+											RelationGetDescr(rel));
 		constraintOid = get_relation_idx_constraint_oid(RelationGetRelid(rel), idx);
 
 		/*
@@ -20154,8 +20147,7 @@ ATExecAttachPartitionIdx(List **wqueue, Relation parentIdx, RangeVar *name)
 		childInfo = BuildIndexInfo(partIdx);
 		parentInfo = BuildIndexInfo(parentIdx);
 		attmap = convert_tuples_by_name_map(RelationGetDescr(partTbl),
-											RelationGetDescr(parentTbl),
-											gettext_noop("could not convert row type"));
+											RelationGetDescr(parentTbl));
 		if (!CompareIndexInfo(childInfo, parentInfo,
 							  partIdx->rd_indcollation,
 							  parentIdx->rd_indcollation,
