@@ -1376,18 +1376,29 @@ LOAD_QE_SYSTEM_DATA () {
 		LOG_MSG "[INFO]:-End Function $FUNCNAME"
 }
 
-CREATE_QES_PRIMARY () {
+CREATE_SEGMENT () {
 		LOG_MSG "[INFO]:-Start Function $FUNCNAME"
+		local PREFERRED_ROLE=$1
 		#
-		# PARALLEL BUILD OF PRIMARIES
-		#
-		LOG_MSG "[INFO]:-Commencing parallel build of primary segment instances" 1
+		# PARALLEL BUILD OF SEGMENTS
+		# SEGMENT_ARRAY contains the array of segments which will be created in this invocation
+		if [ x"IS_PRIMARY" == x"$PREFERRED_ROLE" ]; then
+			LOG_MSG "[INFO]:-Commencing parallel build of primary segment instances" 1
+			SEGMENT_ARRAY=(${QE_PRIMARY_ARRAY_SORTED_ON_CONTENT_ID[@]})
+		else
+			LOG_MSG "[INFO]:-Commencing parallel build of mirror segment instances" 1
+			SEGMENT_ARRAY=(${QE_MIRROR_ARRAY_SORTED_ON_CONTENT_ID[@]})
+		fi
+
 		BATCH_LIMIT=${#QE_PRIMARY_ARRAY[@]}
 		PARALLEL_SETUP  $PARALLEL_STATUS_FILE
+		HAS_MIRRORS_OPTION=no
 		if [ $MIRRORING -ne 0 ]; then
+		  HAS_MIRRORS_OPTION=yes
 			I_INDEX=0
 		fi
-		for PRIMARY_SEGMENT_INFO in "${QE_PRIMARY_ARRAY_SORTED_ON_CONTENT_ID[@]}"
+		echo "${SEGMENT_ARRAY[@]}"
+		for SEGMENT_INFO in "${SEGMENT_ARRAY[@]}"
 		do
 			export PG_CONF_ADD_FILE
 			export STANDBY_HOSTNAME
@@ -1403,28 +1414,28 @@ CREATE_QES_PRIMARY () {
 			export QE_SHARED_BUFFERS
 			export SEG_PREFIX
 			if [ $DEBUG_LEVEL -eq 0 ] && [ x"" != x"$VERBOSE" ];then $NOLINE_ECHO ".\c";fi
-			FLAG=""
+				FLAG=""
 			if [ x"" != x"$PG_CONF_ADD_FILE" ] ; then
-			    FLAG="-p $PG_CONF_ADD_FILE"
+					FLAG="-p $PG_CONF_ADD_FILE"
 			fi
 
-					HAS_MIRRORS_OPTION=
-					if [ $MIRRORING -ne 0 ]; then
-						HAS_MIRRORS_OPTION=yes
-						# ex: MIRROR_LINE: mirror_hostname~mirror_port~mirror_datadir~mirror_dbid~mirror_content
-						MIRROR_SEGMENT_INFO=${QE_MIRROR_ARRAY_SORTED_ON_CONTENT_ID[$I_INDEX]}
-					else
-						HAS_MIRRORS_OPTION=no
-						MIRROR_SEGMENT_INFO=""
-					fi
+			# PAIR_SEGMENT_INFO contains the corresponding pair with same content id if mirroring is enabled
+			PAIR_SEGMENT_INFO=""
+			if [ x"IS_PRIMARY" == x"$PREFERRED_ROLE" ]  && [ $MIRRORING -ne 0 ]; then
+				# ex: contains the corresponding pair with same content id if mirroring is enabled
+				PAIR_SEGMENT_INFO=${QE_MIRROR_ARRAY_SORTED_ON_CONTENT_ID[$I_INDEX]}
+			elif [ x"IS_MIRROR" == x"$PREFERRED_ROLE" ]; then
+				PAIR_SEGMENT_INFO=${QE_PRIMARY_ARRAY_SORTED_ON_CONTENT_ID[$I_INDEX]}
+			fi
 
 			((I_INDEX++))
-			# 1: Hardcoded value
+			# some of the params passed to gpcreateseg.sh listed below:
 			# FLAG: -p clusterConfigPostgresAddonsFile
-			# SEGMENT_INFO: ~ separated value, ex: primary_host~primary_port~primary_data_dir~primary_dbid~primary_content
-			# MIRROR_SEGMENT_INFO: empty or corresponding mirror value, ex: mirror_host~mirror_port~mirror_data_dir~mirror_dbid~mirror_content
+			# PREFERRED_ROLE: IS_PRIMARY or IS_MIRROR
+			# SEGMENT_INFO: ~ separated value, ex: host1~port1~data_dir~dbid1~contentid
+			# PAIR_SEGMENT_INFO: corresponding pair, ex: host2~port2~data_dir~dbid2~contentid
 			# INST_COUNT: Number of parallel script count
-			MASTER_HOSTNAME=${MASTER_HOSTNAME} HBA_HOSTNAMES=${HBA_HOSTNAMES} $GPCREATESEG $FLAG $$ 1 IS_PRIMARY $PRIMARY_SEGMENT_INFO "${MIRROR_SEGMENT_INFO}" $INST_COUNT  $LOG_FILE $HEAP_CHECKSUM \
+			MASTER_HOSTNAME=${MASTER_HOSTNAME} HBA_HOSTNAMES=${HBA_HOSTNAMES} $GPCREATESEG $FLAG $$ 1 $PREFERRED_ROLE $SEGMENT_INFO "${PAIR_SEGMENT_INFO}" $INST_COUNT  $LOG_FILE $HEAP_CHECKSUM \
 `$ECHO ${MASTER_IP_ADDRESS[@]}|$TR ' ' '~'` \
 `$ECHO ${STANDBY_IP_ADDRESS[@]}|$TR ' ' '~'` &
 			PARALLEL_COUNT $BATCH_LIMIT $BATCH_DEFAULT
@@ -1451,50 +1462,6 @@ REGISTER_MIRRORS () {
 		QE_MIRROR_ARRAY=(${MIRRORS_UPDATED_DBID[@]})
 		LOG_MSG "[INFO]:-End Function $FUNCNAME"
 }
-
-CREATE_QES_MIRROR () {
-	LOG_MSG "[INFO]:-Start Function $FUNCNAME"
-	LOG_MSG "[INFO]:-Commencing parallel build of mirror segment instances" 1
-	BATCH_LIMIT=${#QE_MIRROR_ARRAY[@]}
-	PARALLEL_SETUP  $PARALLEL_STATUS_FILE
-
-  for ((I_INDEX=0; I_INDEX < $CONTENT_COUNT; I_INDEX++))
-	do
-		export PG_CONF_ADD_FILE
-		export STANDBY_HOSTNAME
-		export ENCODING
-		export LOCALE_SETTING
-		export BACKOUT_FILE
-		export LOG_FILE
-		export PARALLEL_STATUS_FILE
-		export TOTAL_SEG
-		export ARRAY_NAME
-		export QE_MAX_CONNECT
-		export QE_SHARED_BUFFERS
-		export SEG_PREFIX
-		if [ $DEBUG_LEVEL -eq 0 ] && [ x"" != x"$VERBOSE" ];then $NOLINE_ECHO ".\c";fi
-		FLAG=""
-		if [ x"" != x"$PG_CONF_ADD_FILE" ] ; then
-		    FLAG="-p $PG_CONF_ADD_FILE"
-		fi
-
-    # primary and mirror segment info: ~ separated value, ex: host~port~data_dir~dbid~content
-    MIRROR_SEGMENT_INFO=${QE_MIRROR_ARRAY_SORTED_ON_CONTENT_ID[$I_INDEX]}
-    PRIMARY_SEGMENT_INFO=${QE_PRIMARY_ARRAY_SORTED_ON_CONTENT_ID[$I_INDEX]}
-		MASTER_HOSTNAME=${MASTER_HOSTNAME} HBA_HOSTNAMES=${HBA_HOSTNAMES} $GPCREATESEG $FLAG $$ 1 IS_MIRROR ${MIRROR_SEGMENT_INFO} ${PRIMARY_SEGMENT_INFO} $INST_COUNT  $LOG_FILE $HEAP_CHECKSUM \
-`$ECHO ${MASTER_IP_ADDRESS[@]}|$TR ' ' '~'` \
-`$ECHO ${STANDBY_IP_ADDRESS[@]}|$TR ' ' '~'` &
-		PARALLEL_COUNT $BATCH_LIMIT $BATCH_DEFAULT
-	done
-	PARALLEL_SUMMARY_STATUS_REPORT $PARALLEL_STATUS_FILE
-	if [ $REPORT_FAIL -ne 0 ];then
-		$CAT $PARALLEL_STATUS_FILE >> $LOG_FILE
-	fi
-	$RM -f $PARALLEL_STATUS_FILE
-
-	LOG_MSG "[INFO]:-End Function $FUNCNAME"
-}
-
 
 STOP_QD_PRODUCTION () {
     LOG_MSG "[INFO]:-Start Function $FUNCNAME"
@@ -2002,7 +1969,7 @@ CREATE_QD_DB
 
 CREATE_ARRAY_SORTED_ON_CONTENT_ID
 
-CREATE_QES_PRIMARY
+CREATE_SEGMENT IS_PRIMARY
 if [ $REPORT_FAIL -ne 0 ];then
 	LOG_MSG "[FATAL]:-Errors generated from parallel processes" 1
 	LOG_MSG "[INFO]:-Dumped contents of status file to the log file" 1
@@ -2041,7 +2008,7 @@ SET_GP_USER_PW
 
 if [ $MIRRORING -ne 0 ]; then
     REGISTER_MIRRORS
-    CREATE_QES_MIRROR
+    CREATE_SEGMENT IS_MIRROR
     FORCE_FTS_PROBE
 fi
 
