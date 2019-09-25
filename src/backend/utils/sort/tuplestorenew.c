@@ -27,7 +27,7 @@
 #include "utils/memutils.h"
 
 #include "cdb/cdbvars.h"                /* currentSliceId */
-
+#include "utils/faultinjector.h"
 
 typedef struct NTupleStorePageHeader
 {
@@ -495,6 +495,7 @@ static NTupleStorePage *nts_get_free_page(NTupleStore *nts)
 
 					Assert(nts->rwflag != NTS_IS_READER);
 					ntsWriteBlock(nts, page_next);
+					SIMPLE_FAULT_INJECTOR("FailSpilling2");
 				}
 
 				if(nts->page_cnt >= page_max)
@@ -1392,6 +1393,8 @@ ntuplestore_create_spill_files(NTupleStore *nts)
 	nts->plobfile = BufFileCreateNamedTemp("lob",
 										   false /* interXact */,
 										   nts->work_set);
+
+	elog(NOTICE, "Creating BufFileCreateNamedTemp files");
 
 	MemoryContextSwitchTo(oldcxt);
 

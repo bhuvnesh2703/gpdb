@@ -27,6 +27,7 @@
 #include "executor/nodeMaterial.h"
 #include "executor/instrument.h"        /* Instrumentation */
 #include "utils/tuplestorenew.h"
+#include "utils/faultinjector.h"
 
 #include "miscadmin.h"
 
@@ -173,6 +174,7 @@ ExecMaterial(MaterialState *node)
 							estate->es_plannedstmt->planGen);
 				}
 			}
+			SIMPLE_FAULT_INJECTOR("FailSpilling");
 			return NULL;
 		}
 	}
