@@ -430,15 +430,41 @@ set_plan_refs(PlannerGlobal *glob, Plan *plan, int rtoffset)
      */
 	if (plan->flow && plan->flow->hashExpr)
     {
-        indexed_tlist  *plan_itlist = build_tlist_index(plan->targetlist);
+		bool processed = false;
+		switch (nodeTag(plan))
+		{
+			case T_NestLoop:
+			case T_HashJoin:
+			case T_MergeJoin:
+			{
+				indexed_tlist  *outer_itlist = build_tlist_index(plan->lefttree->targetlist);
+				indexed_tlist  *inner_itlist = build_tlist_index(plan->righttree->targetlist);
+				plan->flow->hashExpr = fix_join_expr(glob,
+											   plan->flow->hashExpr,
+											   outer_itlist,
+											   inner_itlist,
+											   (Index) 0,
+											   rtoffset);
+				processed = true;
+				pfree(outer_itlist);
+				pfree(inner_itlist);
+			}
+				break;
+			default:
+				break;
+		}
+		if (!processed) {
+			indexed_tlist *plan_itlist = build_tlist_index(plan->targetlist);
 
-        plan->flow->hashExpr =
-		(List *)fix_upper_expr(glob,
-							   (Node *)plan->flow->hashExpr,
-							   plan_itlist,
-							   rtoffset);
-        pfree(plan_itlist);
+			plan->flow->hashExpr =
+					(List *) fix_upper_expr(glob,
+											(Node *) plan->flow->hashExpr,
+											plan_itlist,
+											rtoffset);
+			pfree(plan_itlist);
+		}
     }
+
 
 	/*
 	 * Plan-type-specific fixes
