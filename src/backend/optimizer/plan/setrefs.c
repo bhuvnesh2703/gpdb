@@ -437,17 +437,28 @@ set_plan_refs(PlannerGlobal *glob, Plan *plan, int rtoffset)
 			case T_HashJoin:
 			case T_MergeJoin:
 			{
-				indexed_tlist  *outer_itlist = build_tlist_index(plan->lefttree->targetlist);
-				indexed_tlist  *inner_itlist = build_tlist_index(plan->righttree->targetlist);
-				plan->flow->hashExpr = fix_join_expr(glob,
-											   plan->flow->hashExpr,
-											   outer_itlist,
-											   inner_itlist,
-											   (Index) 0,
-											   rtoffset);
-				processed = true;
-				pfree(outer_itlist);
-				pfree(inner_itlist);
+				Join *join = (Join *) plan;
+				if (join->jointype == JOIN_LEFT || join->jointype == JOIN_LASJ_NOTIN || join->jointype == JOIN_LASJ)
+				{
+					indexed_tlist *outer_tlist = build_tlist_index(plan->lefttree->targetlist);
+					plan->flow->hashExpr =
+							(List *) fix_upper_expr(glob,
+													(Node *) plan->flow->hashExpr,
+													outer_tlist,
+													rtoffset);
+					pfree(outer_tlist);
+					processed = true;
+				}
+				else if (join->jointype == JOIN_RIGHT) {
+					indexed_tlist *inner_tlist = build_tlist_index(plan->righttree->targetlist);
+					plan->flow->hashExpr =
+							(List *) fix_upper_expr(glob,
+													(Node *) plan->flow->hashExpr,
+													inner_tlist,
+													rtoffset);
+					pfree(inner_tlist);
+					processed = true;
+				}
 			}
 				break;
 			default:
