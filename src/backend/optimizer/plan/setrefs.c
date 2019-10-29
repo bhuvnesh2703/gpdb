@@ -424,22 +424,6 @@ set_plan_refs(PlannerGlobal *glob, Plan *plan, int rtoffset)
 	if (plan == NULL)
 		return NULL;
 
-    /*
-     * CDB: If plan has a Flow node, fix up its hashExpr to refer to the
-     * plan's own targetlist.
-     */
-	if (plan->flow && plan->flow->hashExpr)
-    {
-        indexed_tlist  *plan_itlist = build_tlist_index(plan->targetlist);
-
-        plan->flow->hashExpr =
-		(List *)fix_upper_expr(glob,
-							   (Node *)plan->flow->hashExpr,
-							   plan_itlist,
-							   rtoffset);
-        pfree(plan_itlist);
-    }
-
 	/*
 	 * Plan-type-specific fixes
 	 */
