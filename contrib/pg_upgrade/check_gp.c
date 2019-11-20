@@ -24,6 +24,7 @@ static void check_orphaned_toastrels(void);
 static void check_online_expansion(void);
 static void check_gphdfs_external_tables(void);
 static void check_gphdfs_user_roles(void);
+static void check_functions_with_signature_change(void);
 
 /*
  *	check_greenplum
@@ -44,6 +45,7 @@ check_greenplum(void)
 	check_orphaned_toastrels();
 	check_gphdfs_external_tables();
 	check_gphdfs_user_roles();
+	check_functions_with_signature_change();
 }
 
 /*
@@ -731,6 +733,78 @@ check_gphdfs_user_roles(void)
 			   "| These privileges need to be revoked before upgrade.  A list\n"
 			   "| of roles and their corresponding gphdfs privileges that\n"
 			   "| must be revoked is provided in the file:\n"
+			   "| \t%s\n\n", output_path);
+	}
+	else
+		check_ok();
+}
+
+/*
+ * check_functions_with_signature_change
+ *
+ * Check if there are any functions whose signature has changed between
+ * greenplum 5 vs 6
+ */
+static void
+check_functions_with_signature_change(void)
+{
+	char		output_path[MAXPGPATH];
+	FILE	   *script = NULL;
+	bool		found = false;
+	int			dbnum;
+
+	/* GPDB only supported gphdfs in this version range */
+	if (!(old_cluster.major_version >= 80215 && old_cluster.major_version < 80400))
+		return;
+
+	prep_status("Checking for functions with signature change");
+
+	snprintf(output_path, sizeof(output_path), "functions_with_signature_change.txt");
+
+
+	for (dbnum = 0; dbnum < old_cluster.dbarr.ndbs; dbnum++)
+	{
+		PGresult   *res;
+		int			ntups;
+		int			rowno;
+		DbInfo	   *active_db = &old_cluster.dbarr.dbs[dbnum];
+		PGconn	   *conn;
+
+		conn = connectToServer(&old_cluster, active_db->db_name);
+		res = executeQueryOrDie(conn,
+								"SELECT aggfnoid as aggregate_nname "
+								"FROM pg_catalog.pg_aggregate "
+								"       WHERE aggtransfn IN ('int4_avg_accum'::regproc);");
+
+		ntups = PQntuples(res);
+
+		if (ntups > 0)
+		{
+			found = true;
+
+			if (script == NULL && (script = fopen(output_path, "w")) == NULL)
+				pg_log(PG_FATAL, "Could not create necessary file:  %s\n",
+					   output_path);
+
+			for (rowno = 0; rowno < ntups; rowno++)
+			{
+				fprintf(script, "function \"%s\" in database \"%s\"\n",
+						PQgetvalue(res, rowno, PQfnumber(res, "aggregate_nname")),
+						active_db->db_name);
+			}
+		}
+
+		PQclear(res);
+		PQfinish(conn);
+	}
+	if (found)
+	{
+		fclose(script);
+		pg_log(PG_REPORT, "fatal\n");
+		pg_log(PG_FATAL,
+			   "| Your installation contains methods which depend on objects whose signature has changed.  These \n"
+			   "| functions need to be dropped before upgrade.  A list of\n"
+			   "| functions to remove is provided in the file:\n"
 			   "| \t%s\n\n", output_path);
 	}
 	else
