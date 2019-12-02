@@ -4820,7 +4820,7 @@ examine_simple_variable(PlannerInfo *root, Var *var,
 
 			ReleaseSysCache(pkStatsTuple);
 		}
-	} 
+	}
 
 	if (get_relation_stats_hook &&
 		(*get_relation_stats_hook) (root, rte, var->varattno, vardata))
