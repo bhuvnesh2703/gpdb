@@ -1124,13 +1124,13 @@ INSERT INTO part_tbl VALUES (2015111000, 479534742, 99999999);
 CREATE INDEX part_tbl_idx 
 ON part_tbl(profile_key);
 EXPLAIN SELECT * FROM part_tbl WHERE profile_key = 99999999;
-                                                QUERY PLAN                                                
-----------------------------------------------------------------------------------------------------------
- Gather Motion 3:1  (slice1; segments: 3)  (cost=0.00..2.07 rows=2 width=25)
-   ->  Append  (cost=0.00..2.03 rows=1 width=25)
-         ->  Seq Scan on part_tbl_1_prt_p20151110_2_prt_package5  (cost=0.00..1.01 rows=1 width=25)
+                                                     QUERY PLAN                                                      
+---------------------------------------------------------------------------------------------------------------------
+ Gather Motion 3:1  (slice1; segments: 3)  (cost=0.00..2.11 rows=6 width=25)
+   ->  Append  (cost=0.00..2.03 rows=2 width=25)
+         ->  Seq Scan on part_tbl_1_prt_p20151110_2_prt_package5 part_tbl  (cost=0.00..1.01 rows=1 width=25)
                Filter: (profile_key = '99999999'::numeric)
-         ->  Seq Scan on part_tbl_1_prt_p20151110_2_prt_other_services  (cost=0.00..1.01 rows=1 width=25)
+         ->  Seq Scan on part_tbl_1_prt_p20151110_2_prt_other_services part_tbl_1  (cost=0.00..1.01 rows=1 width=25)
                Filter: (profile_key = '99999999'::numeric)
  Optimizer: Postgres query optimizer
 (7 rows)
@@ -1287,7 +1287,7 @@ explain select * from r_co where a=2; -- should eliminate partitions
                                  QUERY PLAN                                 
 ----------------------------------------------------------------------------
  Gather Motion 1:1  (slice1; segments: 1)  (cost=0.00..1.03 rows=1 width=8)
-   ->  Seq Scan on r_co_1_prt_2  (cost=0.00..1.01 rows=1 width=8)
+   ->  Seq Scan on r_co_1_prt_2 r_co  (cost=0.00..1.01 rows=1 width=8)
          Filter: (a = 2)
  Optimizer: Postgres query optimizer
 (4 rows)
@@ -1296,13 +1296,13 @@ explain select * from r_co where a=2; -- should eliminate partitions
 prepare f3(int) as select * from r_co where a = $1 order by a,b; 
 --force_explain
 explain execute f3(2); -- should eliminate partitions
-                                 QUERY PLAN                                 
-----------------------------------------------------------------------------
+                                 QUERY PLAN                                  
+-----------------------------------------------------------------------------
  Gather Motion 1:1  (slice1; segments: 1)  (cost=1.02..1.07 rows=3 width=8)
-   Merge Key: r_co_1_prt_2.b
+   Merge Key: r_co.b
    ->  Sort  (cost=1.02..1.03 rows=1 width=8)
-         Sort Key: r_co_1_prt_2.b
-         ->  Seq Scan on r_co_1_prt_2  (cost=0.00..1.01 rows=1 width=8)
+         Sort Key: r_co.b
+         ->  Seq Scan on r_co_1_prt_2 r_co  (cost=0.00..1.01 rows=1 width=8)
                Filter: (a = 2)
  Optimizer: Postgres query optimizer
 (7 rows)
