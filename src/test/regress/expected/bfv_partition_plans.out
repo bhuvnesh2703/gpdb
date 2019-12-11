@@ -1045,8 +1045,8 @@ EXPLAIN SELECT b FROM bar GROUP BY b;
    ->  HashAggregate  (cost=7.83..7.90 rows=7 width=4)
          Group Key: bar.b
          ->  Append  (cost=0.00..7.00 rows=333 width=4)
-               ->  Seq Scan on bar_1_prt_1 bar  (cost=0.00..2.67 rows=167 width=4)
-               ->  Seq Scan on bar_1_prt_2 bar_1  (cost=0.00..2.67 rows=167 width=4)
+               ->  Seq Scan on bar_1_prt_1 bar_1  (cost=0.00..2.67 rows=167 width=4)
+               ->  Seq Scan on bar_1_prt_2 bar_2  (cost=0.00..2.67 rows=167 width=4)
  Optimizer: Postgres query optimizer
 (7 rows)
 
@@ -1074,26 +1074,26 @@ HINT:  The 'DISTRIBUTED BY' clause determines the distribution of data. Make sur
 explain analyze select a.* from mpp8031 a, mpp8031 b where a.oid = b.oid;
                                                               QUERY PLAN                                                               
 ---------------------------------------------------------------------------------------------------------------------------------------
- Gather Motion 3:1  (slice1; segments: 3)  (cost=2743.00..2475974.00 rows=80883360 width=16) (actual time=1.632..1.632 rows=0 loops=1)
+ Gather Motion 3:1  (slice1; segments: 3)  (cost=2743.00..2475974.00 rows=80883360 width=16) (actual time=0.506..0.506 rows=0 loops=1)
    ->  Hash Join  (cost=2743.00..1397529.20 rows=26961120 width=16) (never executed)
          Hash Cond: (a.oid = b.oid)
          ->  Append  (cost=0.00..1558.00 rows=94800 width=16) (never executed)
-               ->  Seq Scan on mpp8031_1_prt_foo_1 a  (cost=0.00..271.00 rows=23700 width=16) (never executed)
-               ->  Seq Scan on mpp8031_1_prt_2 a_1  (cost=0.00..271.00 rows=23700 width=16) (never executed)
-               ->  Seq Scan on mpp8031_1_prt_3 a_2  (cost=0.00..271.00 rows=23700 width=16) (never executed)
-               ->  Seq Scan on mpp8031_1_prt_4 a_3  (cost=0.00..271.00 rows=23700 width=16) (never executed)
+               ->  Seq Scan on mpp8031_1_prt_foo_1 a_1  (cost=0.00..271.00 rows=23700 width=16) (never executed)
+               ->  Seq Scan on mpp8031_1_prt_2 a_2  (cost=0.00..271.00 rows=23700 width=16) (never executed)
+               ->  Seq Scan on mpp8031_1_prt_3 a_3  (cost=0.00..271.00 rows=23700 width=16) (never executed)
+               ->  Seq Scan on mpp8031_1_prt_4 a_4  (cost=0.00..271.00 rows=23700 width=16) (never executed)
          ->  Hash  (cost=1558.00..1558.00 rows=94800 width=4) (never executed)
                ->  Append  (cost=0.00..1558.00 rows=94800 width=4) (never executed)
-                     ->  Seq Scan on mpp8031_1_prt_foo_1 b  (cost=0.00..271.00 rows=23700 width=4) (never executed)
-                     ->  Seq Scan on mpp8031_1_prt_2 b_1  (cost=0.00..271.00 rows=23700 width=4) (never executed)
-                     ->  Seq Scan on mpp8031_1_prt_3 b_2  (cost=0.00..271.00 rows=23700 width=4) (never executed)
-                     ->  Seq Scan on mpp8031_1_prt_4 b_3  (cost=0.00..271.00 rows=23700 width=4) (never executed)
- Planning Time: 1.824 ms
-   (slice0)    Executor memory: 59K bytes.
-   (slice1)    Executor memory: 58K bytes avg x 3 workers, 58K bytes max (seg0).
+                     ->  Seq Scan on mpp8031_1_prt_foo_1 b_1  (cost=0.00..271.00 rows=23700 width=4) (never executed)
+                     ->  Seq Scan on mpp8031_1_prt_2 b_2  (cost=0.00..271.00 rows=23700 width=4) (never executed)
+                     ->  Seq Scan on mpp8031_1_prt_3 b_3  (cost=0.00..271.00 rows=23700 width=4) (never executed)
+                     ->  Seq Scan on mpp8031_1_prt_4 b_4  (cost=0.00..271.00 rows=23700 width=4) (never executed)
+ Planning Time: 0.195 ms
+   (slice0)    Executor memory: 55K bytes.
+   (slice1)    Executor memory: 57K bytes avg x 3 workers, 57K bytes max (seg0).
  Memory used:  128000kB
  Optimizer: Postgres query optimizer
- Execution Time: 1.481 ms
+ Execution Time: 0.687 ms
 (20 rows)
 
 drop table mpp8031;
@@ -1127,9 +1127,9 @@ EXPLAIN SELECT * FROM part_tbl WHERE profile_key = 99999999;
 ---------------------------------------------------------------------------------------------------------------------
  Gather Motion 3:1  (slice1; segments: 3)  (cost=0.00..2.11 rows=6 width=25)
    ->  Append  (cost=0.00..2.03 rows=2 width=25)
-         ->  Seq Scan on part_tbl_1_prt_p20151110_2_prt_package5 part_tbl  (cost=0.00..1.01 rows=1 width=25)
+         ->  Seq Scan on part_tbl_1_prt_p20151110_2_prt_package5 part_tbl_1  (cost=0.00..1.01 rows=1 width=25)
                Filter: (profile_key = '99999999'::numeric)
-         ->  Seq Scan on part_tbl_1_prt_p20151110_2_prt_other_services part_tbl_1  (cost=0.00..1.01 rows=1 width=25)
+         ->  Seq Scan on part_tbl_1_prt_p20151110_2_prt_other_services part_tbl_2  (cost=0.00..1.01 rows=1 width=25)
                Filter: (profile_key = '99999999'::numeric)
  Optimizer: Postgres query optimizer
 (7 rows)
@@ -1189,15 +1189,15 @@ explain select * from r_part r1, r_part r2 where r1.a=1; -- should eliminate par
                ->  Seq Scan on r_part_1_prt_1 r1  (cost=0.00..1.01 rows=1 width=8)
                      Filter: (a = 1)
          ->  Append  (cost=0.00..9.13 rows=9 width=8)
-               ->  Seq Scan on r_part_1_prt_1 r2  (cost=0.00..1.01 rows=1 width=8)
-               ->  Seq Scan on r_part_1_prt_2 r2_1  (cost=0.00..1.01 rows=1 width=8)
-               ->  Seq Scan on r_part_1_prt_3 r2_2  (cost=0.00..1.01 rows=1 width=8)
-               ->  Seq Scan on r_part_1_prt_4 r2_3  (cost=0.00..1.01 rows=1 width=8)
-               ->  Seq Scan on r_part_1_prt_5 r2_4  (cost=0.00..1.01 rows=1 width=8)
-               ->  Seq Scan on r_part_1_prt_6 r2_5  (cost=0.00..1.01 rows=1 width=8)
-               ->  Seq Scan on r_part_1_prt_7 r2_6  (cost=0.00..1.01 rows=1 width=8)
-               ->  Seq Scan on r_part_1_prt_8 r2_7  (cost=0.00..1.01 rows=1 width=8)
-               ->  Seq Scan on r_part_1_prt_9 r2_8  (cost=0.00..1.01 rows=1 width=8)
+               ->  Seq Scan on r_part_1_prt_1 r2_1  (cost=0.00..1.01 rows=1 width=8)
+               ->  Seq Scan on r_part_1_prt_2 r2_2  (cost=0.00..1.01 rows=1 width=8)
+               ->  Seq Scan on r_part_1_prt_3 r2_3  (cost=0.00..1.01 rows=1 width=8)
+               ->  Seq Scan on r_part_1_prt_4 r2_4  (cost=0.00..1.01 rows=1 width=8)
+               ->  Seq Scan on r_part_1_prt_5 r2_5  (cost=0.00..1.01 rows=1 width=8)
+               ->  Seq Scan on r_part_1_prt_6 r2_6  (cost=0.00..1.01 rows=1 width=8)
+               ->  Seq Scan on r_part_1_prt_7 r2_7  (cost=0.00..1.01 rows=1 width=8)
+               ->  Seq Scan on r_part_1_prt_8 r2_8  (cost=0.00..1.01 rows=1 width=8)
+               ->  Seq Scan on r_part_1_prt_9 r2_9  (cost=0.00..1.01 rows=1 width=8)
  Optimizer: Postgres query optimizer
 (16 rows)
 
@@ -1207,9 +1207,9 @@ explain select * from r_part where a in (7,8); -- should eliminate partitions
 -----------------------------------------------------------------------------------
  Gather Motion 1:1  (slice1; segments: 1)  (cost=0.00..2.11 rows=6 width=8)
    ->  Append  (cost=0.00..2.03 rows=2 width=8)
-         ->  Seq Scan on r_part_1_prt_7 r_part  (cost=0.00..1.01 rows=1 width=8)
+         ->  Seq Scan on r_part_1_prt_7 r_part_1  (cost=0.00..1.01 rows=1 width=8)
                Filter: (a = ANY ('{7,8}'::integer[]))
-         ->  Seq Scan on r_part_1_prt_8 r_part_1  (cost=0.00..1.01 rows=1 width=8)
+         ->  Seq Scan on r_part_1_prt_8 r_part_2  (cost=0.00..1.01 rows=1 width=8)
                Filter: (a = ANY ('{7,8}'::integer[]))
  Optimizer: Postgres query optimizer
 (7 rows)
