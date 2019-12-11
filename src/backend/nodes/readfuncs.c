@@ -2425,6 +2425,7 @@ _readPlannedStmt(void)
 	READ_NODE_FIELD(rtable);
 	READ_NODE_FIELD(resultRelations);
 	READ_NODE_FIELD(rootResultRelations);
+	READ_NODE_FIELD(appendRelations);
 	READ_NODE_FIELD(subplans);
 	READ_BITMAPSET_FIELD(rewindPlanIDs);
 	READ_NODE_FIELD(rowMarks);
@@ -2589,6 +2590,7 @@ _readAppend(void)
 
 	ReadCommonPlan(&local_node->plan);
 
+	READ_BITMAPSET_FIELD(apprelids);
 	READ_NODE_FIELD(appendplans);
 	READ_INT_FIELD(first_partial_plan);
 	READ_NODE_FIELD(part_prune_info);
@@ -2607,6 +2609,7 @@ _readMergeAppend(void)
 
 	ReadCommonPlan(&local_node->plan);
 
+	READ_BITMAPSET_FIELD(apprelids);
 	READ_NODE_FIELD(mergeplans);
 	READ_INT_FIELD(numCols);
 	READ_ATTRNUMBER_ARRAY(sortColIdx, local_node->numCols);
@@ -3543,6 +3546,23 @@ _readRestrictInfo(void)
 	READ_NODE_FIELD(right_em);
 	READ_BOOL_FIELD(outer_is_left);
 	READ_OID_FIELD(hashjoinoperator);
+
+	READ_DONE();
+}
+
+static AppendRelInfo *
+_readAppendRelInfo(void)
+{
+	READ_LOCALS(AppendRelInfo);
+
+	READ_UINT_FIELD(parent_relid);
+	READ_UINT_FIELD(child_relid);
+	READ_OID_FIELD(parent_reltype);
+	READ_OID_FIELD(child_reltype);
+	READ_NODE_FIELD(translated_vars);
+	READ_INT_FIELD(num_child_cols);
+	READ_ATTRNUMBER_ARRAY(parent_colnos, local_node->num_child_cols);
+	READ_OID_FIELD(parent_reloid);
 
 	READ_DONE();
 }
@@ -4816,6 +4836,8 @@ parseNodeString(void)
 		return_value = _readGpPartitionListSpec();
 	else if (MATCHX("COLUMNREFERENCESTORAGEDIRECTIVE"))
 		return_value = _readColumnReferenceStorageDirective();
+	else if (MATCHX("APPENDRELINFO"))
+		return_value = _readAppendRelInfo();
 	else
 	{
         ereport(ERROR,
