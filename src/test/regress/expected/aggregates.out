@@ -1057,6 +1057,7 @@ explain (costs off)
  Result
    InitPlan 1 (returns $0)  (slice1)
      ->  Limit
+<<<<<<< HEAD
            ->  Gather Motion 3:1  (slice2; segments: 3)
                  Merge Key: minmaxtest.f1
                  ->  Merge Append
@@ -1083,6 +1084,29 @@ explain (costs off)
                        ->  Index Only Scan Backward using minmaxtest3i on minmaxtest3 minmaxtest3_1
  Optimizer: Postgres query optimizer
 (30 rows)
+=======
+           ->  Merge Append
+                 Sort Key: minmaxtest.f1
+                 ->  Index Only Scan using minmaxtesti on minmaxtest minmaxtest_1
+                       Index Cond: (f1 IS NOT NULL)
+                 ->  Index Only Scan using minmaxtest1i on minmaxtest1 minmaxtest_2
+                       Index Cond: (f1 IS NOT NULL)
+                 ->  Index Only Scan Backward using minmaxtest2i on minmaxtest2 minmaxtest_3
+                       Index Cond: (f1 IS NOT NULL)
+                 ->  Index Only Scan using minmaxtest3i on minmaxtest3 minmaxtest_4
+   InitPlan 2 (returns $1)
+     ->  Limit
+           ->  Merge Append
+                 Sort Key: minmaxtest_5.f1 DESC
+                 ->  Index Only Scan Backward using minmaxtesti on minmaxtest minmaxtest_6
+                       Index Cond: (f1 IS NOT NULL)
+                 ->  Index Only Scan Backward using minmaxtest1i on minmaxtest1 minmaxtest_7
+                       Index Cond: (f1 IS NOT NULL)
+                 ->  Index Only Scan using minmaxtest2i on minmaxtest2 minmaxtest_8
+                       Index Cond: (f1 IS NOT NULL)
+                 ->  Index Only Scan Backward using minmaxtest3i on minmaxtest3 minmaxtest_9
+(23 rows)
+>>>>>>> 6ef77cf46e8... Further adjust EXPLAIN's choices of table alias names.
 
 select min(f1), max(f1) from minmaxtest;
  min | max 
@@ -1097,7 +1121,32 @@ explain (costs off)
                           QUERY PLAN                          
 --------------------------------------------------------------
  Unique
+<<<<<<< HEAD
    Group Key: (min(minmaxtest.f1)), (max(minmaxtest.f1))
+=======
+   InitPlan 1 (returns $0)
+     ->  Limit
+           ->  Merge Append
+                 Sort Key: minmaxtest.f1
+                 ->  Index Only Scan using minmaxtesti on minmaxtest minmaxtest_1
+                       Index Cond: (f1 IS NOT NULL)
+                 ->  Index Only Scan using minmaxtest1i on minmaxtest1 minmaxtest_2
+                       Index Cond: (f1 IS NOT NULL)
+                 ->  Index Only Scan Backward using minmaxtest2i on minmaxtest2 minmaxtest_3
+                       Index Cond: (f1 IS NOT NULL)
+                 ->  Index Only Scan using minmaxtest3i on minmaxtest3 minmaxtest_4
+   InitPlan 2 (returns $1)
+     ->  Limit
+           ->  Merge Append
+                 Sort Key: minmaxtest_5.f1 DESC
+                 ->  Index Only Scan Backward using minmaxtesti on minmaxtest minmaxtest_6
+                       Index Cond: (f1 IS NOT NULL)
+                 ->  Index Only Scan Backward using minmaxtest1i on minmaxtest1 minmaxtest_7
+                       Index Cond: (f1 IS NOT NULL)
+                 ->  Index Only Scan using minmaxtest2i on minmaxtest2 minmaxtest_8
+                       Index Cond: (f1 IS NOT NULL)
+                 ->  Index Only Scan Backward using minmaxtest3i on minmaxtest3 minmaxtest_9
+>>>>>>> 6ef77cf46e8... Further adjust EXPLAIN's choices of table alias names.
    ->  Sort
          Sort Key: (min(minmaxtest.f1)), (max(minmaxtest.f1))
          ->  Finalize Aggregate
@@ -1199,6 +1248,7 @@ group by t1.a,t1.b,t1.c,t1.d,t2.x,t2.z;
 
 -- Cannot optimize when PK is deferrable
 explain (costs off) select * from t3 group by a,b,c;
+<<<<<<< HEAD
                 QUERY PLAN                
 ------------------------------------------
  Gather Motion 3:1  (slice1; segments: 3)
@@ -1206,6 +1256,54 @@ explain (costs off) select * from t3 group by a,b,c;
          Group Key: a, b, c
          ->  Seq Scan on t3
  Optimizer: Postgres query optimizer
+=======
+      QUERY PLAN      
+----------------------
+ HashAggregate
+   Group Key: a, b, c
+   ->  Seq Scan on t3
+(3 rows)
+
+create temp table t1c () inherits (t1);
+-- Ensure we don't remove any columns when t1 has a child table
+explain (costs off) select * from t1 group by a,b,c,d;
+             QUERY PLAN              
+-------------------------------------
+ HashAggregate
+   Group Key: t1.a, t1.b, t1.c, t1.d
+   ->  Append
+         ->  Seq Scan on t1 t1_1
+         ->  Seq Scan on t1c t1_2
+(5 rows)
+
+-- Okay to remove columns if we're only querying the parent.
+explain (costs off) select * from only t1 group by a,b,c,d;
+      QUERY PLAN      
+----------------------
+ HashAggregate
+   Group Key: a, b
+   ->  Seq Scan on t1
+(3 rows)
+
+create temp table p_t1 (
+  a int,
+  b int,
+  c int,
+  d int,
+  primary key(a,b)
+) partition by list(a);
+create temp table p_t1_1 partition of p_t1 for values in(1);
+create temp table p_t1_2 partition of p_t1 for values in(2);
+-- Ensure we can remove non-PK columns for partitioned tables.
+explain (costs off) select * from p_t1 group by a,b,c,d;
+           QUERY PLAN           
+--------------------------------
+ HashAggregate
+   Group Key: p_t1.a, p_t1.b
+   ->  Append
+         ->  Seq Scan on p_t1_1
+         ->  Seq Scan on p_t1_2
+>>>>>>> 6ef77cf46e8... Further adjust EXPLAIN's choices of table alias names.
 (5 rows)
 
 drop table t1;

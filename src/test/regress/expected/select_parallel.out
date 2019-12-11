@@ -23,6 +23,7 @@ explain (costs off)
  Finalize Aggregate
    ->  Gather Motion 3:1  (slice1; segments: 3)
          ->  Partial Aggregate
+<<<<<<< HEAD
                ->  Append
                      ->  Seq Scan on a_star
                      ->  Seq Scan on b_star
@@ -31,6 +32,15 @@ explain (costs off)
                      ->  Seq Scan on e_star
                      ->  Seq Scan on f_star
  Optimizer: Postgres query optimizer
+=======
+               ->  Parallel Append
+                     ->  Parallel Seq Scan on d_star a_star_4
+                     ->  Parallel Seq Scan on f_star a_star_6
+                     ->  Parallel Seq Scan on e_star a_star_5
+                     ->  Parallel Seq Scan on b_star a_star_2
+                     ->  Parallel Seq Scan on c_star a_star_3
+                     ->  Parallel Seq Scan on a_star a_star_1
+>>>>>>> 6ef77cf46e8... Further adjust EXPLAIN's choices of table alias names.
 (11 rows)
 
 select round(avg(aa)), sum(aa) from a_star a1;
@@ -49,6 +59,7 @@ explain (costs off)
  Finalize Aggregate
    ->  Gather Motion 3:1  (slice1; segments: 3)
          ->  Partial Aggregate
+<<<<<<< HEAD
                ->  Append
                      ->  Seq Scan on a_star
                      ->  Seq Scan on b_star
@@ -57,6 +68,15 @@ explain (costs off)
                      ->  Seq Scan on e_star
                      ->  Seq Scan on f_star
  Optimizer: Postgres query optimizer
+=======
+               ->  Parallel Append
+                     ->  Seq Scan on d_star a_star_4
+                     ->  Seq Scan on c_star a_star_3
+                     ->  Parallel Seq Scan on f_star a_star_6
+                     ->  Parallel Seq Scan on e_star a_star_5
+                     ->  Parallel Seq Scan on b_star a_star_2
+                     ->  Parallel Seq Scan on a_star a_star_1
+>>>>>>> 6ef77cf46e8... Further adjust EXPLAIN's choices of table alias names.
 (11 rows)
 
 select round(avg(aa)), sum(aa) from a_star a2;
@@ -77,6 +97,7 @@ explain (costs off)
  Finalize Aggregate
    ->  Gather Motion 3:1  (slice1; segments: 3)
          ->  Partial Aggregate
+<<<<<<< HEAD
                ->  Append
                      ->  Seq Scan on a_star
                      ->  Seq Scan on b_star
@@ -85,6 +106,15 @@ explain (costs off)
                      ->  Seq Scan on e_star
                      ->  Seq Scan on f_star
  Optimizer: Postgres query optimizer
+=======
+               ->  Parallel Append
+                     ->  Seq Scan on d_star a_star_4
+                     ->  Seq Scan on f_star a_star_6
+                     ->  Seq Scan on e_star a_star_5
+                     ->  Seq Scan on b_star a_star_2
+                     ->  Seq Scan on c_star a_star_3
+                     ->  Seq Scan on a_star a_star_1
+>>>>>>> 6ef77cf46e8... Further adjust EXPLAIN's choices of table alias names.
 (11 rows)
 
 select round(avg(aa)), sum(aa) from a_star a3;
@@ -136,6 +166,7 @@ explain (costs off)
    ->  Gather Motion 3:1  (slice1; segments: 3)
          ->  Partial Aggregate
                ->  Append
+<<<<<<< HEAD
                      ->  Seq Scan on a_star
                      ->  Seq Scan on b_star
                      ->  Seq Scan on c_star
@@ -143,6 +174,14 @@ explain (costs off)
                      ->  Seq Scan on e_star
                      ->  Seq Scan on f_star
  Optimizer: Postgres query optimizer
+=======
+                     ->  Parallel Seq Scan on a_star a_star_1
+                     ->  Parallel Seq Scan on b_star a_star_2
+                     ->  Parallel Seq Scan on c_star a_star_3
+                     ->  Parallel Seq Scan on d_star a_star_4
+                     ->  Parallel Seq Scan on e_star a_star_5
+                     ->  Parallel Seq Scan on f_star a_star_6
+>>>>>>> 6ef77cf46e8... Further adjust EXPLAIN's choices of table alias names.
 (11 rows)
 
 select round(avg(aa)), sum(aa) from a_star a4;
@@ -170,6 +209,7 @@ create table part_pa_test_p2 partition of part_pa_test for values from (0) to (m
 explain (costs off)
 	select (select max((select pa1.b from part_pa_test pa1 where pa1.a = pa2.a)))
 	from part_pa_test pa2;
+<<<<<<< HEAD
                                   QUERY PLAN                                   
 -------------------------------------------------------------------------------
  Finalize Aggregate
@@ -190,6 +230,25 @@ explain (costs off)
      ->  Result
  Optimizer: Postgres query optimizer
 (17 rows)
+=======
+                          QUERY PLAN                          
+--------------------------------------------------------------
+ Aggregate
+   ->  Gather
+         Workers Planned: 3
+         ->  Parallel Append
+               ->  Parallel Seq Scan on part_pa_test_p1 pa2_1
+               ->  Parallel Seq Scan on part_pa_test_p2 pa2_2
+   SubPlan 2
+     ->  Result
+   SubPlan 1
+     ->  Append
+           ->  Seq Scan on part_pa_test_p1 pa1_1
+                 Filter: (a = pa2.a)
+           ->  Seq Scan on part_pa_test_p2 pa1_2
+                 Filter: (a = pa2.a)
+(14 rows)
+>>>>>>> 6ef77cf46e8... Further adjust EXPLAIN's choices of table alias names.
 
 drop table part_pa_test;
 -- test with leader participation disabled
