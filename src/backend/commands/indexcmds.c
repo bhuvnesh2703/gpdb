@@ -1337,9 +1337,8 @@ DefineIndex(Oid relationId,
 				Relation	childrel;
 				List	   *childidxs;
 				ListCell   *cell;
-				AttrNumber *attmap;
+				AttrMap    *attmap;
 				bool		found = false;
-				int			maplen;
 
 				childrel = table_open(childRelid, lockmode);
 
@@ -1364,9 +1363,8 @@ DefineIndex(Oid relationId,
 
 				childidxs = RelationGetIndexList(childrel);
 				attmap =
-					convert_tuples_by_name_map(RelationGetDescr(childrel),
-											   parentDesc);
-				maplen = parentDesc->natts;
+					build_attrmap_by_name(RelationGetDescr(childrel),
+										  parentDesc);
 
 				foreach(cell, childidxs)
 				{
@@ -1385,7 +1383,7 @@ DefineIndex(Oid relationId,
 										 collationObjectId,
 										 cldidx->rd_opfamily,
 										 opfamOids,
-										 attmap, maplen))
+										 attmap))
 					{
 						Oid			cldConstrOid = InvalidOid;
 
@@ -1470,7 +1468,7 @@ DefineIndex(Oid relationId,
 						{
 							ielem->expr =
 								map_variable_attnos((Node *) ielem->expr,
-													1, 0, attmap, maplen,
+													1, 0, attmap,
 													InvalidOid,
 													&found_whole_row);
 							if (found_whole_row)
@@ -1479,7 +1477,7 @@ DefineIndex(Oid relationId,
 					}
 					childStmt->whereClause =
 						map_variable_attnos(stmt->whereClause, 1, 0,
-											attmap, maplen,
+											attmap,
 											InvalidOid, &found_whole_row);
 					if (found_whole_row)
 						elog(ERROR, "cannot convert whole-row table reference");
@@ -1494,7 +1492,7 @@ DefineIndex(Oid relationId,
 
 				pgstat_progress_update_param(PROGRESS_CREATEIDX_PARTITIONS_DONE,
 											 i + 1);
-				pfree(attmap);
+				free_attrmap(attmap);
 			}
 
 			/*
