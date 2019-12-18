@@ -1040,7 +1040,7 @@ transformTableLikeClause(CreateStmtContext *cxt, TableLikeClause *table_like_cla
 	Relation	relation;
 	TupleDesc	tupleDesc;
 	TupleConstr *constr;
-	AttrNumber *attmap;
+	AttrMap    *attmap;
 	AclResult	aclresult;
 	char	   *comment;
 	ParseCallbackState pcbstate;
@@ -1103,7 +1103,7 @@ transformTableLikeClause(CreateStmtContext *cxt, TableLikeClause *table_like_cla
 	 * since dropped columns in the source table aren't copied, so the new
 	 * table can have different column numbers.
 	 */
-	attmap = (AttrNumber *) palloc0(sizeof(AttrNumber) * tupleDesc->natts);
+	attmap = make_attrmap(tupleDesc->natts);
 
 	/*
 	 * Insert the copied attributes into the cxt for the new table definition.
@@ -1149,7 +1149,7 @@ transformTableLikeClause(CreateStmtContext *cxt, TableLikeClause *table_like_cla
 		 */
 		cxt->columns = lappend(cxt->columns, def);
 
-		attmap[parent_attno - 1] = list_length(cxt->columns);
+		attmap->attnums[parent_attno - 1] = list_length(cxt->columns);
 
 		/*
 		 * Copy default, if present and the default has been requested
@@ -1178,7 +1178,7 @@ transformTableLikeClause(CreateStmtContext *cxt, TableLikeClause *table_like_cla
 
 			def->cooked_default = map_variable_attnos(this_default,
 													  1, 0,
-													  attmap, tupleDesc->natts,
+													  attmap,
 													  InvalidOid, &found_whole_row);
 
 			/*
@@ -1263,7 +1263,7 @@ transformTableLikeClause(CreateStmtContext *cxt, TableLikeClause *table_like_cla
 
 			ccbin_node = map_variable_attnos(stringToNode(ccbin),
 											 1, 0,
-											 attmap, tupleDesc->natts,
+											 attmap,
 											 InvalidOid, &found_whole_row);
 
 			/*
@@ -1329,7 +1329,7 @@ transformTableLikeClause(CreateStmtContext *cxt, TableLikeClause *table_like_cla
 			/* Build CREATE INDEX statement to recreate the parent_index */
 			index_stmt = generateClonedIndexStmt(cxt->relation,
 												 parent_index,
-												 attmap, tupleDesc->natts,
+												 attmap,
 												 NULL);
 
 			/* Copy comment on index, if requested */
@@ -1514,7 +1514,7 @@ transformOfType(CreateStmtContext *cxt, TypeName *ofTypename)
  */
 IndexStmt *
 generateClonedIndexStmt(RangeVar *heapRel, Relation source_idx,
-						const AttrNumber *attmap, int attmap_length,
+						const AttrMap *attmap,
 						Oid *constraintOid)
 {
 	Oid			source_relid = RelationGetRelid(source_idx);
@@ -1735,7 +1735,7 @@ generateClonedIndexStmt(RangeVar *heapRel, Relation source_idx,
 			/* Adjust Vars to match new table's column numbering */
 			indexkey = map_variable_attnos(indexkey,
 										   1, 0,
-										   attmap, attmap_length,
+										   attmap,
 										   InvalidOid, &found_whole_row);
 
 			/* As in transformTableLikeClause, reject whole-row variables */
@@ -1842,7 +1842,7 @@ generateClonedIndexStmt(RangeVar *heapRel, Relation source_idx,
 		/* Adjust Vars to match new table's column numbering */
 		pred_tree = map_variable_attnos(pred_tree,
 										1, 0,
-										attmap, attmap_length,
+										attmap,
 										InvalidOid, &found_whole_row);
 
 		/* As in transformTableLikeClause, reject whole-row variables */
@@ -3016,7 +3016,7 @@ transformIndexConstraints(CreateStmtContext *cxt)
 				break;
 			}
 		}
-		
+
 		defer = index->whereClause != NULL;
 		if ( !defer )
 		{
@@ -3025,7 +3025,7 @@ transformIndexConstraints(CreateStmtContext *cxt)
 			{
 				IndexElem *elt = (IndexElem*)lfirst(j);
 				Assert(IsA(elt, IndexElem));
-				
+
 				if (elt->expr != NULL)
 				{
 					defer = true;
