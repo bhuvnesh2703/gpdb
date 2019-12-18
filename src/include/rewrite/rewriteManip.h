@@ -15,7 +15,7 @@
 #define REWRITEMANIP_H
 
 #include "nodes/parsenodes.h"
-
+#include "access/attmap.h"
 
 typedef struct replace_rte_variables_context replace_rte_variables_context;
 
@@ -73,7 +73,7 @@ extern Node *replace_rte_variables_mutator(Node *node,
 
 extern Node *map_variable_attnos(Node *node,
 								 int target_varno, int sublevels_up,
-								 const AttrNumber *attno_map, int map_length,
+								 const AttrMap *attno_map,
 								 Oid to_rowtype, bool *found_whole_row);
 
 extern Node *ReplaceVarsFromTargetList(Node *node,

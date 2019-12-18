@@ -16,6 +16,7 @@
  */
 #include "postgres.h"
 
+#include "access/attmap.h"
 #include "access/genam.h"
 #include "access/heapam.h"
 #include "access/heapam_xlog.h"
@@ -26,7 +27,6 @@
 #include "access/tableam.h"
 #include "access/sysattr.h"
 #include "access/tableam.h"
-#include "access/tupconvert.h"
 #include "access/xact.h"
 #include "access/xlog.h"
 #include "catalog/catalog.h"
@@ -702,8 +702,8 @@ DefineRelation(CreateStmt *stmt, char relkind, Oid ownerId,
 		Assert(list_length(inheritOids) == 1);
 		tablespaceId = get_rel_tablespace(linitial_oid(inheritOids));
 
-		/* 
-		 * MPP-8238 : inconsistent tablespaces between segments and master 
+		/*
+		 * MPP-8238 : inconsistent tablespaces between segments and master
 		 */
 		stmt->tablespacename = get_tablespace_name(tablespaceId);
 	}
@@ -1295,7 +1295,7 @@ DefineRelation(CreateStmt *stmt, char relkind, Oid ownerId,
 		foreach(cell, idxlist)
 		{
 			Relation	idxRel = index_open(lfirst_oid(cell), AccessShareLock);
-			AttrNumber *attmap;
+			AttrMap    *attmap;
 			IndexStmt  *idxstmt;
 			Oid			constraintOid;
 
@@ -1315,12 +1315,11 @@ DefineRelation(CreateStmt *stmt, char relkind, Oid ownerId,
 				}
 			}
 
-			attmap = convert_tuples_by_name_map(RelationGetDescr(rel),
-												RelationGetDescr(parent));
+			attmap = build_attrmap_by_name(RelationGetDescr(rel),
+										   RelationGetDescr(parent));
 			idxstmt =
 				generateClonedIndexStmt(NULL, idxRel,
-										attmap, RelationGetDescr(parent)->natts,
-										&constraintOid);
+										attmap, &constraintOid);
 
 			/*
 			 * In QE, we cannot independently choose index names. We must use
@@ -1347,7 +1346,6 @@ DefineRelation(CreateStmt *stmt, char relkind, Oid ownerId,
 						 RelationGetRelationName(idxRel),
 						 RelationGetRelationName(rel));
 			}
-
 			DefineIndex(RelationGetRelid(rel),
 						idxstmt,
 						InvalidOid,
@@ -1484,7 +1482,7 @@ MetaTrackValidKindNsp(Form_pg_class rd_rel)
 	{
 		/*
 		 * MPP-7773: don't track objects in system namespace
-		 * if modifying system tables (eg during upgrade)  
+		 * if modifying system tables (eg during upgrade)
 		 */
 		if (allowSystemTableMods)
 			return false;
@@ -2593,7 +2591,7 @@ MergeAttributes(List *schema, List *supers, char relpersistence,
 		Relation	relation;
 		TupleDesc	tupleDesc;
 		TupleConstr *constr;
-		AttrNumber *newattno;
+		AttrMap    *newattmap;
 		AttrNumber	parent_attno;
 
 		/* caller already got lock */
@@ -2679,12 +2677,11 @@ MergeAttributes(List *schema, List *supers, char relpersistence,
 		constr = tupleDesc->constr;
 
 		/*
-		 * newattno[] will contain the child-table attribute numbers for the
-		 * attributes of this parent table.  (They are not the same for
-		 * parents after the first one, nor if we have dropped columns.)
+		 * newattmap->attnums[] will contain the child-table attribute numbers
+		 * for the attributes of this parent table.  (They are not the same
+		 * for parents after the first one, nor if we have dropped columns.)
 		 */
-		newattno = (AttrNumber *)
-			palloc0(tupleDesc->natts * sizeof(AttrNumber));
+		newattmap = make_attrmap(tupleDesc->natts);
 
 		for (parent_attno = 1; parent_attno <= tupleDesc->natts;
 			 parent_attno++)
@@ -2699,7 +2696,7 @@ MergeAttributes(List *schema, List *supers, char relpersistence,
 			 * Ignore dropped columns in the parent.
 			 */
 			if (attribute->attisdropped)
-				continue;		/* leave newattno entry as zero */
+				continue;		/* leave newattmap->attnums entry as zero */
 
 			/*
 			 * Does it conflict with some previously inherited column?
@@ -2757,7 +2754,7 @@ MergeAttributes(List *schema, List *supers, char relpersistence,
 				/* Merge of NOT NULL constraints = OR 'em together */
 				def->is_not_null |= attribute->attnotnull;
 				/* Default and other constraints are handled below */
-				newattno[parent_attno - 1] = exist_attno;
+				newattmap->attnums[parent_attno - 1] = exist_attno;
 
 				/* Check for GENERATED conflicts */
 				if (def->generated != attribute->attgenerated)
@@ -2788,7 +2785,7 @@ MergeAttributes(List *schema, List *supers, char relpersistence,
 				def->constraints = NIL;
 				def->location = -1;
 				inhSchema = lappend(inhSchema, def);
-				newattno[parent_attno - 1] = ++child_attno;
+				newattmap->attnums[parent_attno - 1] = ++child_attno;
 			}
 
 			/*
@@ -2836,7 +2833,7 @@ MergeAttributes(List *schema, List *supers, char relpersistence,
 
 		/*
 		 * Now copy the CHECK constraints of this parent, adjusting attnos
-		 * using the completed newattno[] map.  Identically named constraints
+		 * using the completed newattmap map.  Identically named constraints
 		 * are merged if possible, else we throw error.
 		 */
 		if (constr && constr->num_check > 0)
@@ -2857,7 +2854,7 @@ MergeAttributes(List *schema, List *supers, char relpersistence,
 				/* Adjust Vars to match new table's column numbering */
 				expr = map_variable_attnos(stringToNode(check[i].ccbin),
 										   1, 0,
-										   newattno, tupleDesc->natts,
+										   newattmap,
 										   InvalidOid, &found_whole_row);
 
 				/*
@@ -2894,7 +2891,7 @@ MergeAttributes(List *schema, List *supers, char relpersistence,
 			}
 		}
 
-		pfree(newattno);
+		free_attrmap(newattmap);
 
 		/*
 		 * Close the parent rel, but keep our lock on it until xact commit.
@@ -5468,7 +5465,7 @@ ATRewriteTables(AlterTableStmt *parsetree, List **wqueue, LOCKMODE lockmode)
 		 *
 		 * TableScanDesc sdesc = table_begin_block_scan();
 		 * Block block;
-		 * 
+		 *
 		 * // table AM API doesn't provide an insert descriptor
 		 * TableInsertDesc idesc = table_begin_block_insert();
 		 *
@@ -6897,8 +6894,8 @@ ATPrepAddColumn(List **wqueue, Relation rel, bool recurse, bool recursing,
 	 * GPDB_12_MERGE_FIXME:
 	 *		This logic can possibly be moved in an encoding specific function
 	 *		during add column executiion, removing the diff with upstream.
-	 */	
-	/* 
+	 */
+	/*
 	 * If there's an encoding clause, this better be an append only
 	 * column oriented table.
 	 */
@@ -7338,14 +7335,14 @@ ATExecAddColumn(List **wqueue, AlteredTableInfo *tab, Relation rel,
 				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 				 errmsg("ENCODING clause not supported on non column orientated table")));
 
-	/* 
+	/*
 	 * For AO/CO tables, always store an encoding clause. If no encoding
 	 * clause was provided, store the default encoding clause.
 	 */
 	if (RelationIsAoCols(rel))
 	{
 		ColumnReferenceStorageDirective *c;
-		
+
 		c = makeNode(ColumnReferenceStorageDirective);
 		c->column = colDef->colname;
 
@@ -7355,7 +7352,7 @@ ATExecAddColumn(List **wqueue, AlteredTableInfo *tab, Relation rel,
 		{
 			/* Use the type specific storage directive, if one exists */
 			c->encoding = TypeNameGetStorageDirective(colDef->typeName);
-			
+
 			if (!c->encoding)
 				c->encoding = default_column_encoding_clause(rel);
 		}
@@ -9831,7 +9828,7 @@ addFkRecurseReferenced(List **wqueue, Constraint *fkconstraint, Relation rel,
 		for (int i = 0; i < pd->nparts; i++)
 		{
 			Relation	partRel;
-			AttrNumber *map;
+			AttrMap    *map;
 			AttrNumber *mapped_pkattnum;
 			Oid			partIndexId;
 
@@ -9841,13 +9838,13 @@ addFkRecurseReferenced(List **wqueue, Constraint *fkconstraint, Relation rel,
 			 * Map the attribute numbers in the referenced side of the FK
 			 * definition to match the partition's column layout.
 			 */
-			map = convert_tuples_by_name_map_if_req(RelationGetDescr(partRel),
-													RelationGetDescr(pkrel));
+			map = build_attrmap_by_name_if_req(RelationGetDescr(partRel),
+											   RelationGetDescr(pkrel));
 			if (map)
 			{
 				mapped_pkattnum = palloc(sizeof(AttrNumber) * numfks);
 				for (int j = 0; j < numfks; j++)
-					mapped_pkattnum[j] = map[pkattnum[j] - 1];
+					mapped_pkattnum[j] = map->attnums[pkattnum[j] - 1];
 			}
 			else
 				mapped_pkattnum = pkattnum;
@@ -9868,7 +9865,7 @@ addFkRecurseReferenced(List **wqueue, Constraint *fkconstraint, Relation rel,
 			if (map)
 			{
 				pfree(mapped_pkattnum);
-				pfree(map);
+				free_attrmap(map);
 			}
 		}
 	}
@@ -9972,7 +9969,7 @@ addFkRecurseReferencing(List **wqueue, Constraint *fkconstraint, Relation rel,
 			Oid			partitionId = pd->oids[i];
 			Relation	partition = table_open(partitionId, lockmode);
 			List	   *partFKs;
-			AttrNumber *attmap;
+			AttrMap    *attmap;
 			AttrNumber	mapped_fkattnum[INDEX_MAX_KEYS];
 			bool		attached;
 			char	   *conname;
@@ -9983,10 +9980,10 @@ addFkRecurseReferencing(List **wqueue, Constraint *fkconstraint, Relation rel,
 
 			CheckTableNotInUse(partition, "ALTER TABLE");
 
-			attmap = convert_tuples_by_name_map(RelationGetDescr(partition),
-												RelationGetDescr(rel));
+			attmap = build_attrmap_by_name(RelationGetDescr(partition),
+										   RelationGetDescr(rel));
 			for (int j = 0; j < numfks; j++)
-				mapped_fkattnum[j] = attmap[fkattnum[j] - 1];
+				mapped_fkattnum[j] = attmap->attnums[fkattnum[j] - 1];
 
 			/* Check whether an existing constraint can be repurposed */
 			partFKs = copyObject(RelationGetFKeyList(partition));
@@ -10134,7 +10131,7 @@ static void
 CloneFkReferenced(Relation parentRel, Relation partitionRel)
 {
 	Relation	pg_constraint;
-	AttrNumber *attmap;
+	AttrMap    *attmap;
 	ListCell   *cell;
 	SysScanDesc scan;
 	ScanKeyData key[2];
@@ -10173,8 +10170,8 @@ CloneFkReferenced(Relation parentRel, Relation partitionRel)
 	systable_endscan(scan);
 	table_close(pg_constraint, RowShareLock);
 
-	attmap = convert_tuples_by_name_map(RelationGetDescr(partitionRel),
-										RelationGetDescr(parentRel));
+	attmap = build_attrmap_by_name(RelationGetDescr(partitionRel),
+								   RelationGetDescr(parentRel));
 	foreach(cell, clone)
 	{
 		Oid			constrOid = lfirst_oid(cell);
@@ -10212,8 +10209,9 @@ CloneFkReferenced(Relation parentRel, Relation partitionRel)
 								   conpfeqop,
 								   conppeqop,
 								   conffeqop);
+		Assert(numfks == attmap->maplen);
 		for (int i = 0; i < numfks; i++)
-			mapped_confkey[i] = attmap[confkey[i] - 1];
+			mapped_confkey[i] = attmap->attnums[confkey[i] - 1];
 
 		fkconstraint = makeNode(Constraint);
 		/* for now this is all we need */
@@ -10280,7 +10278,7 @@ CloneFkReferenced(Relation parentRel, Relation partitionRel)
 static void
 CloneFkReferencing(List **wqueue, Relation parentRel, Relation partRel)
 {
-	AttrNumber *attmap;
+	AttrMap    *attmap;
 	List	   *partFKs;
 	List	   *clone = NIL;
 	ListCell   *cell;
@@ -10309,8 +10307,8 @@ CloneFkReferencing(List **wqueue, Relation parentRel, Relation partRel)
 	 * The constraint key may differ, if the columns in the partition are
 	 * different.  This map is used to convert them.
 	 */
-	attmap = convert_tuples_by_name_map(RelationGetDescr(partRel),
-										RelationGetDescr(parentRel));
+	attmap = build_attrmap_by_name(RelationGetDescr(partRel),
+								   RelationGetDescr(parentRel));
 
 	partFKs = copyObject(RelationGetFKeyList(partRel));
 
@@ -10360,7 +10358,7 @@ CloneFkReferencing(List **wqueue, Relation parentRel, Relation partRel)
 		DeconstructFkConstraintRow(tuple, &numfks, conkey, confkey,
 								   conpfeqop, conppeqop, conffeqop);
 		for (int i = 0; i < numfks; i++)
-			mapped_conkey[i] = attmap[conkey[i] - 1];
+			mapped_conkey[i] = attmap->attnums[conkey[i] - 1];
 
 		/*
 		 * Before creating a new constraint, see whether any existing FKs are
@@ -12242,18 +12240,18 @@ ATPrepAlterColumnType(List **wqueue,
 			 */
 			if (def->cooked_default)
 			{
-				AttrNumber *attmap;
+				AttrMap    *attmap;
 				bool		found_whole_row;
 
 				/* create a copy to scribble on */
 				cmd = copyObject(cmd);
 
-				attmap = convert_tuples_by_name_map(RelationGetDescr(childrel),
-													RelationGetDescr(rel));
+				attmap = build_attrmap_by_name(RelationGetDescr(childrel),
+											   RelationGetDescr(rel));
 				((ColumnDef *) cmd->def)->cooked_default =
 					map_variable_attnos(def->cooked_default,
 										1, 0,
-										attmap, RelationGetDescr(rel)->natts,
+										attmap,
 										InvalidOid, &found_whole_row);
 				if (found_whole_row)
 					ereport(ERROR,
@@ -14455,7 +14453,7 @@ ATExecSetTableSpace(Oid tableOid, Oid newTableSpace, LOCKMODE lockmode)
 	if (OidIsValid(relaovisimapidxid))
 		ATExecSetTableSpace(relaovisimapidxid, newTableSpace, lockmode);
 
-	/* 
+	/*
 	 * MPP-7996 - bitmap index subobjects w/Alter Table Set tablespace
 	 */
 	if (OidIsValid(relbmrelid))
@@ -14723,7 +14721,7 @@ index_copy_data(Relation rel, RelFileNode newrnode)
 	SMgrImpl smgr_which = RelationIsAppendOptimized(rel) ? SMGR_AO : SMGR_MD;
 
 	dstrel = smgropen(newrnode, rel->rd_backend, smgr_which);
-					  
+
 	RelationOpenSmgr(rel);
 
 	/*
@@ -14809,7 +14807,7 @@ ATExecEnableDisableTrigger(Relation rel, const char *trigname,
 		MetaTrackUpdObject(RelationRelationId,
 						   RelationGetRelid(rel),
 						   GetUserId(),
-						   "ALTER", 
+						   "ALTER",
 						   subtype);
 	}
 }
@@ -15893,7 +15891,7 @@ prebuild_temp_table(Relation rel, RangeVar *tmpname, DistributedBy *distro,
 	int attno = 0;
 	TupleDesc tupdesc = RelationGetDescr(rel);
 
-	/* 
+	/*
 	 * We cannot CTAS and do per column compression for AO_COLUMN tables so we need
 	 * to CREATE and then INSERT.
 	 */
@@ -15953,7 +15951,7 @@ prebuild_temp_table(Relation rel, RangeVar *tmpname, DistributedBy *distro,
 		{
 			if (useExistingColumnAttributes)
 			{
-				/* 
+				/*
 				 * Need to remove table level compression settings for the
 				 * AO_COLUMN case since they're set at the column level.
 				 */
@@ -16490,7 +16488,7 @@ ATExecSetDistributedBy(Relation rel, Node *node, AlterTableCmd *cmd)
 
 	lprime = (List *) node;
 
-	/* 
+	/*
 	 * First element is the WITH clause, second element is the actual
 	 * distribution clause.
 	 */
@@ -16822,7 +16820,7 @@ ATExecSetDistributedBy(Relation rel, Node *node, AlterTableCmd *cmd)
 			GpPolicy *original_policy = NULL;
 
 			/*
-			 * Disable optimizer_replicated_table_insert so planner 
+			 * Disable optimizer_replicated_table_insert so planner
 			 * can force a broadcast motion even both source and target
 			 * are replicated table. This is important when altering
 			 * distribution policy is called by gpexpand.
@@ -16863,7 +16861,7 @@ ATExecSetDistributedBy(Relation rel, Node *node, AlterTableCmd *cmd)
 											 &tmprv,
 											 true);
 
-			/* 
+			/*
 			 * We need to update our snapshot here to make sure we see all
 			 * committed work. We have an exclusive lock on the table so no one
 			 * will be able to access the table now.
@@ -16873,7 +16871,7 @@ ATExecSetDistributedBy(Relation rel, Node *node, AlterTableCmd *cmd)
 			/* Step (c) - run on all nodes */
 			queryDesc->ddesc = makeNode(QueryDispatchDesc);
 			queryDesc->ddesc->useChangedAOOpts = false;
-		
+
 			/* GPDB hook for collecting query info */
 			if (query_info_collect_hook)
 				(*query_info_collect_hook)(METRICS_QUERY_SUBMIT, queryDesc);
@@ -16944,7 +16942,7 @@ ATExecSetDistributedBy(Relation rel, Node *node, AlterTableCmd *cmd)
 		 */
 		if (cmd->backendId == 0)
 		{
-			goto l_distro_fini;			
+			goto l_distro_fini;
 		}
 
 		backend_id = cmd->backendId - 1;
@@ -17065,7 +17063,7 @@ ATExecSetDistributedBy(Relation rel, Node *node, AlterTableCmd *cmd)
 
 		performDeletion(&object, DROP_RESTRICT, 0);
 	}
-	
+
 l_distro_fini:
 
 	/* MPP-6929: metadata tracking */
@@ -17168,7 +17166,7 @@ rel_get_column_encodings(Relation rel)
 					makeNode(ColumnReferenceStorageDirective);
 				d->column = pstrdup(NameStr(TupleDescAttr(rel->rd_att, attno)->attname));
 				d->encoding = colencs[attno];
-		
+
 				out = lappend(out, d);
 			}
 		}
@@ -19549,7 +19547,7 @@ AttachPartitionEnsureIndexes(Relation rel, Relation attachrel)
 		Oid			idx = lfirst_oid(cell);
 		Relation	idxRel = index_open(idx, AccessShareLock);
 		IndexInfo  *info;
-		AttrNumber *attmap;
+		AttrMap    *attmap;
 		bool		found = false;
 		Oid			constraintOid;
 
@@ -19565,8 +19563,8 @@ AttachPartitionEnsureIndexes(Relation rel, Relation attachrel)
 
 		/* construct an indexinfo to compare existing indexes against */
 		info = BuildIndexInfo(idxRel);
-		attmap = convert_tuples_by_name_map(RelationGetDescr(attachrel),
-											RelationGetDescr(rel));
+		attmap = build_attrmap_by_name(RelationGetDescr(attachrel),
+									   RelationGetDescr(rel));
 		constraintOid = get_relation_idx_constraint_oid(RelationGetRelid(rel), idx);
 
 		/*
@@ -19588,8 +19586,7 @@ AttachPartitionEnsureIndexes(Relation rel, Relation attachrel)
 								 idxRel->rd_indcollation,
 								 attachrelIdxRels[i]->rd_opfamily,
 								 idxRel->rd_opfamily,
-								 attmap,
-								 RelationGetDescr(rel)->natts))
+								 attmap))
 			{
 				/*
 				 * If this index is being created in the parent because of a
@@ -19630,7 +19627,6 @@ AttachPartitionEnsureIndexes(Relation rel, Relation attachrel)
 
 			stmt = generateClonedIndexStmt(NULL,
 										   idxRel, attmap,
-										   RelationGetDescr(rel)->natts,
 										   &constraintOid);
 			DefineIndex(RelationGetRelid(attachrel), stmt, InvalidOid,
 						RelationGetRelid(idxRel),
@@ -20103,7 +20099,7 @@ ATExecAttachPartitionIdx(List **wqueue, Relation parentIdx, RangeVar *name)
 	{
 		IndexInfo  *childInfo;
 		IndexInfo  *parentInfo;
-		AttrNumber *attmap;
+		AttrMap    *attmap;
 		bool		found;
 		int			i;
 		PartitionDesc partDesc;
@@ -20149,15 +20145,14 @@ ATExecAttachPartitionIdx(List **wqueue, Relation parentIdx, RangeVar *name)
 		/* Ensure the indexes are compatible */
 		childInfo = BuildIndexInfo(partIdx);
 		parentInfo = BuildIndexInfo(parentIdx);
-		attmap = convert_tuples_by_name_map(RelationGetDescr(partTbl),
-											RelationGetDescr(parentTbl));
+		attmap = build_attrmap_by_name(RelationGetDescr(partTbl),
+									   RelationGetDescr(parentTbl));
 		if (!CompareIndexInfo(childInfo, parentInfo,
 							  partIdx->rd_indcollation,
 							  parentIdx->rd_indcollation,
 							  partIdx->rd_opfamily,
 							  parentIdx->rd_opfamily,
-							  attmap,
-							  RelationGetDescr(parentTbl)->natts))
+							  attmap))
 			ereport(ERROR,
 					(errcode(ERRCODE_INVALID_OBJECT_DEFINITION),
 					 errmsg("cannot attach index \"%s\" as a partition of index \"%s\"",
@@ -20194,7 +20189,7 @@ ATExecAttachPartitionIdx(List **wqueue, Relation parentIdx, RangeVar *name)
 			ConstraintSetParentConstraint(cldConstrId, constraintOid,
 										  RelationGetRelid(partTbl));
 
-		pfree(attmap);
+		free_attrmap(attmap);
 
 		validatePartitionedIndex(parentIdx, parentTbl);
 	}
