@@ -18,6 +18,7 @@
 #include "parser/analyze.h"
 #include "parser/parse_node.h"
 
+typedef struct AttrMap AttrMap;
 
 extern List *transformCreateStmt(CreateStmt *stmt, const char *queryString);
 extern List *transformCreateExternalStmt(CreateExternalStmt *stmt, const char *queryString);
@@ -32,7 +33,7 @@ extern PartitionBoundSpec *transformPartitionBound(ParseState *pstate, Relation 
 												   PartitionBoundSpec *spec);
 extern IndexStmt *generateClonedIndexStmt(RangeVar *heapRel,
 										  Relation source_idx,
-										  const AttrNumber *attmap, int attmap_length,
+										  const AttrMap *attmap,
 										  Oid *constraintOid);
 
 extern GpPolicy *getPolicyForDistributedBy(DistributedBy *distributedBy, TupleDesc tupdesc);
