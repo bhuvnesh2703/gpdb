@@ -299,6 +299,9 @@ class CheckFilespaceConsistency(Operation):
                                                                                    self.file_type).run()).run()
         for seg in self.gparray.getDbList():
             dbid = seg.getSegmentDbId()
+            if seg.isSegmentDown():
+                logger.info('skipping checking files for down segment with dbid %d' % dbid)
+                continue
             flat_file_location = os.path.join(pg_system_fs_entries[dbid][2],
                                               flat_file)
             logger.debug('flat file location = %s' % flat_file_location)
