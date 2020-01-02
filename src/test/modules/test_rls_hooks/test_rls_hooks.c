@@ -73,7 +73,7 @@ test_rls_hooks_permissive(CmdType cmdtype, Relation relation)
 	Node	   *e;
 	ColumnRef  *c;
 	ParseState *qual_pstate;
-	RangeTblEntry *rte;
+	ParseNamespaceItem *nsitem;
 
 	if (strcmp(RelationGetRelationName(relation), "rls_test_permissive") != 0 &&
 		strcmp(RelationGetRelationName(relation), "rls_test_both") != 0)
@@ -81,9 +81,10 @@ test_rls_hooks_permissive(CmdType cmdtype, Relation relation)
 
 	qual_pstate = make_parsestate(NULL);
 
-	rte = addRangeTableEntryForRelation(qual_pstate, relation, AccessShareLock,
-										NULL, false, false);
-	addRTEtoQuery(qual_pstate, rte, false, true, true);
+	nsitem = addRangeTableEntryForRelation(qual_pstate,
+										   relation, AccessShareLock,
+										   NULL, false, false);
+	addNSItemToQuery(qual_pstate, nsitem, false, true, true);
 
 	role = ObjectIdGetDatum(ACL_ID_PUBLIC);
 
@@ -137,8 +138,7 @@ test_rls_hooks_restrictive(CmdType cmdtype, Relation relation)
 	Node	   *e;
 	ColumnRef  *c;
 	ParseState *qual_pstate;
-	RangeTblEntry *rte;
-
+	ParseNamespaceItem *nsitem;
 
 	if (strcmp(RelationGetRelationName(relation), "rls_test_restrictive") != 0 &&
 		strcmp(RelationGetRelationName(relation), "rls_test_both") != 0)
@@ -146,9 +146,10 @@ test_rls_hooks_restrictive(CmdType cmdtype, Relation relation)
 
 	qual_pstate = make_parsestate(NULL);
 
-	rte = addRangeTableEntryForRelation(qual_pstate, relation, AccessShareLock,
-										NULL, false, false);
-	addRTEtoQuery(qual_pstate, rte, false, true, true);
+	nsitem = addRangeTableEntryForRelation(qual_pstate,
+										   relation, AccessShareLock,
+										   NULL, false, false);
+	addNSItemToQuery(qual_pstate, nsitem, false, true, true);
 
 	role = ObjectIdGetDatum(ACL_ID_PUBLIC);
 

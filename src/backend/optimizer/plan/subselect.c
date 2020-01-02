@@ -1417,6 +1417,7 @@ convert_ANY_sublink_to_join(PlannerInfo *root, SubLink *sublink,
 	Query	   *subselect = (Query *) sublink->subselect;
 	Relids		upper_varnos;
 	int			rtindex;
+	ParseNamespaceItem *nsitem;
 	RangeTblEntry *rte;
 	RangeTblRef *rtr;
 	List	   *subquery_vars;
@@ -1498,11 +1499,12 @@ convert_ANY_sublink_to_join(PlannerInfo *root, SubLink *sublink,
 	 * If the subquery is correlated, i.e. it refers to any Vars of the
 	 * parent query, mark it as lateral.
 	 */
-	rte = addRangeTableEntryForSubquery(pstate,
-										subselect,
-										makeAlias("ANY_subquery", NIL),
-										correlated,	/* lateral */
-										false);
+	nsitem = addRangeTableEntryForSubquery(pstate,
+										   subselect,
+										   makeAlias("ANY_subquery", NIL),
+										   correlated,	/* lateral */
+										   false);
+	rte = nsitem->p_rte;
 	parse->rtable = lappend(parse->rtable, rte);
 	rtindex = list_length(parse->rtable);
 
@@ -3008,7 +3010,7 @@ finalize_plan(PlannerInfo *root, Plan *plan,
 		case T_PartitionSelector:
 			/* GPDB_12_MERGE_FIXME: need to do something with the paramid here? */
 			break;
-			
+
 		case T_RecursiveUnion:
 			/* child nodes are allowed to reference wtParam */
 			locally_added_param = ((RecursiveUnion *) plan)->wtParam;

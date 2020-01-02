@@ -2783,8 +2783,8 @@ static Node *
 transformCurrentOfExpr(ParseState *pstate, CurrentOfExpr *cexpr)
 {
 	/* CURRENT OF can only appear at top level of UPDATE/DELETE */
-	Assert(pstate->p_target_rtindex > 0);
-	cexpr->cvarno = pstate->p_target_rtindex;
+	Assert(pstate->p_target_nsitem != NULL);
+	cexpr->cvarno = pstate->p_target_nsitem->p_rtindex;
 
 	cexpr->target_relid = pstate->p_target_rangetblentry->relid;
 	/*
