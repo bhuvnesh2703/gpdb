@@ -106,6 +106,7 @@ main(int argc, char *argv[])
 	char	   *endptr3;
 	char	   *DataDir;
 	int			fd;
+	bool		live_check = false;
 
 	set_pglocale_pgservice(argv[0], PG_TEXTDOMAIN("pg_resetxlog"));
 
@@ -131,7 +132,7 @@ main(int argc, char *argv[])
 	}
 
 
-	while ((c = getopt(argc, argv, "yfl:m:no:r:O:x:e:k:")) != -1)
+	while ((c = getopt(argc, argv, "yfl:m:nco:r:O:x:e:k:")) != -1)
 	{
 		switch (c)
 		{
@@ -145,6 +146,10 @@ main(int argc, char *argv[])
 
 			case 'n':
 				noupdate = true;
+				break;
+
+			case 'c':
+				live_check = true;
 				break;
 
 			case 'e':
@@ -328,6 +333,10 @@ main(int argc, char *argv[])
 					progname, "postmaster.pid", strerror(errno));
 			exit(1);
 		}
+	}
+	else if (live_check && noupdate)
+	{
+		/* Do nothing */
 	}
 	else
 	{
@@ -1145,6 +1154,7 @@ usage(void)
 	printf(_("  -r RELFILENODE  set next RELFILENODE\n"));
 	printf(_("  -O OFFSET       set next multitransaction offset\n"));
 	printf(_("  -x XID          set next transaction ID\n"));
+	printf(_("  -c --live-check skip checking if postmaster is running only with -n\n"));
 	printf(_("  --help          show this help, then exit\n"));
 	printf(_("  --version       output version information, then exit\n"));
 	printf(_("  --gp-version    output Greenplum version information, then exit\n"));
