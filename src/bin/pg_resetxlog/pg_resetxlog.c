@@ -463,7 +463,7 @@ main(int argc, char *argv[])
 	{
 		ControlFile.checkPointCopy.nextXid = set_xid;
 
-		if (set_oldestmxid != 0)
+		if (set_oldestxid != 0)
 			ControlFile.checkPointCopy.oldestXid = set_oldestxid;
 		else
 		{
