@@ -63,6 +63,8 @@ static bool guessed = false;	/* T if we had to guess at any values */
 static const char *progname;
 static uint32 set_xid_epoch = (uint32) -1;
 static TransactionId set_xid = 0;
+static TransactionId set_oldestxid = 0;
+static Oid set_oldestxid_db = 0;
 static Oid	set_oid = 0;
 static Oid	set_relfilenode = 0;
 static MultiXactId set_mxid = 0;
@@ -116,6 +118,7 @@ main(int argc, char *argv[])
 	MultiXactId set_oldestmxid = 0;
 	char	   *endptr;
 	char	   *endptr2;
+	char	   *endptr3;
 	char	   *DataDir;
 	int			fd;
 
@@ -143,7 +146,7 @@ main(int argc, char *argv[])
 	}
 
 
-	while ((c = getopt_long(argc, argv, "fl:m:no:r:O:x:e:k:", long_options, NULL)) != -1)
+	while ((c = getopt_long(argc, argv, "fl:m:no:r:O:x:e:k:i:", long_options, NULL)) != -1)
 	{
 		switch (c)
 		{
@@ -181,6 +184,49 @@ main(int argc, char *argv[])
 				if (set_xid == 0)
 				{
 					fprintf(stderr, _("%s: transaction ID (-x) must not be 0\n"), progname);
+					exit(1);
+				}
+				break;
+
+			case 'i':
+				set_xid = strtoul(optarg, &endptr, 0);
+				if (endptr == optarg || *endptr != ',')
+				{
+					fprintf(stderr, _("%s: invalid argument for option -i\n"), progname);
+					fprintf(stderr, _("Try \"%s --help\" for more information.\n"), progname);
+					exit(1);
+				}
+
+				set_oldestxid = strtoul(endptr + 1, &endptr2, 0);
+				if (endptr2 == endptr + 1 || *endptr2 != ',')
+				{
+					fprintf(stderr, _("%s: invalid argument for option -i\n"), progname);
+					fprintf(stderr, _("Try \"%s --help\" for more information.\n"), progname);
+					exit(1);
+				}
+
+				set_oldestxid_db = strtoul(endptr2 + 1, &endptr3, 0);
+				if (endptr3 == endptr2 + 1 || *endptr3 != '\0')
+				{
+					fprintf(stderr, _("%s: invalid argument for option -i\n"), progname);
+					fprintf(stderr, _("Try \"%s --help\" for more information.\n"), progname);
+					exit(1);
+				}
+				if (set_xid == 0)
+				{
+					fprintf(stderr, _("%s: transaction ID (-i) must not be 0\n"), progname);
+					exit(1);
+				}
+
+				if (set_oldestxid == 0)
+				{
+					fprintf(stderr, _("%s: oldest transaction ID (-i) must not be 0\n"), progname);
+					exit(1);
+				}
+
+				if (set_oldestxid_db == 0)
+				{
+					fprintf(stderr, _("%s: oldest transaction ID DB(-i) must not be 0\n"), progname);
 					exit(1);
 				}
 				break;
@@ -417,17 +463,26 @@ main(int argc, char *argv[])
 	{
 		ControlFile.checkPointCopy.nextXid = set_xid;
 
-		/*
-		 * For the moment, just set oldestXid to a value that will force
-		 * immediate autovacuum-for-wraparound.  It's not clear whether adding
-		 * user control of this is useful, so let's just do something that's
-		 * reasonably safe.  The magic constant here corresponds to the
-		 * maximum allowed value of autovacuum_freeze_max_age.
-		 */
-		ControlFile.checkPointCopy.oldestXid = set_xid - 2000000000;
-		if (ControlFile.checkPointCopy.oldestXid < FirstNormalTransactionId)
-			ControlFile.checkPointCopy.oldestXid += FirstNormalTransactionId;
-		ControlFile.checkPointCopy.oldestXidDB = InvalidOid;
+		if (set_oldestmxid != 0)
+			ControlFile.checkPointCopy.oldestXid = set_oldestxid;
+		else
+		{
+			/*
+			 * For the moment, just set oldestXid to a value that will force
+			 * immediate autovacuum-for-wraparound.  It's not clear whether adding
+			 * user control of this is useful, so let's just do something that's
+			 * reasonably safe.  The magic constant here corresponds to the
+			 * maximum allowed value of autovacuum_freeze_max_age.
+			 */
+			ControlFile.checkPointCopy.oldestXid = set_xid - 2000000000;
+			if (ControlFile.checkPointCopy.oldestXid < FirstNormalTransactionId)
+				ControlFile.checkPointCopy.oldestXid += FirstNormalTransactionId;
+		}
+
+		if (set_oldestxid_db != 0)
+			ControlFile.checkPointCopy.oldestXidDB = set_oldestxid_db;
+		else
+			ControlFile.checkPointCopy.oldestXidDB = InvalidOid;
 	}
 
 	if (set_oid != 0)
@@ -1491,6 +1546,8 @@ usage(void)
 	printf(_("  -O OFFSET        set next multitransaction offset\n"));
 	printf(_("  -V, --version    output version information, then exit\n"));
 	printf(_("  -x XID           set next transaction ID\n"));
+	printf(_("  -i XID,OLDXID,OLDXIDDB\n"
+			 "                   set next transaction ID, oldest transaction id and DB \n"));
 	printf(_("  --system-identifier=ID\n"
 			 "                   set database system identifier\n"));
 	printf(_("  -?, --help       show this help, then exit\n"));
