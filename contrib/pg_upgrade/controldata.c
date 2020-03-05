@@ -392,7 +392,7 @@ get_control_data(ClusterInfo *cluster, bool live_check)
 			cluster->controldata.chkpnt_nxtmxoff = str2uint(p);
 			got_mxoff = true;
 		}
-		else if ((p = strstr(bufin, "Latest checkpoint's oldestXID:")) != NULL)
+		else if ((GET_MAJOR_VERSION(cluster->major_version) > 803) && ((p = strstr(bufin, "Latest checkpoint's oldestXID:")) != NULL))
 		{
 			p = strchr(p, ':');
 
@@ -403,7 +403,7 @@ get_control_data(ClusterInfo *cluster, bool live_check)
 			cluster->controldata.chkpnt_oldestxid = str2uint(p);
 			got_oldest_xid = true;
 		}
-		else if ((p = strstr(bufin, "Latest checkpoint's oldestXID's DB:")) != NULL)
+		else if ((GET_MAJOR_VERSION(cluster->major_version) > 803) && ((p = strstr(bufin, "Latest checkpoint's oldestXID's DB:")) != NULL))
 		{
 			p = strchr(p, ':');
 
@@ -612,7 +612,8 @@ get_control_data(ClusterInfo *cluster, bool live_check)
 	}
 
 	/* verify that we got all the mandatory pg_control data */
-	if (!got_xid || !got_oid || !got_oldest_xid || !got_oldest_xid_db ||
+	if (!got_xid || !got_oid ||
+			((!got_oldest_xid || !got_oldest_xid_db) && (GET_MAJOR_VERSION(cluster->major_version) > 803)) ||
 		!got_multi || !got_mxoff ||
 		(!got_oldestmulti &&
 		 cluster->controldata.cat_ver >= MULTIXACT_FORMATCHANGE_CAT_VER) ||
@@ -637,11 +638,14 @@ get_control_data(ClusterInfo *cluster, bool live_check)
 		if (!got_mxoff)
 			pg_log(PG_REPORT, "  latest checkpoint next MultiXactOffset\n");
 
-		if (!got_oldest_xid)
-			pg_log(PG_REPORT, "  oldest checkpoint XID\n");
+		if (GET_MAJOR_VERSION(cluster->major_version) > 803)
+		{
+			if (!got_oldest_xid)
+				pg_log(PG_REPORT, "  oldest checkpoint XID\n");
 
-		if (!got_oldest_xid_db)
-			pg_log(PG_REPORT, "  oldest checkpoint XID's DB\n");
+			if (!got_oldest_xid_db)
+				pg_log(PG_REPORT, "  oldest checkpoint XID's DB\n");
+		}
 
 		if (!got_oldestmulti &&
 			cluster->controldata.cat_ver >= MULTIXACT_FORMATCHANGE_CAT_VER)

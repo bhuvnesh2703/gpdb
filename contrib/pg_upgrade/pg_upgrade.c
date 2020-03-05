@@ -49,7 +49,7 @@
 static void prepare_new_cluster(void);
 static void prepare_new_databases(void);
 static void create_new_objects(void);
-static void copy_clog_xlog_xid(void);
+static void copy_clog_xlog_xid(ClusterInfo *cluster);
 static void set_frozenxids(bool minmxid_only);
 static void setup(char *argv0, bool *live_check);
 static void cleanup(void);
@@ -151,7 +151,7 @@ main(int argc, char **argv)
 	 * Destructive Changes to New Cluster
 	 */
 
-	copy_clog_xlog_xid();
+	copy_clog_xlog_xid(&old_cluster);
 
 	/*
 	 * In upgrading from GPDB4, copy the pg_distributedlog over in vanilla.
@@ -620,7 +620,7 @@ create_new_objects(void)
 	 * clusters, so set those after we have restored the schema.
 	 *
 	 * In GPDB, all the segments should reflect the corresponding segments
-	 * xids not master. This should be execute for both master and segments.
+	 * xids not master. This should be executed for both master and segments.
 	 */
 	if (GET_MAJOR_VERSION(old_cluster.major_version) < 903)
 		set_frozenxids(true);
@@ -682,19 +682,29 @@ copy_subdir_files(char *subdir)
 }
 
 static void
-copy_clog_xlog_xid(void)
+copy_clog_xlog_xid(ClusterInfo *cluster)
 {
 	/* copy old commit logs to new data dir */
 	copy_subdir_files("pg_clog");
 
 	/* set the next transaction id and epoch of the new cluster */
 	prep_status("Setting next transaction ID and epoch for new cluster");
-	exec_prog(UTILITY_LOG_FILE, NULL, true, true,
-			  "\"%s/pg_resetxlog\" --binary-upgrade -f -i %u,%u,%u \"%s\"",
-			  new_cluster.bindir, old_cluster.controldata.chkpnt_nxtxid,
-			  old_cluster.controldata.chkpnt_oldestxid,
-			  old_cluster.controldata.chkpnt_oldestxiddb,
-			  new_cluster.pgdata);
+	if (GET_MAJOR_VERSION(cluster->major_version) > 803)
+	{
+		exec_prog(UTILITY_LOG_FILE, NULL, true, true,
+				  "\"%s/pg_resetxlog\" --binary-upgrade -f -i %u,%u,%u \"%s\"",
+				  new_cluster.bindir, old_cluster.controldata.chkpnt_nxtxid,
+				  old_cluster.controldata.chkpnt_oldestxid,
+				  old_cluster.controldata.chkpnt_oldestxiddb,
+				  new_cluster.pgdata);
+	}
+	else
+	{
+		exec_prog(UTILITY_LOG_FILE, NULL, true, true,
+				  "\"%s/pg_resetxlog\" --binary-upgrade -f -x %u \"%s\"",
+				  new_cluster.bindir, old_cluster.controldata.chkpnt_nxtxid,
+				  new_cluster.pgdata);
+	}
 	exec_prog(UTILITY_LOG_FILE, NULL, true, true,
 			  "\"%s/pg_resetxlog\" --binary-upgrade -f -e %u \"%s\"",
 			  new_cluster.bindir, old_cluster.controldata.chkpnt_nxtepoch,
