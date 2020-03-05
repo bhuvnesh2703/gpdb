@@ -690,8 +690,10 @@ copy_clog_xlog_xid(void)
 	/* set the next transaction id and epoch of the new cluster */
 	prep_status("Setting next transaction ID and epoch for new cluster");
 	exec_prog(UTILITY_LOG_FILE, NULL, true, true,
-			  "\"%s/pg_resetxlog\" --binary-upgrade -f -x %u \"%s\"",
+			  "\"%s/pg_resetxlog\" --binary-upgrade -f -i %u,%u,%u \"%s\"",
 			  new_cluster.bindir, old_cluster.controldata.chkpnt_nxtxid,
+			  old_cluster.controldata.chkpnt_oldestxid,
+			  old_cluster.controldata.chkpnt_oldestxiddb,
 			  new_cluster.pgdata);
 	exec_prog(UTILITY_LOG_FILE, NULL, true, true,
 			  "\"%s/pg_resetxlog\" --binary-upgrade -f -e %u \"%s\"",

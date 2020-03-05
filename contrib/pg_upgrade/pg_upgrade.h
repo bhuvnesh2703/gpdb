@@ -297,6 +297,8 @@ typedef struct
 	uint32		cat_ver;
 	char		nextxlogfile[25];
 	uint32		chkpnt_nxtxid;
+	uint32		chkpnt_oldestxid;
+	uint32		chkpnt_oldestxiddb;
 	uint32		chkpnt_nxtepoch;
 	uint32		chkpnt_nxtoid;
 	uint32		chkpnt_nxtmulti;
