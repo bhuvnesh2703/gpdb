@@ -164,12 +164,9 @@ main(int argc, char **argv)
 	/* -- NEW -- */
 	start_postmaster(&new_cluster, true);
 
-	if (is_greenplum_dispatcher_mode())
-	{
-		prepare_new_databases();
+	prepare_new_databases();
 
-		create_new_objects();
-	}
+	create_new_objects();
 
 	/*
 	 * In a segment, the data directory already contains all the objects,
@@ -512,6 +509,13 @@ prepare_new_databases(void)
 	set_frozenxids(false);
 
 	/*
+	 * In GPDB, master catalog is copied to all the segments, so perform the restore
+	 * only on the master.
+	 */
+	if (!is_greenplum_dispatcher_mode())
+		return;
+
+	/*
 	 * Now restore global objects (roles and tablespaces).
 	 */
 	prep_status("Restoring global objects in the new cluster");
@@ -545,82 +549,90 @@ prepare_new_databases(void)
 static void
 create_new_objects(void)
 {
-	int			dbnum;
-
-	prep_status("Adding support functions to new cluster");
-
 	/*
-	 * Technically, we only need to install these support functions in new
-	 * databases that also exist in the old cluster, but for completeness we
-	 * process all new databases.
+	 * In GPDB, master catalog is copied to all the segments, so perform the restore
+	 * only at the master
 	 */
-	for (dbnum = 0; dbnum < new_cluster.dbarr.ndbs; dbnum++)
-	{
-		DbInfo	   *new_db = &new_cluster.dbarr.dbs[dbnum];
+	if (is_greenplum_dispatcher_mode()) {
+		int dbnum;
 
-		/* skip db we already installed */
-		if (strcmp(new_db->db_name, "template1") != 0)
-			install_support_functions_in_new_db(new_db->db_name);
-	}
-	check_ok();
-
-	prep_status("Restoring database schemas in the new cluster\n");
-
-	for (dbnum = 0; dbnum < old_cluster.dbarr.ndbs; dbnum++)
-	{
-		char		sql_file_name[MAXPGPATH],
-					log_file_name[MAXPGPATH];
-		DbInfo	   *old_db = &old_cluster.dbarr.dbs[dbnum];
-		PQExpBufferData connstr,
-					escaped_connstr;
-
-		initPQExpBuffer(&connstr);
-		appendPQExpBuffer(&connstr, "dbname=");
-		appendConnStrVal(&connstr, old_db->db_name);
-		initPQExpBuffer(&escaped_connstr);
-		appendShellString(&escaped_connstr, connstr.data);
-		termPQExpBuffer(&connstr);
-
-		pg_log(PG_STATUS, "%s", old_db->db_name);
-		snprintf(sql_file_name, sizeof(sql_file_name), DB_DUMP_FILE_MASK, old_db->db_oid);
-		snprintf(log_file_name, sizeof(log_file_name), DB_DUMP_LOG_FILE_MASK, old_db->db_oid);
+		prep_status("Adding support functions to new cluster");
 
 		/*
-		 * pg_dump only produces its output at the end, so there is little
-		 * parallelism if using the pipe.
+		 * Technically, we only need to install these support functions in new
+		 * databases that also exist in the old cluster, but for completeness we
+		 * process all new databases.
 		 */
-		parallel_exec_prog(log_file_name,
-						   NULL,
-		 PG_OPTIONS_UTILITY_MODE
-		 "\"%s/pg_restore\" %s --exit-on-error --binary-upgrade --verbose --dbname %s \"%s\"",
-						   new_cluster.bindir,
-						   cluster_conn_opts(&new_cluster),
-						   escaped_connstr.data,
-						   sql_file_name);
+		for (dbnum = 0; dbnum < new_cluster.dbarr.ndbs; dbnum++) {
+			DbInfo *new_db = &new_cluster.dbarr.dbs[dbnum];
 
-		termPQExpBuffer(&escaped_connstr);
+			/* skip db we already installed */
+			if (strcmp(new_db->db_name, "template1") != 0)
+				install_support_functions_in_new_db(new_db->db_name);
+		}
+		check_ok();
+
+		prep_status("Restoring database schemas in the new cluster\n");
+
+		for (dbnum = 0; dbnum < old_cluster.dbarr.ndbs; dbnum++) {
+			char sql_file_name[MAXPGPATH],
+					log_file_name[MAXPGPATH];
+			DbInfo *old_db = &old_cluster.dbarr.dbs[dbnum];
+			PQExpBufferData connstr,
+					escaped_connstr;
+
+			initPQExpBuffer(&connstr);
+			appendPQExpBuffer(&connstr, "dbname=");
+			appendConnStrVal(&connstr, old_db->db_name);
+			initPQExpBuffer(&escaped_connstr);
+			appendShellString(&escaped_connstr, connstr.data);
+			termPQExpBuffer(&connstr);
+
+			pg_log(PG_STATUS, "%s", old_db->db_name);
+			snprintf(sql_file_name, sizeof(sql_file_name), DB_DUMP_FILE_MASK, old_db->db_oid);
+			snprintf(log_file_name, sizeof(log_file_name), DB_DUMP_LOG_FILE_MASK, old_db->db_oid);
+
+			/*
+			 * pg_dump only produces its output at the end, so there is little
+			 * parallelism if using the pipe.
+			 */
+			parallel_exec_prog(log_file_name,
+							   NULL,
+							   PG_OPTIONS_UTILITY_MODE
+							   "\"%s/pg_restore\" %s --exit-on-error --binary-upgrade --verbose --dbname %s \"%s\"",
+							   new_cluster.bindir,
+							   cluster_conn_opts(&new_cluster),
+							   escaped_connstr.data,
+							   sql_file_name);
+
+			termPQExpBuffer(&escaped_connstr);
+		}
+
+		/* reap all children */
+		while (reap_child(true) == true);
+
+		end_progress_output();
+		check_ok();
 	}
-
-	/* reap all children */
-	while (reap_child(true) == true)
-		;
-
-	end_progress_output();
-	check_ok();
 
 	/*
 	 * We don't have minmxids for databases or relations in pre-9.3
 	 * clusters, so set those after we have restored the schema.
+	 *
+	 * In GPDB, all the segments should reflect the corresponding segments
+	 * xids not master. This should be execute for both master and segments.
 	 */
 	if (GET_MAJOR_VERSION(old_cluster.major_version) < 903)
 		set_frozenxids(true);
 
-	/* regenerate now that we have objects in the databases */
-	get_db_and_rel_infos(&new_cluster);
+	if (is_greenplum_dispatcher_mode()) {
+		/* regenerate now that we have objects in the databases */
+		get_db_and_rel_infos(&new_cluster);
 
-	uninstall_support_functions_from_new_cluster();
+		uninstall_support_functions_from_new_cluster();
 
-	after_create_new_objects_greenplum();
+		after_create_new_objects_greenplum();
+	}
 }
 
 
