@@ -49,7 +49,7 @@
 static void prepare_new_cluster(void);
 static void prepare_new_databases(void);
 static void create_new_objects(void);
-static void copy_clog_xlog_xid(ClusterInfo *old_cluster);
+static void copy_clog_xlog_xid(void);
 static void set_frozenxids(bool minmxid_only);
 static void setup(char *argv0, bool *live_check);
 static void cleanup(void);
@@ -151,7 +151,7 @@ main(int argc, char **argv)
 	 * Destructive Changes to New Cluster
 	 */
 
-	copy_clog_xlog_xid(&old_cluster);
+	copy_clog_xlog_xid();
 
 	/*
 	 * In upgrading from GPDB4, copy the pg_distributedlog over in vanilla.
@@ -682,14 +682,14 @@ copy_subdir_files(char *subdir)
 }
 
 static void
-copy_clog_xlog_xid(ClusterInfo *old_cluster)
+copy_clog_xlog_xid(void)
 {
 	/* copy old commit logs to new data dir */
 	copy_subdir_files("pg_clog");
 
 	/* set the next transaction id and epoch of the new cluster */
 	prep_status("Setting next transaction ID and epoch for new cluster");
-	if (GET_MAJOR_VERSION(old_cluster->major_version) > 803)
+	if (GET_MAJOR_VERSION(old_cluster.major_version) > 803)
 	{
 		exec_prog(UTILITY_LOG_FILE, NULL, true, true,
 				  "\"%s/pg_resetxlog\" --binary-upgrade -f -i %u,%u,%u \"%s\"",
