@@ -114,6 +114,16 @@ static void maybe_reread_subscription(void);
 /* Flags set by signal handlers */
 static volatile sig_atomic_t got_SIGHUP = false;
 
+static void apply_handle_insert_internal(ResultRelInfo *relinfo,
+										 EState *estate, TupleTableSlot *remoteslot);
+static void apply_handle_update_internal(ResultRelInfo *relinfo,
+										 EState *estate, TupleTableSlot *remoteslot,
+										 LogicalRepTupleData *newtup,
+										 LogicalRepRelMapEntry *relmapentry);
+static void apply_handle_delete_internal(ResultRelInfo *relinfo, EState *estate,
+										 TupleTableSlot *remoteslot,
+										 LogicalRepRelation *remoterel);
+
 /*
  * Should this worker apply changes for given relation.
  *
@@ -572,6 +582,7 @@ GetRelationIdentityOrPK(Relation rel)
 /*
  * Handle INSERT message.
  */
+
 static void
 apply_handle_insert(StringInfo s)
 {
@@ -614,13 +625,10 @@ apply_handle_insert(StringInfo s)
 	slot_fill_defaults(rel, estate, remoteslot);
 	MemoryContextSwitchTo(oldctx);
 
-	ExecOpenIndices(resultRelInfo, false);
+	Assert(rel->localrel->rd_rel->relkind == RELKIND_RELATION);
+	apply_handle_insert_internal(resultRelInfo, estate,
+								 remoteslot);
 
-	/* Do the insert. */
-	ExecSimpleRelationInsert(resultRelInfo, estate, remoteslot);
-
-	/* Cleanup. */
-	ExecCloseIndices(resultRelInfo);
 	PopActiveSnapshot();
 
 	/* Handle queued AFTER triggers. */
@@ -632,6 +640,20 @@ apply_handle_insert(StringInfo s)
 	logicalrep_rel_close(rel, NoLock);
 
 	CommandCounterIncrement();
+}
+
+/* Workhorse for apply_handle_insert() */
+static void
+apply_handle_insert_internal(ResultRelInfo *relinfo,
+							 EState *estate, TupleTableSlot *remoteslot)
+{
+	ExecOpenIndices(relinfo, false);
+
+	/* Do the insert. */
+	ExecSimpleRelationInsert(estate, remoteslot);
+
+	/* Cleanup. */
+	ExecCloseIndices(relinfo);
 }
 
 /*
@@ -678,16 +700,12 @@ apply_handle_update(StringInfo s)
 	ResultRelInfo *resultRelInfo;
 	LogicalRepRelMapEntry *rel;
 	LogicalRepRelId relid;
-	Oid			idxoid;
 	EState	   *estate;
-	EPQState	epqstate;
 	LogicalRepTupleData oldtup;
 	LogicalRepTupleData newtup;
 	bool		has_oldtup;
-	TupleTableSlot *localslot;
 	TupleTableSlot *remoteslot;
 	RangeTblEntry *target_rte;
-	bool		found;
 	MemoryContext oldctx;
 
 	ensure_transaction();
@@ -713,14 +731,9 @@ apply_handle_update(StringInfo s)
 	remoteslot = ExecInitExtraTupleSlot(estate,
 										RelationGetDescr(rel->localrel),
 										&TTSOpsVirtual);
-	localslot = table_slot_create(rel->localrel,
-								  &estate->es_tupleTable);
 
 	resultRelInfo = makeNode(ResultRelInfo);
 	InitResultRelInfo(resultRelInfo, rel->localrel, 1, NULL, 0);
-
-
-	EvalPlanQualInit(&epqstate, estate, NULL, NIL, -1);
 
 	/*
 	 * Populate updatedCols so that per-column triggers can fire.  This could
@@ -746,20 +759,57 @@ apply_handle_update(StringInfo s)
 						has_oldtup ? oldtup.values : newtup.values);
 	MemoryContextSwitchTo(oldctx);
 
+	Assert(rel->localrel->rd_rel->relkind == RELKIND_RELATION);
+	apply_handle_update_internal(resultRelInfo, estate,
+								 remoteslot, &newtup, rel);
+
+	PopActiveSnapshot();
+
+	/* Handle queued AFTER triggers. */
+	AfterTriggerEndQuery(estate);
+
+	ExecResetTupleTable(estate->es_tupleTable, false);
+	FreeExecutorState(estate);
+
+	logicalrep_rel_close(rel, NoLock);
+
+	CommandCounterIncrement();
+}
+
+/* Workhorse for apply_handle_update() */
+static void
+apply_handle_update_internal(ResultRelInfo *relinfo,
+							 EState *estate, TupleTableSlot *remoteslot,
+							 LogicalRepTupleData *newtup,
+							 LogicalRepRelMapEntry *relmapentry)
+{
+	Relation	localrel = relinfo->ri_RelationDesc;
+	LogicalRepRelation *remoterel = &relmapentry->remoterel;
+	Oid			idxoid;
+	EPQState	epqstate;
+	TupleTableSlot *localslot;
+	bool		found;
+	MemoryContext oldctx;
+
+	localslot = table_slot_create(localrel, &estate->es_tupleTable);
+	EvalPlanQualInit(&epqstate, estate, NULL, NIL, -1);
+
+	ExecOpenIndices(relinfo, false);
+
 	/*
 	 * Try to find tuple using either replica identity index, primary key or
 	 * if needed, sequential scan.
 	 */
-	idxoid = GetRelationIdentityOrPK(rel->localrel);
+	idxoid = GetRelationIdentityOrPK(localrel);
 	Assert(OidIsValid(idxoid) ||
-		   (rel->remoterel.replident == REPLICA_IDENTITY_FULL && has_oldtup));
+		   (remoterel->replident == REPLICA_IDENTITY_FULL));
 
 	if (OidIsValid(idxoid))
-		found = RelationFindReplTupleByIndex(rel->localrel, idxoid,
+		found = RelationFindReplTupleByIndex(localrel, idxoid,
 											 LockTupleExclusive,
 											 remoteslot, localslot);
 	else
-		found = RelationFindReplTupleSeq(rel->localrel, LockTupleExclusive,
+		found = RelationFindReplTupleSeq(localrel, LockTupleExclusive,
 										 remoteslot, localslot);
 
 	ExecClearTuple(remoteslot);
@@ -773,8 +823,8 @@ apply_handle_update(StringInfo s)
 	{
 		/* Process and store remote tuple in the slot */
 		oldctx = MemoryContextSwitchTo(GetPerTupleMemoryContext(estate));
-		slot_modify_cstrings(remoteslot, localslot, rel,
-							 newtup.values, newtup.changed);
+		slot_modify_cstrings(remoteslot, localslot, relmapentry,
+							 newtup->values, newtup->changed);
 		MemoryContextSwitchTo(oldctx);
 
 		EvalPlanQualSetSlot(&epqstate, remoteslot);
@@ -793,23 +843,12 @@ apply_handle_update(StringInfo s)
 		elog(DEBUG1,
 			 "logical replication did not find row for update "
 			 "in replication target relation \"%s\"",
-			 RelationGetRelationName(rel->localrel));
+			 RelationGetRelationName(localrel));
 	}
 
 	/* Cleanup. */
-	ExecCloseIndices(resultRelInfo);
-	PopActiveSnapshot();
-
-	/* Handle queued AFTER triggers. */
-	AfterTriggerEndQuery(estate);
-
+	ExecCloseIndices(relinfo);
 	EvalPlanQualEnd(&epqstate);
-	ExecResetTupleTable(estate->es_tupleTable, false);
-	FreeExecutorState(estate);
-
-	logicalrep_rel_close(rel, NoLock);
-
-	CommandCounterIncrement();
 }
 
 /*
@@ -824,12 +863,8 @@ apply_handle_delete(StringInfo s)
 	LogicalRepRelMapEntry *rel;
 	LogicalRepTupleData oldtup;
 	LogicalRepRelId relid;
-	Oid			idxoid;
 	EState	   *estate;
-	EPQState	epqstate;
 	TupleTableSlot *remoteslot;
-	TupleTableSlot *localslot;
-	bool		found;
 	MemoryContext oldctx;
 
 	ensure_transaction();
@@ -854,35 +889,67 @@ apply_handle_delete(StringInfo s)
 	remoteslot = ExecInitExtraTupleSlot(estate,
 										RelationGetDescr(rel->localrel),
 										&TTSOpsVirtual);
-	localslot = table_slot_create(rel->localrel,
-								  &estate->es_tupleTable);
-	EvalPlanQualInit(&epqstate, estate, NULL, NIL, -1);
+
 	resultRelInfo = makeNode(ResultRelInfo);
 	InitResultRelInfo(resultRelInfo, rel->localrel, 1, NULL, 0);
 
 	PushActiveSnapshot(GetTransactionSnapshot());
-	ExecOpenIndices(resultRelInfo, false);
 
-	/* Find the tuple using the replica identity index. */
+	/* Build the search tuple. */
 	oldctx = MemoryContextSwitchTo(GetPerTupleMemoryContext(estate));
 	slot_store_cstrings(remoteslot, rel, oldtup.values);
 	MemoryContextSwitchTo(oldctx);
+
+	Assert(rel->localrel->rd_rel->relkind == RELKIND_RELATION);
+	apply_handle_delete_internal(apply_handle_delete, estate,
+								 remoteslot, &rel->remoterel);
+
+	PopActiveSnapshot();
+
+	/* Handle queued AFTER triggers. */
+	AfterTriggerEndQuery(estate);
+
+	ExecResetTupleTable(estate->es_tupleTable, false);
+	FreeExecutorState(estate);
+
+	logicalrep_rel_close(rel, NoLock);
+
+	CommandCounterIncrement();
+}
+
+/* Workhorse for apply_handle_delete() */
+static void
+apply_handle_delete_internal(ResultRelInfo *relinfo, EState *estate,
+							 TupleTableSlot *remoteslot,
+							 LogicalRepRelation *remoterel)
+{
+	Relation	localrel = relinfo->ri_RelationDesc;
+	Oid			idxoid;
+	EPQState	epqstate;
+	TupleTableSlot *localslot;
+	bool		found;
+
+	localslot = table_slot_create(localrel, &estate->es_tupleTable);
+	EvalPlanQualInit(&epqstate, estate, NULL, NIL, -1);
+
+	ExecOpenIndices(relinfo, false);
 
 	/*
 	 * Try to find tuple using either replica identity index, primary key or
 	 * if needed, sequential scan.
 	 */
-	idxoid = GetRelationIdentityOrPK(rel->localrel);
+	idxoid = GetRelationIdentityOrPK(localrel);
 	Assert(OidIsValid(idxoid) ||
-		   (rel->remoterel.replident == REPLICA_IDENTITY_FULL));
+		   (remoterel->replident == REPLICA_IDENTITY_FULL));
 
 	if (OidIsValid(idxoid))
-		found = RelationFindReplTupleByIndex(rel->localrel, idxoid,
+		found = RelationFindReplTupleByIndex(localrel, idxoid,
 											 LockTupleExclusive,
 											 remoteslot, localslot);
 	else
-		found = RelationFindReplTupleSeq(rel->localrel, LockTupleExclusive,
+		found = RelationFindReplTupleSeq(localrel, LockTupleExclusive,
 										 remoteslot, localslot);
+
 	/* If found delete it. */
 	if (found)
 	{
@@ -897,23 +964,12 @@ apply_handle_delete(StringInfo s)
 		elog(DEBUG1,
 			 "logical replication could not find row for delete "
 			 "in replication target relation \"%s\"",
-			 RelationGetRelationName(rel->localrel));
+			 RelationGetRelationName(localrel));
 	}
 
 	/* Cleanup. */
-	ExecCloseIndices(resultRelInfo);
-	PopActiveSnapshot();
-
-	/* Handle queued AFTER triggers. */
-	AfterTriggerEndQuery(estate);
-
+	ExecCloseIndices(relinfo);
 	EvalPlanQualEnd(&epqstate);
-	ExecResetTupleTable(estate->es_tupleTable, false);
-	FreeExecutorState(estate);
-
-	logicalrep_rel_close(rel, NoLock);
-
-	CommandCounterIncrement();
 }
 
 /*
