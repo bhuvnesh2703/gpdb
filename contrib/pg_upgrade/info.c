@@ -334,7 +334,6 @@ print_maps(FileNameMap *maps, int n_maps, const char *db_name)
 	}
 }
 
-
 /*
  * get_db_and_rel_infos()
  *
@@ -350,6 +349,21 @@ get_db_and_rel_infos(ClusterInfo *cluster)
 		free_db_and_rel_infos(&cluster->dbarr);
 
 	get_db_infos(cluster);
+
+	/*
+	 * After upgrading the master, the bpchar_pattern_ops indexes are marked
+	 * as invalid in the catalog and are copied over ot the segment.
+	 * Reset them to a a valid state before collecting the rel infos on segment,
+	 * otherwise these invalid indexes will not be copied to the
+	 * new segment database, and pg_upgrade will complain that an index exists
+	 * on the old segment but not on the new.
+	 *
+	 * Before the end of the upgrade, the bpchar_pattern_ops indexes will be
+	 * marked invalid. The indexes are marked invalid so that they could be REINDEXED
+	 * before being used.
+	 */
+	if (!is_greenplum_dispatcher_mode() && !user_opts.check && cluster == &new_cluster)
+		reset_invalid_indexes();
 
 	for (dbnum = 0; dbnum < cluster->dbarr.ndbs; dbnum++)
 		get_rel_infos(cluster, &cluster->dbarr.dbs[dbnum]);
