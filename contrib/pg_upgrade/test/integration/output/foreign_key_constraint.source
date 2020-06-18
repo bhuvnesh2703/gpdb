@@ -1,0 +1,58 @@
+CREATE TABLE mfk(a int unique);
+CREATE
+INSERT INTO mfk SELECT i FROM generate_series(1,2)i;
+INSERT 2
+CREATE TABLE pt(a int references mfk(a)) PARTITION BY RANGE(a) (START(1) END(3) EVERY(2));
+CREATE
+INSERT INTO pt SELECT i FROM generate_series(1,2)i;
+INSERT 2
+
+CREATE TABLE pt_another(a int references mfk(a)) PARTITION BY RANGE(a) (START(1) END(3) EVERY(2));
+CREATE
+INSERT INTO pt_another SELECT i FROM generate_series(1,2)i;
+INSERT 2
+
+CREATE TABLE non_pt(a int references mfk(a));
+CREATE
+INSERT INTO non_pt SELECT i FROM generate_series(1,2)i;
+INSERT 2
+
+! ./gpdb6/bin/pg_upgrade --mode=dispatcher --old-gp-dbid=1 --new-gp-dbid=1 --check --old-bindir=@upgrade_test_path@/gpdb5/bin --new-bindir=@upgrade_test_path@/gpdb6/bin --old-datadir=@upgrade_test_path@/gpdb5-data/qddir/demoDataDir-1 --new-datadir=@upgrade_test_path@/gpdb6-data/qddir/demoDataDir-1 --old-port=@old_port@;
+Performing Consistency Checks on Old Live Server
+------------------------------------------------
+Checking cluster versions                                   ok
+Creating a dump of all tablespace metadata.                 ok
+Checking database user is a superuser                       ok
+Checking database connection settings                       ok
+Checking for prepared transactions                          ok
+Checking for reg* system OID user data types                ok
+Checking for contrib/isn with bigint-passing mismatch       ok
+Checking for external tables used in partitioning           ok
+Checking for non-covering indexes on partitioned AO tables  ok
+Checking for heterogeneous partitioned tables               ok
+Checking for indexes on partitioned tables                  ok
+Checking for orphaned TOAST relations                       ok
+Checking for gphdfs external tables                         ok
+Checking for users assigned the gphdfs role                 ok
+Checking for unique or primary key constraints              ok
+Checking for foreign key constraints on root partitions     fatal
+
+Your installation contains foreign key constraint on root partition tables. These constraints 
+need to be dropped before proceeding to upgrade.
+A list of foreign key constraint is provided in the file:
+	foreign_key_constraints.txt
+
+Failure, exiting
+
+
+! /bin/cat foreign_key_constraints.txt;
+Database: upgradetest
+  pt_fkey on relation public.pt
+  pt_another_fkey on relation public.pt_another
+
+
+-- DROP the foreign key constraints
+ALTER TABLE public.pt DROP CONSTRAINT pt_fkey CASCADE;
+ALTER
+ALTER TABLE public.pt_another DROP CONSTRAINT pt_another_fkey CASCADE;
+ALTER
