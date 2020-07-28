@@ -234,3 +234,16 @@ Feature: gpinitsystem tests
         Then verify that the file "../gpAux/gpdemo/datadirs/qddir/demoDataDir-1/pg_hba.conf" contains FQDN only for trusted host
         And verify that the file "../gpAux/gpdemo/datadirs/dbfast1/demoDataDir0/pg_hba.conf" contains FQDN only for trusted host
         And verify that the file "../gpAux/gpdemo/datadirs/qddir/demoDataDir-1/newstandby/pg_hba.conf" contains FQDN only for trusted host
+
+########################### @concourse_cluster tests ###########################
+# The @concourse_cluster tag denotes the scenario that requires a remote cluster
+
+    @concourse_cluster
+    Scenario: gpinitsystem creates a cluster using -I configuration file
+        Given a working directory of the test as '/tmp/gpinitsystem_config'
+        And the database is not running
+        And the new host "mdw,sdw1,sdw2" is ready to go
+        When generate an input cluster config file "/tmp/gpinitsystem_config/clusterConfigfile"
+        And initialize a cluster using "/tmp/gpinitsystem_config/clusterConfigfile"
+        Then gpinitsystem should return a return code of 0
+
