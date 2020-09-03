@@ -30,8 +30,8 @@ def impl(context):
     invalid hostname and address.
     """
     opts = {
-        'gp_session_role': 'utility',
-        'allow_system_table_mods': 'dml',
+        'gp_role': 'utility',
+        'allow_system_table_mods': 'on',
     }
 
     subprocess.check_call(['gpstart', '-am'])
@@ -65,7 +65,7 @@ def impl(context):
         """, opts=opts)
         subprocess.check_call(['gpstop', '-am'])
 
-    context.cleanup_standby_host_failure = cleanup
+    context.add_cleanup(cleanup(context))
 
 def _handle_sigpipe():
     """
