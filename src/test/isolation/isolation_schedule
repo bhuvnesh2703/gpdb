@@ -4,7 +4,7 @@
 # session run in the same permutation holds ExclusiveLock that blocks the step.
 # GPDB_94_MERGE_FIXME: Since the introduction of Global Deadlock Detector, an
 # UPDATE/DELETE no longer acquires ExclusiveLock. So we could perhaps enable
-# some of these now. 
+# some of these now.
 # A GUC gp_enable_global_deadlock_detector is introduced to control GDD.
 # When GDD is enabled, update|delete on heap tables will lock the table in
 # RowExclusiveLock mode. Otherwise, it locks the whole table in ExlusiveLock mode.
@@ -139,6 +139,7 @@ test: vacuum-skip-locked
 
 # GPDB_12_MERGE_FIXME: disabled test partition-key-update-1. Need to
 # investigate why failing in utility mode single node.
+test: partition-concurrent-attach
 #test: partition-key-update-1
 test: partition-key-update-2
 test: partition-key-update-3
