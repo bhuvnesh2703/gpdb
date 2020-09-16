@@ -421,7 +421,7 @@ ExecSimpleRelationInsert(ResultRelInfo *resultRelInfo,
 		/* Check the constraints of the tuple */
 		if (rel->rd_att->constr)
 			ExecConstraints(resultRelInfo, slot, estate);
-		if (resultRelInfo->ri_PartitionCheck)
+		if (rel->rd_rel->relispartition)
 			ExecPartitionCheck(resultRelInfo, slot, estate, true);
 
 		/* OK, store the tuple and create index entries for it */
@@ -488,7 +488,7 @@ ExecSimpleRelationUpdate(ResultRelInfo *resultRelInfo,
 		/* Check the constraints of the tuple */
 		if (rel->rd_att->constr)
 			ExecConstraints(resultRelInfo, slot, estate);
-		if (resultRelInfo->ri_PartitionCheck)
+		if (rel->rd_rel->relispartition)
 			ExecPartitionCheck(resultRelInfo, slot, estate, true);
 
 		simple_table_tuple_update(rel, tid, slot, estate->es_snapshot,
