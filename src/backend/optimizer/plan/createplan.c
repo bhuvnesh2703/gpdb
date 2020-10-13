@@ -7813,8 +7813,6 @@ make_modifytable(PlannerInfo *root,
 	node->rootRelation = rootRelation;
 	node->partColsUpdated = partColsUpdated;
 	node->resultRelations = resultRelations;
-	node->resultRelIndex = -1;	/* will be set correctly in setrefs.c */
-	node->rootResultRelIndex = -1;	/* will be set correctly in setrefs.c */
 	node->plans = subplans;
 	if (!onconflict)
 	{
