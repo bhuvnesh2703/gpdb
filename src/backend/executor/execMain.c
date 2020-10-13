@@ -1038,7 +1038,7 @@ standard_ExecutorEnd(QueryDesc *queryDesc)
 {
 	EState	   *estate;
 	MemoryContext oldcontext;
-	
+
 	/* GPDB: whether this is a inner query for extension usage */
 	bool		isInnerQuery;
 
@@ -1164,7 +1164,7 @@ standard_ExecutorEnd(QueryDesc *queryDesc)
 	 * Release EState and per-query memory context
 	 */
 	FreeExecutorState(estate);
-	
+
 	/* GPDB hook for collecting query info */
 	if (query_info_collect_hook)
 		(*query_info_collect_hook)(isInnerQuery ? METRICS_INNER_QUERY_DONE : METRICS_QUERY_DONE, queryDesc);
@@ -1591,113 +1591,8 @@ InitPlan(QueryDesc *queryDesc, int eflags)
 
 	estate->es_plannedstmt = plannedstmt;
 
-	/*
-	 * Initialize ResultRelInfo data structures, and open the result rels.
-	 *
-	 * CDB: Note that we need this info even if we aren't the slice that will be doing
-	 * the actual updating, since it's where we learn things, such as if the row needs to
-	 * contain OIDs or not.
-	 */
-	if (plannedstmt->resultRelations)
-	{
-		List	   *resultRelations = plannedstmt->resultRelations;
-		int			numResultRelations = list_length(resultRelations);
-		ResultRelInfo *resultRelInfos;
-		ResultRelInfo *resultRelInfo;
-
-		/*
-		 * MPP-2879: The QEs don't pass their MPPEXEC statements through
-		 * the parse (where locks would ordinarily get acquired). So we
-		 * need to take some care to pick them up here (otherwise we get
-		 * some very strange interactions with QE-local operations (vacuum?
-		 * utility-mode ?)).
-		 *
-		 * NOTE: There is a comment in lmgr.c which reads forbids use of
-		 * heap_open/relation_open with "NoLock" followed by use of
-		 * RelationOidLock/RelationLock with a stronger lock-mode:
-		 * RelationOidLock/RelationLock expect a relation to already be
-		 * locked.
-		 *
-		 * But we also need to serialize CMD_UPDATE && CMD_DELETE to preserve
-		 * order on mirrors.
-		 *
-		 * So we're going to ignore the "NoLock" issue above.
-		 */
-
-		/* CDB: we must promote locks for UPDATE and DELETE operations for ao table. */
-		LOCKMODE    lockmode;
-		lockmode = (Gp_role != GP_ROLE_EXECUTE || Gp_is_writer) ? RowExclusiveLock : NoLock;
-
-		resultRelInfos = (ResultRelInfo *)
-			palloc(numResultRelations * sizeof(ResultRelInfo));
-		resultRelInfo = resultRelInfos;
-		foreach(l, plannedstmt->resultRelations)
-		{
-			Index		resultRelationIndex = lfirst_int(l);
-			Relation	resultRelation;
-
-			resultRelation = ExecGetRangeTableRelation(estate,
-													   resultRelationIndex);
-			InitResultRelInfo(resultRelInfo,
-							  resultRelation,
-							  resultRelationIndex,
-							  NULL,
-							  estate->es_instrument);
-			resultRelInfo++;
-		}
-		estate->es_result_relations = resultRelInfos;
-		estate->es_num_result_relations = numResultRelations;
-
-		/* es_result_relation_info is NULL except when within ModifyTable */
-		estate->es_result_relation_info = NULL;
-
-		/*
-		 * In the partitioned result relation case, also build ResultRelInfos
-		 * for all the partitioned table roots, because we will need them to
-		 * fire statement-level triggers, if any.
-		 */
-		if (plannedstmt->rootResultRelations)
-		{
-			int			num_roots = list_length(plannedstmt->rootResultRelations);
-
-			resultRelInfos = (ResultRelInfo *)
-				palloc(num_roots * sizeof(ResultRelInfo));
-			resultRelInfo = resultRelInfos;
-			foreach(l, plannedstmt->rootResultRelations)
-			{
-				Index		resultRelIndex = lfirst_int(l);
-				Relation	resultRelDesc;
-
-				resultRelDesc = ExecGetRangeTableRelation(estate,
-														  resultRelIndex);
-				InitResultRelInfo(resultRelInfo,
-								  resultRelDesc,
-								  resultRelIndex,
-								  NULL,
-								  estate->es_instrument);
-				resultRelInfo++;
-			}
-
-			estate->es_root_result_relations = resultRelInfos;
-			estate->es_num_root_result_relations = num_roots;
-		}
-		else
-		{
-			estate->es_root_result_relations = NULL;
-			estate->es_num_root_result_relations = 0;
-		}
-	}
-	else
-	{
-		/*
-		 * if no result relation, then set state appropriately
-		 */
-		estate->es_result_relations = NULL;
-		estate->es_num_result_relations = 0;
-		estate->es_result_relation_info = NULL;
-		estate->es_root_result_relations = NULL;
-		estate->es_num_root_result_relations = 0;
-	}
+	/* es_result_relation_info is NULL except when within ModifyTable */
+	estate->es_result_relation_info = NULL;
 
 	/*
 	 * set the number of partition selectors for every dynamic scan id
@@ -2282,8 +2177,7 @@ InitResultRelInfo(ResultRelInfo *resultRelInfo,
  *
  * Most of the time, triggers are fired on one of the result relations of the
  * query, and so we can just return a member of the es_result_relations array,
- * or the es_root_result_relations array (if any), or the
- * es_tuple_routing_result_relations list (if any).  (Note: in self-join
+ * or the es_tuple_routing_result_relations list (if any). (Note: in self-join
  * situations there might be multiple members with the same OID; if so it
  * doesn't matter which one we pick.)
  *
@@ -2300,30 +2194,16 @@ ResultRelInfo *
 ExecGetTriggerResultRel(EState *estate, Oid relid)
 {
 	ResultRelInfo *rInfo;
-	int			nr;
 	ListCell   *l;
 	Relation	rel;
 	MemoryContext oldcontext;
 
 	/* First, search through the query result relations */
-	rInfo = estate->es_result_relations;
-	nr = estate->es_num_result_relations;
-	while (nr > 0)
+	foreach(l, estate->es_opened_result_relations)
 	{
+		rInfo = lfirst(l);
 		if (RelationGetRelid(rInfo->ri_RelationDesc) == relid)
 			return rInfo;
-		rInfo++;
-		nr--;
-	}
-	/* Second, search through the root result relations, if any */
-	rInfo = estate->es_root_result_relations;
-	nr = estate->es_num_root_result_relations;
-	while (nr > 0)
-	{
-		if (RelationGetRelid(rInfo->ri_RelationDesc) == relid)
-			return rInfo;
-		rInfo++;
-		nr--;
 	}
 
 	/*
@@ -2374,35 +2254,6 @@ ExecGetTriggerResultRel(EState *estate, Oid relid)
 	 */
 
 	return rInfo;
-}
-
-/*
- * Close any relations that have been opened by ExecGetTriggerResultRel().
- */
-void
-ExecCleanUpTriggerState(EState *estate)
-{
-	ListCell   *l;
-
-	foreach(l, estate->es_trig_target_relations)
-	{
-		ResultRelInfo *resultRelInfo = (ResultRelInfo *) lfirst(l);
-
-		/*
-		 * Assert this is a "dummy" ResultRelInfo, see above.  Otherwise we
-		 * might be issuing a duplicate close against a Relation opened by
-		 * ExecGetRangeTableRelation.
-		 */
-		Assert(resultRelInfo->ri_RangeTableIndex == 0);
-
-		/*
-		 * Since ExecGetTriggerResultRel doesn't call ExecOpenIndices for
-		 * these rels, we needn't call ExecCloseIndices either.
-		 */
-		Assert(resultRelInfo->ri_NumIndices == 0);
-
-		table_close(resultRelInfo->ri_RelationDesc, NoLock);
-	}
 }
 
 /* ----------------------------------------------------------------
@@ -2460,9 +2311,6 @@ ExecPostprocessPlan(EState *estate)
 void
 ExecEndPlan(PlanState *planstate, EState *estate)
 {
-	ResultRelInfo *resultRelInfo;
-	Index		num_relations;
-	Index		i;
 	ListCell   *l;
 
 	/*
@@ -2495,29 +2343,69 @@ ExecEndPlan(PlanState *planstate, EState *estate)
 	AdjustReplicatedTableCounts(estate);
 
 	/*
-	 * close indexes of result relation(s) if any.  (Rels themselves get
-	 * closed next.)
+	 * Close any Relations that have been opened for range table entries or
+	 * result relations.
 	 */
-	resultRelInfo = estate->es_result_relations;
-	for (i = 0; i < estate->es_num_result_relations; i++)
-	{
-		ExecCloseIndices(resultRelInfo);
-		resultRelInfo++;
-	}
+	ExecCloseResultRelations(estate);
+	ExecCloseRangeTableRelations(estate);
+}
+
+/*
+ * Close any relations that have been opened for ResultRelInfos.
+ */
+void
+ExecCloseResultRelations(EState *estate)
+{
+	ListCell   *l;
 
 	/*
-	 * close whatever rangetable Relations have been opened.  We do not
-	 * release any locks we might hold on those rels.
+	 * close indexes of result relation(s) if any.  (Rels themselves are
+	 * closed in ExecCloseRangeTableRelations())
 	 */
-	num_relations = estate->es_range_table_size;
-	for (i = 0; i < num_relations; i++)
+	foreach(l, estate->es_opened_result_relations)
+	{
+		ResultRelInfo *resultRelInfo = lfirst(l);
+
+		ExecCloseIndices(resultRelInfo);
+	}
+
+	/* Close any relations that have been opened by ExecGetTriggerResultRel(). */
+	foreach(l, estate->es_trig_target_relations)
+	{
+		ResultRelInfo *resultRelInfo = (ResultRelInfo *) lfirst(l);
+
+		/*
+		 * Assert this is a "dummy" ResultRelInfo, see above.  Otherwise we
+		 * might be issuing a duplicate close against a Relation opened by
+		 * ExecGetRangeTableRelation.
+		 */
+		Assert(resultRelInfo->ri_RangeTableIndex == 0);
+
+		/*
+		 * Since ExecGetTriggerResultRel doesn't call ExecOpenIndices for
+		 * these rels, we needn't call ExecCloseIndices either.
+		 */
+		Assert(resultRelInfo->ri_NumIndices == 0);
+
+		table_close(resultRelInfo->ri_RelationDesc, NoLock);
+	}
+}
+
+/*
+ * Close all relations opened by ExecGetRangeTableRelation().
+ *
+ * We do not release any locks we might hold on those rels.
+ */
+void
+ExecCloseRangeTableRelations(EState *estate)
+{
+	int			i;
+
+	for (i = 0; i < estate->es_range_table_size; i++)
 	{
 		if (estate->es_relations[i])
 			table_close(estate->es_relations[i], NoLock);
 	}
-
-	/* likewise close any trigger target relations */
-	ExecCleanUpTriggerState(estate);
 }
 
 /* ----------------------------------------------------------------
@@ -3762,17 +3650,9 @@ EvalPlanQualStart(EPQState *epqstate, EState *parentestate, Plan *planTree)
 
 	/*
 	 * Child EPQ EStates share the parent's copy of unchanging state such as
-	 * the snapshot, rangetable, result-rel info, and external Param info.
-	 * They need their own copies of local state, including a tuple table,
-	 * es_param_exec_vals, etc.
-	 *
-	 * The ResultRelInfo array management is trickier than it looks.  We
-	 * create fresh arrays for the child but copy all the content from the
-	 * parent.  This is because it's okay for the child to share any
-	 * per-relation state the parent has already created --- but if the child
-	 * sets up any ResultRelInfo fields, such as its own junkfilter, that
-	 * state must *not* propagate back to the parent.  (For one thing, the
-	 * pointed-to data is in a memory context that won't last long enough.)
+	 * the snapshot, rangetable, and external Param info.  They need their own
+	 * copies of local state, including a tuple table, es_param_exec_vals,
+	 * result-rel info, etc.
 	 */
 	estate->es_direction = ForwardScanDirection;
 	estate->es_snapshot = parentestate->es_snapshot;
@@ -3785,30 +3665,12 @@ EvalPlanQualStart(EPQState *epqstate, EState *parentestate, Plan *planTree)
 	estate->es_plannedstmt = parentestate->es_plannedstmt;
 	estate->es_junkFilter = parentestate->es_junkFilter;
 	estate->es_output_cid = parentestate->es_output_cid;
-	if (parentestate->es_num_result_relations > 0)
-	{
-		int			numResultRelations = parentestate->es_num_result_relations;
-		int			numRootResultRels = parentestate->es_num_root_result_relations;
-		ResultRelInfo *resultRelInfos;
 
-		resultRelInfos = (ResultRelInfo *)
-			palloc(numResultRelations * sizeof(ResultRelInfo));
-		memcpy(resultRelInfos, parentestate->es_result_relations,
-			   numResultRelations * sizeof(ResultRelInfo));
-		estate->es_result_relations = resultRelInfos;
-		estate->es_num_result_relations = numResultRelations;
-
-		/* Also transfer partitioned root result relations. */
-		if (numRootResultRels > 0)
-		{
-			resultRelInfos = (ResultRelInfo *)
-				palloc(numRootResultRels * sizeof(ResultRelInfo));
-			memcpy(resultRelInfos, parentestate->es_root_result_relations,
-				   numRootResultRels * sizeof(ResultRelInfo));
-			estate->es_root_result_relations = resultRelInfos;
-			estate->es_num_root_result_relations = numRootResultRels;
-		}
-	}
+	/*
+	 * ResultRelInfos needed by subplans are initialized from scratch when the
+	 * subplans themselves are initialized.
+	 */
+	parentestate->es_result_relations = NULL;
 	/* es_result_relation_info must NOT be copied */
 	/* es_trig_target_relations must NOT be copied */
 	estate->es_top_eflags = parentestate->es_top_eflags;
@@ -3920,8 +3782,9 @@ EvalPlanQualStart(EPQState *epqstate, EState *parentestate, Plan *planTree)
  * This is a cut-down version of ExecutorEnd(); basically we want to do most
  * of the normal cleanup, but *not* close result relations (which we are
  * just sharing from the outer query).  We do, however, have to close any
- * trigger target relations that got opened, since those are not shared.
- * (There probably shouldn't be any of the latter, but just in case...)
+ * result and trigger target relations that got opened, since those are not
+ * shared.  (There probably shouldn't be any of the latter, but just in
+ * case...)
  */
 void
 EvalPlanQualEnd(EPQState *epqstate)
@@ -3947,8 +3810,8 @@ EvalPlanQualEnd(EPQState *epqstate)
 	/* throw away the per-estate tuple table */
 	ExecResetTupleTable(estate->es_tupleTable, false);
 
-	/* close any trigger target relations attached to this EState */
-	ExecCleanUpTriggerState(estate);
+	/* Close any result and trigger target relations attached to this EState */
+	ExecCloseResultRelations(estate);
 
 	MemoryContextSwitchTo(oldcontext);
 

@@ -3768,6 +3768,7 @@ CopyFrom(CopyState cstate)
 	GpDistributionData *distData = NULL; /* distribution data used to compute target seg */
 
 	Assert(cstate->rel);
+	Assert(list_length(cstate->range_table) == 1);
 
 	/*
 	 * The target must be a plain, foreign, or partitioned relation, or have
@@ -3925,25 +3926,16 @@ CopyFrom(CopyState cstate)
 	 * index-entry-making machinery.  (There used to be a huge amount of code
 	 * here that basically duplicated execUtils.c ...)
 	 */
-	resultRelInfo = makeNode(ResultRelInfo);
-	InitResultRelInfo(resultRelInfo,
-					  cstate->rel,
-					  1,		/* must match rel's position in range_table */
-					  NULL,
-					  0);
-
-	target_resultRelInfo = resultRelInfo;
+	ExecInitRangeTable(estate, cstate->range_table);
+	resultRelInfo = target_resultRelInfo = makeNode(ResultRelInfo);
+	ExecInitResultRelation(estate, resultRelInfo, 1);
 
 	/* Verify the named relation is a valid target for INSERT */
 	CheckValidResultRel(resultRelInfo, CMD_INSERT);
 
 	ExecOpenIndices(resultRelInfo, false);
 
-	estate->es_result_relations = resultRelInfo;
-	estate->es_num_result_relations = 1;
 	estate->es_result_relation_info = resultRelInfo;
-
-	ExecInitRangeTable(estate, cstate->range_table);
 
 	/*
 	 * Set up a ModifyTableState so we can let FDW(s) init themselves for
@@ -3953,7 +3945,7 @@ CopyFrom(CopyState cstate)
 	mtstate->ps.plan = NULL;
 	mtstate->ps.state = estate;
 	mtstate->operation = CMD_INSERT;
-	mtstate->resultRelInfo = estate->es_result_relations;
+	mtstate->resultRelInfo = resultRelInfo;
 
 	if (resultRelInfo->ri_FdwRoutine != NULL &&
 		resultRelInfo->ri_FdwRoutine->BeginForeignInsert != NULL)
@@ -4744,14 +4736,13 @@ CopyFrom(CopyState cstate)
 		target_resultRelInfo->ri_FdwRoutine->EndForeignInsert(estate,
 															  target_resultRelInfo);
 
-	ExecCloseIndices(target_resultRelInfo);
-
 	/* Close all the partitioned tables, leaf partitions, and their indices */
 	if (proute)
 		ExecCleanupTupleRouting(mtstate, proute);
 
-	/* Close any trigger target relations */
-	ExecCleanUpTriggerState(estate);
+	/* Close the result relations, including any trigger target relations */
+	ExecCloseResultRelations(estate);
+	ExecCloseRangeTableRelations(estate);
 
 	FreeDistributionData(distData);
 
@@ -7599,16 +7590,16 @@ static void
 setEncodingConversionProc(CopyState cstate, int encoding, bool iswritable)
 {
 	Oid		conversion_proc;
-	
+
 	/*
 	 * COPY FROM and RET: convert from file to server
 	 * COPY TO   and WET: convert from server to file
 	 */
 	if (iswritable)
 		conversion_proc = FindDefaultConversionProc(GetDatabaseEncoding(), encoding);
-	else		
+	else
 		conversion_proc = FindDefaultConversionProc(encoding, GetDatabaseEncoding());
-	
+
 	if (OidIsValid(conversion_proc))
 	{
 		/* conversion proc found */
@@ -7832,7 +7823,7 @@ close_program_pipes(CopyState cstate, bool ifThrow)
 	{
 		return;
 	}
-	
+
 	ret = pclose_with_stderr(cstate->program_pipes->pid, cstate->program_pipes->pipes, &sinfo);
 
 	if (ret == 0 || !ifThrow)

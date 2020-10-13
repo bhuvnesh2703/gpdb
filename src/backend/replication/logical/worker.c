@@ -199,7 +199,6 @@ static EState *
 create_estate_for_relation(LogicalRepRelMapEntry *rel)
 {
 	EState	   *estate;
-	ResultRelInfo *resultRelInfo;
 	RangeTblEntry *rte;
 
 	estate = CreateExecutorState();
@@ -210,13 +209,6 @@ create_estate_for_relation(LogicalRepRelMapEntry *rel)
 	rte->relkind = rel->localrel->rd_rel->relkind;
 	rte->rellockmode = AccessShareLock;
 	ExecInitRangeTable(estate, list_make1(rte));
-
-	resultRelInfo = makeNode(ResultRelInfo);
-	InitResultRelInfo(resultRelInfo, rel->localrel, 1, NULL, 0);
-
-	estate->es_result_relations = resultRelInfo;
-	estate->es_num_result_relations = 1;
-	estate->es_result_relation_info = resultRelInfo;
 
 	estate->es_output_cid = GetCurrentCommandId(true);
 
@@ -610,6 +602,7 @@ GetRelationIdentityOrPK(Relation rel)
 static void
 apply_handle_insert(StringInfo s)
 {
+	ResultRelInfo *resultRelInfo;
 	LogicalRepRelMapEntry *rel;
 	LogicalRepTupleData newtup;
 	LogicalRepRelId relid;
@@ -636,6 +629,9 @@ apply_handle_insert(StringInfo s)
 	remoteslot = ExecInitExtraTupleSlot(estate,
 										RelationGetDescr(rel->localrel),
 										&TTSOpsVirtual);
+	resultRelInfo = makeNode(ResultRelInfo);
+	InitResultRelInfo(resultRelInfo, rel->localrel, 1, NULL, 0);
+	estate->es_result_relation_info = resultRelInfo;
 
 	/* Input functions may need an active snapshot, so get one */
 	PushActiveSnapshot(GetTransactionSnapshot());
@@ -648,10 +644,10 @@ apply_handle_insert(StringInfo s)
 
 	/* For a partitioned table, insert the tuple into a partition. */
 	if (rel->localrel->rd_rel->relkind == RELKIND_PARTITIONED_TABLE)
-		apply_handle_tuple_routing(estate->es_result_relation_info, estate,
+		apply_handle_tuple_routing(resultRelInfo, estate,
 								   remoteslot, NULL, rel, CMD_INSERT);
 	else
-		apply_handle_insert_internal(estate->es_result_relation_info, estate,
+		apply_handle_insert_internal(resultRelInfo, estate,
 									 remoteslot);
 
 	PopActiveSnapshot();
@@ -722,6 +718,7 @@ check_relation_updatable(LogicalRepRelMapEntry *rel)
 static void
 apply_handle_update(StringInfo s)
 {
+	ResultRelInfo *resultRelInfo;
 	LogicalRepRelMapEntry *rel;
 	LogicalRepRelId relid;
 	EState	   *estate;
@@ -755,6 +752,9 @@ apply_handle_update(StringInfo s)
 	remoteslot = ExecInitExtraTupleSlot(estate,
 										RelationGetDescr(rel->localrel),
 										&TTSOpsVirtual);
+	resultRelInfo = makeNode(ResultRelInfo);
+	InitResultRelInfo(resultRelInfo, rel->localrel, 1, NULL, 0);
+	estate->es_result_relation_info = resultRelInfo;
 
 	/*
 	 * Populate updatedCols so that per-column triggers can fire.  This could
@@ -781,10 +781,10 @@ apply_handle_update(StringInfo s)
 
 	/* For a partitioned table, apply update to correct partition. */
 	if (rel->localrel->rd_rel->relkind == RELKIND_PARTITIONED_TABLE)
-		apply_handle_tuple_routing(estate->es_result_relation_info, estate,
+		apply_handle_tuple_routing(resultRelInfo, estate,
 								   remoteslot, &newtup, rel, CMD_UPDATE);
 	else
-		apply_handle_update_internal(estate->es_result_relation_info, estate,
+		apply_handle_update_internal(resultRelInfo, estate,
 									 remoteslot, &newtup, rel);
 
 	PopActiveSnapshot();
@@ -865,6 +865,7 @@ apply_handle_update_internal(ResultRelInfo *relinfo,
 static void
 apply_handle_delete(StringInfo s)
 {
+	ResultRelInfo *resultRelInfo;
 	LogicalRepRelMapEntry *rel;
 	LogicalRepTupleData oldtup;
 	LogicalRepRelId relid;
@@ -894,6 +895,9 @@ apply_handle_delete(StringInfo s)
 	remoteslot = ExecInitExtraTupleSlot(estate,
 										RelationGetDescr(rel->localrel),
 										&TTSOpsVirtual);
+	resultRelInfo = makeNode(ResultRelInfo);
+	InitResultRelInfo(resultRelInfo, rel->localrel, 1, NULL, 0);
+	estate->es_result_relation_info = resultRelInfo;
 
 	PushActiveSnapshot(GetTransactionSnapshot());
 
@@ -904,10 +908,10 @@ apply_handle_delete(StringInfo s)
 
 	/* For a partitioned table, apply delete to correct partition. */
 	if (rel->localrel->rd_rel->relkind == RELKIND_PARTITIONED_TABLE)
-		apply_handle_tuple_routing(estate->es_result_relation_info, estate,
+		apply_handle_tuple_routing(resultRelInfo, estate,
 								   remoteslot, NULL, rel, CMD_DELETE);
 	else
-		apply_handle_delete_internal(estate->es_result_relation_info, estate,
+		apply_handle_delete_internal(resultRelInfo, estate,
 									 remoteslot, &rel->remoterel);
 
 	PopActiveSnapshot();
