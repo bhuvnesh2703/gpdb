@@ -158,14 +158,9 @@ CreateExecutorState(void)
 	estate->es_output_cid = (CommandId) 0;
 
 	estate->es_result_relations = NULL;
-	estate->es_num_result_relations = 0;
+	estate->es_opened_result_relations = NIL;
 	estate->es_result_relation_info = NULL;
-
-	estate->es_root_result_relations = NULL;
-	estate->es_num_root_result_relations = 0;
-
 	estate->es_tuple_routing_result_relations = NIL;
-
 	estate->es_trig_target_relations = NIL;
 
 	estate->es_param_list_info = NULL;
@@ -764,16 +759,7 @@ ExecCreateScanSlotFromOuterPlan(EState *estate,
 bool
 ExecRelationIsTargetRelation(EState *estate, Index scanrelid)
 {
-	ResultRelInfo *resultRelInfos;
-	int			i;
-
-	resultRelInfos = estate->es_result_relations;
-	for (i = 0; i < estate->es_num_result_relations; i++)
-	{
-		if (resultRelInfos[i].ri_RangeTableIndex == scanrelid)
-			return true;
-	}
-	return false;
+	return list_member_int(estate->es_plannedstmt->resultRelations, scanrelid);
 }
 
 /* ----------------------------------------------------------------
@@ -844,9 +830,10 @@ ExecInitRangeTable(EState *estate, List *rangeTable)
 		palloc0(estate->es_range_table_size * sizeof(Relation));
 
 	/*
-	 * es_rowmarks is also parallel to the es_range_table_array, but it's
-	 * allocated only if needed.
+	 * es_result_relations and es_rowmarks are also parallel to
+	 * es_range_table, but are allocated only if needed.
 	 */
+	estate->es_result_relations = NULL;
 	estate->es_rowmarks = NULL;
 }
 
@@ -905,6 +892,40 @@ ExecGetRangeTableRelation(EState *estate, Index rti)
 	}
 
 	return rel;
+}
+
+/*
+ * ExecInitResultRelation
+ *		Open relation given by the passed-in RT index and fill its
+ *		ResultRelInfo node
+ *
+ * Here, we also save the ResultRelInfo in estate->es_result_relations array
+ * such that it can be accessed later using the RT index.
+ */
+void
+ExecInitResultRelation(EState *estate, ResultRelInfo *resultRelInfo,
+					   Index rti)
+{
+	Relation	resultRelationDesc;
+
+	resultRelationDesc = ExecGetRangeTableRelation(estate, rti);
+	InitResultRelInfo(resultRelInfo,
+					  resultRelationDesc,
+					  rti,
+					  NULL,
+					  estate->es_instrument);
+
+	if (estate->es_result_relations == NULL)
+		estate->es_result_relations = (ResultRelInfo **)
+			palloc0(estate->es_range_table_size * sizeof(ResultRelInfo *));
+	estate->es_result_relations[rti - 1] = resultRelInfo;
+
+	/*
+	 * Saving in the list allows to avoid needlessly traversing the whole
+	 * array when only a few of its entries are possibly non-NULL.
+	 */
+	estate->es_opened_result_relations =
+		lappend(estate->es_opened_result_relations, resultRelInfo);
 }
 
 /*
@@ -1737,7 +1758,7 @@ void mppExecutorCleanup(QueryDesc *queryDesc)
 	/* GPDB hook for collecting query info */
 	if (query_info_collect_hook)
 		(*query_info_collect_hook)(QueryCancelCleanup ? METRICS_QUERY_CANCELED : METRICS_QUERY_ERROR, queryDesc);
-	
+
 	ReportOOMConsumption();
 
 	/**
@@ -1751,7 +1772,7 @@ void mppExecutorCleanup(QueryDesc *queryDesc)
 
 /**
  * This method is used to determine how much memory a specific operator
- * is supposed to use (in KB). 
+ * is supposed to use (in KB).
  */
 uint64 PlanStateOperatorMemKB(const PlanState *ps)
 {
@@ -1770,7 +1791,7 @@ uint64 PlanStateOperatorMemKB(const PlanState *ps)
 	{
 		result = ps->plan->operatorMemKB;
 	}
-	
+
 	return result;
 }
 
