@@ -4685,7 +4685,7 @@ afterTriggerInvokeEvents(AfterTriggerEventList *events,
 
 	if (local_estate)
 	{
-		ExecCleanUpTriggerState(estate);
+		ExecCloseResultRelations(estate);
 		ExecResetTupleTable(estate->es_tupleTable, false);
 		FreeExecutorState(estate);
 	}
