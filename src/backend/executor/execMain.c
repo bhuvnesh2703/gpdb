@@ -1612,9 +1612,6 @@ InitPlan(QueryDesc *queryDesc, int eflags)
 
 	estate->es_plannedstmt = plannedstmt;
 
-	/* es_result_relation_info is NULL except when within ModifyTable */
-	estate->es_result_relation_info = NULL;
-
 	/*
 	 * set the number of partition selectors for every dynamic scan id
 	 */
@@ -3692,7 +3689,6 @@ EvalPlanQualStart(EPQState *epqstate, EState *parentestate, Plan *planTree)
 	 * subplans themselves are initialized.
 	 */
 	estate->es_result_relations = NULL;
-	/* es_result_relation_info must NOT be copied */
 	/* es_trig_target_relations must NOT be copied */
 	estate->es_top_eflags = parentestate->es_top_eflags;
 	estate->es_instrument = parentestate->es_instrument;
