@@ -588,7 +588,6 @@ apply_handle_insert(StringInfo s)
 										&TTSOpsVirtual);
 	resultRelInfo = makeNode(ResultRelInfo);
 	InitResultRelInfo(resultRelInfo, rel->localrel, 1, NULL, 0);
-	estate->es_result_relation_info = resultRelInfo;
 
 	/* Input functions may need an active snapshot, so get one */
 	PushActiveSnapshot(GetTransactionSnapshot());
@@ -702,7 +701,6 @@ apply_handle_update(StringInfo s)
 
 	resultRelInfo = makeNode(ResultRelInfo);
 	InitResultRelInfo(resultRelInfo, rel->localrel, 1, NULL, 0);
-	estate->es_result_relation_info = resultRelInfo;
 
 
 	EvalPlanQualInit(&epqstate, estate, NULL, NIL, -1);
@@ -750,7 +748,8 @@ apply_handle_update(StringInfo s)
 		EvalPlanQualSetSlot(&epqstate, remoteslot);
 
 		/* Do the actual update. */
-		ExecSimpleRelationUpdate(estate, &epqstate, localslot, remoteslot);
+		ExecSimpleRelationUpdate(relinfo, estate, &epqstate, localslot,
+								 remoteslot);
 	}
 	else
 	{
@@ -828,7 +827,6 @@ apply_handle_delete(StringInfo s)
 	EvalPlanQualInit(&epqstate, estate, NULL, NIL, -1);
 	resultRelInfo = makeNode(ResultRelInfo);
 	InitResultRelInfo(resultRelInfo, rel->localrel, 1, NULL, 0);
-	estate->es_result_relation_info = resultRelInfo;
 
 	PushActiveSnapshot(GetTransactionSnapshot());
 	ExecOpenIndices(estate->es_result_relation_info, false);
@@ -859,7 +857,7 @@ apply_handle_delete(StringInfo s)
 		EvalPlanQualSetSlot(&epqstate, localslot);
 
 		/* Do the actual delete. */
-		ExecSimpleRelationDelete(estate, &epqstate, localslot);
+		ExecSimpleRelationDelete(resultRelInfo, estate, &epqstate, localslot);
 	}
 	else
 	{

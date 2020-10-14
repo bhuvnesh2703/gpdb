@@ -79,7 +79,8 @@ static TupleTableSlot *ExecPrepareTupleRouting(ModifyTableState *mtstate,
 											   EState *estate,
 											   PartitionTupleRouting *proute,
 											   ResultRelInfo *targetRelInfo,
-											   TupleTableSlot *slot);
+											   TupleTableSlot *slot,
+											   ResultRelInfo **partRelInfo);
 static ResultRelInfo *getTargetResultRelInfo(ModifyTableState *node);
 static void ExecSetupChildParentMapForSubplan(ModifyTableState *mtstate);
 static TupleConversionMap *tupconv_map_for_subplan(ModifyTableState *node,
@@ -260,9 +261,9 @@ ExecCheckTIDVisible(EState *estate,
  * Compute stored generated columns for a tuple
  */
 void
-ExecComputeStoredGenerated(EState *estate, TupleTableSlot *slot)
+ExecComputeStoredGenerated(ResultRelInfo *resultRelInfo,
+						   EState *estate, TupleTableSlot *slot)
 {
-	ResultRelInfo *resultRelInfo = estate->es_result_relation_info;
 	Relation	rel = resultRelInfo->ri_RelationDesc;
 	TupleDesc	tupdesc = RelationGetDescr(rel);
 	int			natts = tupdesc->natts;
@@ -348,45 +349,62 @@ ExecComputeStoredGenerated(EState *estate, TupleTableSlot *slot)
  *		ExecInsert
  *
  *		For INSERT, we have to insert the tuple into the target relation
- *		and insert appropriate tuples into the index relations.
+ *		(or partition thereof) and insert appropriate tuples into the index
+ *		relations.
  *
  *		Returns RETURNING result if any, otherwise NULL.
  *
- * If the target table is partitioned, the input tuple in 'parentslot'
- * is in the shape required for the parent table. This function will
- * look up the ResultRelInfo of the target partition, and form a
- * tuple suitable for the target partition. (It can be different, if
- * there are dropped columns in the parent, but not the partition,
- * for example.)
+ *		This may change the currently active tuple conversion map in
+ *		mtstate->mt_transition_capture, so the callers must take care to
+ *		save the previous value to avoid losing track of it.
  *
- * In GPDB, the INSERT can be part of an update operation when
- * there is a preceding SplitUpdate node. 'splitUpdate' is true in
- * that case.
+ *		FIXMEBC: Check if this comment is valid anymore
+ *		If the target table is partitioned, the input tuple in 'parentslot'
+ *		is in the shape required for the parent table. This function will
+ *		look up the ResultRelInfo of the target partition, and form a
+ *		tuple suitable for the target partition. (It can be different, if
+ *		there are dropped columns in the parent, but not the partition,
+ *		for example.)
+ *
+ *		In GPDB, the INSERT can be part of an update operation when
+ *		there is a preceding SplitUpdate node. 'splitUpdate' is true in
+ *		that case.
  *
  * ----------------------------------------------------------------
  */
 static TupleTableSlot *
 ExecInsert(ModifyTableState *mtstate,
+		   ResultRelInfo *resultRelInfo,
 		   TupleTableSlot *slot,
 		   TupleTableSlot *planSlot,
 		   EState *estate,
 		   bool canSetTag,
 		   bool splitUpdate)
 {
-	ResultRelInfo *resultRelInfo;
 	Relation	resultRelationDesc;
 	List	   *recheckIndexes = NIL;
 	TupleTableSlot *result = NULL;
 	TransitionCaptureState *ar_insert_trig_tcs;
 	ModifyTable *node = (ModifyTable *) mtstate->ps.plan;
 	OnConflictAction onconflict = node->onConflictAction;
+	PartitionTupleRouting *proute = mtstate->mt_partition_tuple_routing;
+
+	/*
+	 * If the input result relation is a partitioned table, find the leaf
+	 * partition to insert the tuple into.
+	 */
+	if (proute)
+	{
+		ResultRelInfo *partRelInfo;
+
+		slot = ExecPrepareTupleRouting(mtstate, estate, proute,
+									   resultRelInfo, slot,
+									   &partRelInfo);
+		resultRelInfo = partRelInfo;
+	}
 
 	ExecMaterializeSlot(slot);
 
-	/*
-	 * get information on the (current) result relation
-	 */
-	resultRelInfo = estate->es_result_relation_info;
 	resultRelationDesc = resultRelInfo->ri_RelationDesc;
 
 	/*
@@ -425,7 +443,7 @@ ExecInsert(ModifyTableState *mtstate,
 		 */
 		if (resultRelationDesc->rd_att->constr &&
 			resultRelationDesc->rd_att->constr->has_generated_stored)
-			ExecComputeStoredGenerated(estate, slot);
+			ExecComputeStoredGenerated(resultRelInfo, estate, slot);
 
 		/*
 		 * insert into foreign table: let the FDW do it
@@ -461,7 +479,7 @@ ExecInsert(ModifyTableState *mtstate,
 		 */
 		if (resultRelationDesc->rd_att->constr &&
 			resultRelationDesc->rd_att->constr->has_generated_stored)
-			ExecComputeStoredGenerated(estate, slot);
+			ExecComputeStoredGenerated(resultRelInfo, estate, slot);
 
 		/*
 		 * Check any RLS WITH CHECK policies.
@@ -523,8 +541,8 @@ ExecInsert(ModifyTableState *mtstate,
 			 */
 	vlock:
 			specConflict = false;
-			if (!ExecCheckIndexConstraints(slot, estate, &conflictTid,
-										   arbiterIndexes))
+			if (!ExecCheckIndexConstraints(resultRelInfo, slot, estate,
+										   &conflictTid, arbiterIndexes))
 			{
 				/* committed conflict tuple found */
 				if (onconflict == ONCONFLICT_UPDATE)
@@ -584,7 +602,8 @@ ExecInsert(ModifyTableState *mtstate,
 										   specToken);
 
 			/* insert index entries for tuple */
-			recheckIndexes = ExecInsertIndexTuples(slot, estate, true,
+			recheckIndexes = ExecInsertIndexTuples(resultRelInfo,
+												   slot, estate, true,
 												   &specConflict,
 												   arbiterIndexes);
 
@@ -623,8 +642,9 @@ ExecInsert(ModifyTableState *mtstate,
 
 			/* insert index entries for tuple */
 			if (resultRelInfo->ri_NumIndices > 0)
-				recheckIndexes = ExecInsertIndexTuples(slot, estate, false, NULL,
-													   NIL);
+				recheckIndexes = ExecInsertIndexTuples(resultRelInfo,
+													   slot, estate, false,
+													   NULL, NIL);
 		}
 	}
 	if (canSetTag)
@@ -721,6 +741,7 @@ ExecInsert(ModifyTableState *mtstate,
  */
 static TupleTableSlot *
 ExecDelete(ModifyTableState *mtstate,
+		   ResultRelInfo *resultRelInfo,
 		   ItemPointer tupleid,
 		   int32 segid,
 		   HeapTuple oldtuple,
@@ -734,9 +755,7 @@ ExecDelete(ModifyTableState *mtstate,
 		   bool *tupleDeleted,
 		   TupleTableSlot **epqreturnslot)
 {
-	/* PlanGenerator planGen = estate->es_plannedstmt->planGen; */
-	ResultRelInfo *resultRelInfo;
-	Relation	resultRelationDesc;
+	Relation	resultRelationDesc = resultRelInfo->ri_RelationDesc;
 	TM_Result	result;
 	TM_FailureData tmfd;
 	TupleTableSlot *slot = NULL;
@@ -758,39 +777,6 @@ ExecDelete(ModifyTableState *mtstate,
 			 BlockIdGetBlockNumber(&(tupleid->ip_blkid)),
 			 tupleid->ip_posid,
 			 segid);
-
-	/*
-	 * get information on the (current) result relation
-	 */
-	// GPDB_12_MERGE_FIXME: How to do this in new partitioning implementation?
-	// Can we change the way ORCA deletion plans work?
-#if 0
-	if (estate->es_result_partitions && planGen == PLANGEN_OPTIMIZER)
-	{
-		Assert(estate->es_result_partitions->part->parrelid);
-
-#ifdef USE_ASSERT_CHECKING
-		Oid parent = estate->es_result_partitions->part->parrelid;
-#endif
-
-		/* Obtain part for current tuple. */
-		resultRelInfo = slot_get_partition(planSlot, estate, true);
-		estate->es_result_relation_info = resultRelInfo;
-
-#ifdef USE_ASSERT_CHECKING
-		Oid part = RelationGetRelid(resultRelInfo->ri_RelationDesc);
-#endif
-
-		Assert(parent != part);
-	}
-	else
-	{
-		resultRelInfo = estate->es_result_relation_info;
-	}
-#else
-	resultRelInfo = estate->es_result_relation_info;
-#endif
-	resultRelationDesc = resultRelInfo->ri_RelationDesc;
 
 	/* BEFORE ROW DELETE Triggers */
 	/*
@@ -1173,6 +1159,7 @@ ldelete:;
  */
 static TupleTableSlot *
 ExecUpdate(ModifyTableState *mtstate,
+		   ResultRelInfo *resultRelInfo,
 		   ItemPointer tupleid,
 		   HeapTuple oldtuple,
 		   TupleTableSlot *slot,
@@ -1182,12 +1169,10 @@ ExecUpdate(ModifyTableState *mtstate,
 		   EState *estate,
 		   bool canSetTag)
 {
-	ResultRelInfo *resultRelInfo;
-	Relation	resultRelationDesc;
+	Relation	resultRelationDesc = resultRelInfo->ri_RelationDesc;
 	TM_Result	result;
 	TM_FailureData tmfd;
 	List	   *recheckIndexes = NIL;
-	TupleConversionMap *saved_tcs_map = NULL;
 
 	/*
 	 * abort the operation if not running transactions
@@ -1210,12 +1195,6 @@ ExecUpdate(ModifyTableState *mtstate,
 			 segid);
 
 	ExecMaterializeSlot(slot);
-
-	/*
-	 * get information on the (current) result relation
-	 */
-	resultRelInfo = estate->es_result_relation_info;
-	resultRelationDesc = resultRelInfo->ri_RelationDesc;
 
 	/* BEFORE ROW UPDATE Triggers */
 	if (resultRelInfo->ri_TrigDesc &&
@@ -1241,7 +1220,7 @@ ExecUpdate(ModifyTableState *mtstate,
 		 */
 		if (resultRelationDesc->rd_att->constr &&
 			resultRelationDesc->rd_att->constr->has_generated_stored)
-			ExecComputeStoredGenerated(estate, slot);
+			ExecComputeStoredGenerated(resultRelInfo, estate, slot);
 
 		/*
 		 * update in foreign table: let the FDW do it
@@ -1278,7 +1257,7 @@ ExecUpdate(ModifyTableState *mtstate,
 		 */
 		if (resultRelationDesc->rd_att->constr &&
 			resultRelationDesc->rd_att->constr->has_generated_stored)
-			ExecComputeStoredGenerated(estate, slot);
+			ExecComputeStoredGenerated(resultRelInfo, estate, slot);
 
 		/*
 		 * Check any RLS UPDATE WITH CHECK policies
@@ -1328,6 +1307,7 @@ lreplace:;
 			PartitionTupleRouting *proute = mtstate->mt_partition_tuple_routing;
 			int			map_index;
 			TupleConversionMap *tupconv_map;
+			TupleConversionMap *saved_tcs_map = NULL;
 
 			/*
 			 * Disallow an INSERT ON CONFLICT DO UPDATE that causes the
@@ -1353,10 +1333,12 @@ lreplace:;
 			 * Row movement, part 1.  Delete the tuple, but skip RETURNING
 			 * processing. We want to return rows from INSERT.
 			 */
-			ExecDelete(mtstate, tupleid, segid, oldtuple, planSlot, epqstate,
-					   estate, false, false /* canSetTag */ ,
-					   true /* changingPart */ ,
-					   false /* splitUpdate */ ,
+			ExecDelete(mtstate, resultRelInfo, tupleid, segid, oldtuple, planSlot,
+					   epqstate, estate,
+					   false,	/* processReturning */
+					   false,	/* canSetTag */
+					   true,	/* changingPart */
+					   false, /* splitUpdate */
 					   &tuple_deleted, &epqslot);
 
 			/*
@@ -1398,16 +1380,6 @@ lreplace:;
 			}
 
 			/*
-			 * Updates set the transition capture map only when a new subplan
-			 * is chosen.  But for inserts, it is set for each row. So after
-			 * INSERT, we need to revert back to the map created for UPDATE;
-			 * otherwise the next UPDATE will incorrectly use the one created
-			 * for INSERT.  So first save the one created for UPDATE.
-			 */
-			if (mtstate->mt_transition_capture)
-				saved_tcs_map = mtstate->mt_transition_capture->tcs_map;
-
-			/*
 			 * resultRelInfo is one of the per-subplan resultRelInfos.  So we
 			 * should convert the tuple into root's tuple descriptor, since
 			 * ExecInsert() starts the search from root.  The tuple conversion
@@ -1424,18 +1396,18 @@ lreplace:;
 											 mtstate->mt_root_tuple_slot);
 
 			/*
-			 * Prepare for tuple routing, making it look like we're inserting
-			 * into the root.
+			 * ExecInsert() may scribble on mtstate->mt_transition_capture, so
+			 * save the currently active map.
 			 */
+			if (mtstate->mt_transition_capture)
+				saved_tcs_map = mtstate->mt_transition_capture->tcs_map;
+
+			/* Tuple routing starts from the root table. */
 			Assert(mtstate->rootResultRelInfo != NULL);
-			slot = ExecPrepareTupleRouting(mtstate, estate, proute,
-										   mtstate->rootResultRelInfo, slot);
+			ret_slot = ExecInsert(mtstate, mtstate->rootResultRelInfo, slot,
+								  planSlot, estate, canSetTag, false /* splitUpdate */);
 
-			ret_slot = ExecInsert(mtstate, slot, planSlot,
-								  estate, canSetTag, false /* splitUpdate */);
-
-			/* Revert ExecPrepareTupleRouting's node change. */
-			estate->es_result_relation_info = resultRelInfo;
+			/* Clear the INSERT's tuple and restore the saved map. */
 			if (mtstate->mt_transition_capture)
 			{
 				mtstate->mt_transition_capture->tcs_original_insert_tuple = NULL;
@@ -1608,7 +1580,9 @@ lreplace:;
 
 		/* insert index entries for tuple if necessary */
 		if (resultRelInfo->ri_NumIndices > 0 && update_indexes)
-			recheckIndexes = ExecInsertIndexTuples(slot, estate, false, NULL, NIL);
+			recheckIndexes = ExecInsertIndexTuples(resultRelInfo,
+												   slot, estate, false,
+												   NULL, NIL);
 	}
 	if (canSetTag)
 		(estate->es_processed)++;
@@ -1651,12 +1625,12 @@ lreplace:;
  */
 static TupleTableSlot *
 ExecSplitUpdate_Insert(ModifyTableState *mtstate,
+					   ResultRelInfo *resultRelInfo,
 					   TupleTableSlot *slot,
 					   TupleTableSlot *planSlot,
 					   EState *estate,
 					   bool canSetTag)
 {
-	ResultRelInfo *resultRelInfo;
 	Relation	resultRelationDesc;
 	bool		partition_constraint_failed;
 	TupleConversionMap *saved_tcs_map = NULL;
@@ -1667,7 +1641,6 @@ ExecSplitUpdate_Insert(ModifyTableState *mtstate,
 	/*
 	 * get information on the (current) result relation
 	 */
-	resultRelInfo = estate->es_result_relation_info;
 	resultRelationDesc = resultRelInfo->ri_RelationDesc;
 
 	/* ensure slot is independent, consider e.g. EPQ */
@@ -1736,15 +1709,10 @@ ExecSplitUpdate_Insert(ModifyTableState *mtstate,
 		 * into the root.
 		 */
 		Assert(mtstate->rootResultRelInfo != NULL);
-		slot = ExecPrepareTupleRouting(mtstate, estate, proute,
-									   mtstate->rootResultRelInfo, slot);
-
-		slot = ExecInsert(mtstate, slot, planSlot,
+		slot = ExecInsert(mtstate, resultRelInfo, slot, planSlot,
 						  estate, mtstate->canSetTag,
 						  true /* splitUpdate */);
 
-		/* Revert ExecPrepareTupleRouting's node change. */
-		estate->es_result_relation_info = resultRelInfo;
 		if (mtstate->mt_transition_capture)
 		{
 			mtstate->mt_transition_capture->tcs_original_insert_tuple = NULL;
@@ -1966,7 +1934,7 @@ ExecOnConflictUpdate(ModifyTableState *mtstate,
 	 */
 
 	/* Execute UPDATE with projection */
-	*returning = ExecUpdate(mtstate, conflictTid, NULL,
+	*returning = ExecUpdate(mtstate, resultRelInfo, conflictTid, NULL,
 							resultRelInfo->ri_onConflict->oc_ProjSlot,
 							planSlot,
 							GpIdentity.segindex,
@@ -2124,19 +2092,19 @@ ExecSetupTransitionCaptureState(ModifyTableState *mtstate, EState *estate)
  * ExecPrepareTupleRouting --- prepare for routing one tuple
  *
  * Determine the partition in which the tuple in slot is to be inserted,
- * and modify mtstate and estate to prepare for it.
+ * and return its ResultRelInfo in *partRelInfo.  The return value is
+ * a slot holding the tuple of the partition rowtype.
  *
- * Caller must revert the estate changes after executing the insertion!
- * In mtstate, transition capture changes may also need to be reverted.
- *
- * Returns a slot holding the tuple of the partition rowtype.
+ * This also sets the transition table information in mtstate based on the
+ * selected partition.
  */
 static TupleTableSlot *
 ExecPrepareTupleRouting(ModifyTableState *mtstate,
 						EState *estate,
 						PartitionTupleRouting *proute,
 						ResultRelInfo *targetRelInfo,
-						TupleTableSlot *slot)
+						TupleTableSlot *slot,
+						ResultRelInfo **partRelInfo)
 {
 	ResultRelInfo *partrel;
 	PartitionRoutingInfo *partrouteinfo;
@@ -2152,11 +2120,6 @@ ExecPrepareTupleRouting(ModifyTableState *mtstate,
 	partrel = ExecFindPartition(mtstate, targetRelInfo, proute, slot, estate);
 	partrouteinfo = partrel->ri_PartitionInfo;
 	Assert(partrouteinfo != NULL);
-
-	/*
-	 * Make it look like we are inserting into the partition.
-	 */
-	estate->es_result_relation_info = partrel;
 
 	/*
 	 * If we're capturing transition tuples, we might need to convert from the
@@ -2202,6 +2165,7 @@ ExecPrepareTupleRouting(ModifyTableState *mtstate,
 		slot = execute_attr_map_slot(map->attrMap, slot, new_slot);
 	}
 
+	*partRelInfo = partrel;
 	return slot;
 }
 
@@ -2269,10 +2233,8 @@ static TupleTableSlot *
 ExecModifyTable(PlanState *pstate)
 {
 	ModifyTableState *node = castNode(ModifyTableState, pstate);
-	PartitionTupleRouting *proute = node->mt_partition_tuple_routing;
 	EState	   *estate = node->ps.state;
 	CmdType		operation = node->operation;
-	ResultRelInfo *saved_resultRelInfo;
 	ResultRelInfo *resultRelInfo;
 	PlanState  *subplanstate;
 	JunkFilter *junkfilter;
@@ -2343,17 +2305,6 @@ ExecModifyTable(PlanState *pstate)
 	segid_attno = resultRelInfo->ri_segid_attno;
 
 	/*
-	 * es_result_relation_info must point to the currently active result
-	 * relation while we are within this ModifyTable node.  Even though
-	 * ModifyTable nodes can't be nested statically, they can be nested
-	 * dynamically (since our subplan could include a reference to a modifying
-	 * CTE).  So we have to save and restore the caller's value.
-	 */
-	saved_resultRelInfo = estate->es_result_relation_info;
-
-	estate->es_result_relation_info = resultRelInfo;
-
-	/*
 	 * Fetch rows from subplan(s), and execute the required table modification
 	 * for each row.
 	 */
@@ -2384,11 +2335,10 @@ ExecModifyTable(PlanState *pstate)
 			if (node->mt_whichplan < node->mt_nplans)
 			{
 				resultRelInfo++;
-				estate->es_result_relation_info = resultRelInfo;
 				subplanstate = node->mt_plans[node->mt_whichplan];
-				junkfilter = estate->es_result_relation_info->ri_junkFilter;
-				action_attno = estate->es_result_relation_info->ri_action_attno;
-				segid_attno = estate->es_result_relation_info->ri_segid_attno;
+				junkfilter = resultRelInfo->ri_junkFilter;
+				action_attno = resultRelInfo->ri_action_attno;
+				segid_attno = resultRelInfo->ri_segid_attno;
 				EvalPlanQualSetPlan(&node->mt_epqstate, subplanstate->plan,
 									node->mt_arowmarks[node->mt_whichplan]);
 				/* Prepare to convert transition tuples from this child. */
@@ -2433,7 +2383,6 @@ ExecModifyTable(PlanState *pstate)
 			 */
 			slot = ExecProcessReturning(resultRelInfo, NULL, planSlot);
 
-			estate->es_result_relation_info = saved_resultRelInfo;
 			return slot;
 		}
 
@@ -2544,32 +2493,28 @@ ExecModifyTable(PlanState *pstate)
 		switch (operation)
 		{
 			case CMD_INSERT:
-				/* Prepare for tuple routing if needed. */
-				if (proute)
-					slot = ExecPrepareTupleRouting(node, estate, proute,
-												   resultRelInfo, slot);
-				slot = ExecInsert(node, slot, planSlot,
+				slot = ExecInsert(node, resultRelInfo, slot, planSlot,
 								  estate, node->canSetTag, false /* splitUpdate */);
-				/* Revert ExecPrepareTupleRouting's state change. */
-				if (proute)
-					estate->es_result_relation_info = resultRelInfo;
 				break;
 			case CMD_UPDATE:
 				if (!AttributeNumberIsValid(action_attno))
 				{
 					/* normal non-split UPDATE */
-					slot = ExecUpdate(node, tupleid, oldtuple, slot, planSlot,
+					slot = ExecUpdate(node, resultRelInfo, tupleid, oldtuple, slot,
+									  planSlot,
 									  segid,
 									  &node->mt_epqstate, estate, node->canSetTag);
 				}
 				else if (DML_INSERT == action)
 				{
+					//FIXMEBC: What should be do here?
 					slot = ExecSplitUpdate_Insert(node, slot, planSlot,
 												  estate, node->canSetTag);
 				}
 				else /* DML_DELETE */
 				{
-					slot = ExecDelete(node, tupleid, segid, oldtuple, planSlot,
+					slot = ExecDelete(node, resultRelInfo, tupleid, segid, oldtuple,
+									  planSlot,
 									  &node->mt_epqstate, estate,
 									  false,
 									  false /* canSetTag */,
@@ -2579,7 +2524,8 @@ ExecModifyTable(PlanState *pstate)
 				}
 				break;
 			case CMD_DELETE:
-				slot = ExecDelete(node, tupleid, segid, oldtuple, planSlot,
+				slot = ExecDelete(node, resultRelInfo, tupleid, segid, oldtuple,
+								  planSlot,
 								  &node->mt_epqstate, estate,
 								  true, node->canSetTag,
 								  false /* changingPart */ ,
@@ -2592,27 +2538,12 @@ ExecModifyTable(PlanState *pstate)
 		}
 
 		/*
-		 * If the target is a partitioned table, ExecInsert / ExecUpdate /
-		 * ExecDelete might have changed es_result_relation_info to point to
-		 * a partition, instead of the top-level table. Reset it. (It would
-		 * be more tidy if those functions cleaned up after themselves, but
-		 * it's more robust to do it here just once.)
-		 */
-		estate->es_result_relation_info = resultRelInfo;
-
-		/*
 		 * If we got a RETURNING result, return it to caller.  We'll continue
 		 * the work on next call.
 		 */
 		if (slot)
-		{
-			estate->es_result_relation_info = saved_resultRelInfo;
 			return slot;
-		}
 	}
-
-	/* Restore es_result_relation_info before exiting */
-	estate->es_result_relation_info = saved_resultRelInfo;
 
 	/*
 	 * We're done, but fire AFTER STATEMENT triggers before exiting.
@@ -2636,7 +2567,6 @@ ExecInitModifyTable(ModifyTable *node, EState *estate, int eflags)
 	ModifyTableState *mtstate;
 	CmdType		operation = node->operation;
 	int			nplans = list_length(node->plans);
-	ResultRelInfo *saved_resultRelInfo;
 	ResultRelInfo *resultRelInfo;
 	Plan	   *subplan;
 	ListCell   *l,
@@ -2701,14 +2631,8 @@ ExecInitModifyTable(ModifyTable *node, EState *estate, int eflags)
 	 * call ExecInitNode on each of the plans to be executed and save the
 	 * results into the array "mt_plans".  This is also a convenient place to
 	 * verify that the proposed target relations are valid and open their
-	 * indexes for insertion of new index entries.  Note we *must* set
-	 * estate->es_result_relation_info correctly while we initialize each
-	 * sub-plan; external modules such as FDWs may depend on that (see
-	 * contrib/postgres_fdw/postgres_fdw.c: postgresBeginDirectModify() as one
-	 * example).
+	 * indexes for insertion of new index entries.
 	 */
-	saved_resultRelInfo = estate->es_result_relation_info;
-
 	resultRelInfo = mtstate->resultRelInfo;
 	i = 0;
 	forboth(l, node->resultRelations, l1, node->plans)
@@ -2755,7 +2679,6 @@ ExecInitModifyTable(ModifyTable *node, EState *estate, int eflags)
 			update_tuple_routing_needed = true;
 
 		/* Now init the plan for this result rel */
-		estate->es_result_relation_info = resultRelInfo;
 		mtstate->mt_plans[i] = ExecInitNode(subplan, estate, eflags);
 		mtstate->mt_scans[i] =
 			ExecInitExtraTupleSlot(mtstate->ps.state, ExecGetResultType(mtstate->mt_plans[i]),
@@ -2783,8 +2706,6 @@ ExecInitModifyTable(ModifyTable *node, EState *estate, int eflags)
 		resultRelInfo++;
 		i++;
 	}
-
-	estate->es_result_relation_info = saved_resultRelInfo;
 
 	/* Get the target relation */
 	rel = (getTargetResultRelInfo(mtstate))->ri_RelationDesc;
