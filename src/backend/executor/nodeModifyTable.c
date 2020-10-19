@@ -81,7 +81,6 @@ static TupleTableSlot *ExecPrepareTupleRouting(ModifyTableState *mtstate,
 											   ResultRelInfo *targetRelInfo,
 											   TupleTableSlot *slot,
 											   ResultRelInfo **partRelInfo);
-static ResultRelInfo *getTargetResultRelInfo(ModifyTableState *node);
 static void ExecSetupChildParentMapForSubplan(ModifyTableState *mtstate);
 static TupleConversionMap *tupconv_map_for_subplan(ModifyTableState *node,
 												   int whichplan);
@@ -1293,7 +1292,6 @@ ExecCrossPartitionUpdate(ModifyTableState *mtstate,
 		saved_tcs_map = mtstate->mt_transition_capture->tcs_map;
 
 	/* Tuple routing starts from the root table. */
-	Assert(mtstate->rootResultRelInfo != NULL);
 	*inserted_tuple = ExecInsert(mtstate, mtstate->rootResultRelInfo, slot,
 								 planSlot, estate, canSetTag, splitUpdate);
 
@@ -2040,15 +2038,7 @@ static void
 fireBSTriggers(ModifyTableState *node)
 {
 	ModifyTable *plan = (ModifyTable *) node->ps.plan;
-	ResultRelInfo *resultRelInfo = node->resultRelInfo;
-
-	/*
-	 * If the node modifies a partitioned table, we must fire its triggers.
-	 * Note that in that case, node->resultRelInfo points to the first leaf
-	 * partition, not the root table.
-	 */
-	if (node->rootResultRelInfo != NULL)
-		resultRelInfo = node->rootResultRelInfo;
+	ResultRelInfo *resultRelInfo = node->rootResultRelInfo;
 
 	switch (node->operation)
 	{
@@ -2071,35 +2061,13 @@ fireBSTriggers(ModifyTableState *node)
 }
 
 /*
- * Return the target rel ResultRelInfo.
- *
- * This relation is the same as :
- * - the relation for which we will fire AFTER STATEMENT triggers.
- * - the relation into whose tuple format all captured transition tuples must
- *   be converted.
- * - the root partitioned table.
- */
-static ResultRelInfo *
-getTargetResultRelInfo(ModifyTableState *node)
-{
-	/*
-	 * Note that if the node modifies a partitioned table, node->resultRelInfo
-	 * points to the first leaf partition, not the root table.
-	 */
-	if (node->rootResultRelInfo != NULL)
-		return node->rootResultRelInfo;
-	else
-		return node->resultRelInfo;
-}
-
-/*
  * Process AFTER EACH STATEMENT triggers
  */
 static void
 fireASTriggers(ModifyTableState *node)
 {
 	ModifyTable *plan = (ModifyTable *) node->ps.plan;
-	ResultRelInfo *resultRelInfo = getTargetResultRelInfo(node);
+	ResultRelInfo *resultRelInfo = node->rootResultRelInfo;
 
 	switch (node->operation)
 	{
@@ -2133,7 +2101,7 @@ static void
 ExecSetupTransitionCaptureState(ModifyTableState *mtstate, EState *estate)
 {
 	ModifyTable *plan = (ModifyTable *) mtstate->ps.plan;
-	ResultRelInfo *targetRelInfo = getTargetResultRelInfo(mtstate);
+	ResultRelInfo *targetRelInfo = mtstate->rootResultRelInfo;
 
 	/* Check for transition tables on the directly targeted relation. */
 	mtstate->mt_transition_capture =
@@ -2263,7 +2231,7 @@ ExecPrepareTupleRouting(ModifyTableState *mtstate,
 static void
 ExecSetupChildParentMapForSubplan(ModifyTableState *mtstate)
 {
-	ResultRelInfo *targetRelInfo = getTargetResultRelInfo(mtstate);
+	ResultRelInfo *targetRelInfo = mtstate->rootResultRelInfo;
 	ResultRelInfo *resultRelInfos = mtstate->resultRelInfo;
 	TupleDesc	outdesc;
 	int			numResultRelInfos = mtstate->mt_nplans;
@@ -2672,12 +2640,30 @@ ExecInitModifyTable(ModifyTable *node, EState *estate, int eflags)
 		palloc(nplans * sizeof(ResultRelInfo));
 	mtstate->mt_scans = (TupleTableSlot **) palloc0(sizeof(TupleTableSlot *) * nplans);
 
-	/* If modifying a partitioned table, initialize the root table info */
+	/*----------
+	 * Resolve the target relation. This is the same as:
+	 *
+	 * - the relation for which we will fire FOR STATEMENT triggers,
+	 * - the relation into whose tuple format all captured transition tuples
+	 *   must be converted, and
+	 * - the root partitioned table used for tuple routing.
+	 *
+	 * If it's a partitioned table, the root partition doesn't appear
+	 * elsewhere in the plan and its RT index is given explicitly in
+	 * node->rootRelation.  Otherwise (i.e. table inheritance) the target
+	 * relation is the first relation in the node->resultRelations list, and
+	 * we will initialize it in the loop below.
+	 *----------
+	 */
 	if (node->rootRelation > 0)
 	{
 		mtstate->rootResultRelInfo = makeNode(ResultRelInfo);
 		ExecInitResultRelation(estate, mtstate->rootResultRelInfo,
 							   node->rootRelation);
+	}
+	else
+	{
+		mtstate->rootResultRelInfo = mtstate->resultRelInfo;
 	}
 
 	mtstate->mt_arowmarks = (List **) palloc0(sizeof(List *) * nplans);
@@ -2785,7 +2771,7 @@ ExecInitModifyTable(ModifyTable *node, EState *estate, int eflags)
 	}
 
 	/* Get the target relation */
-	rel = (getTargetResultRelInfo(mtstate))->ri_RelationDesc;
+	rel = mtstate->rootResultRelInfo->ri_RelationDesc;
 
 	/*
 	 * If it's not a partitioned table after all, UPDATE tuple routing should
