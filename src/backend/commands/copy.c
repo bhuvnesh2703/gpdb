@@ -4377,7 +4377,7 @@ CopyFrom(CopyState cstate)
 			 * We might need to convert from the root rowtype to the partition
 			 * rowtype.
 			 */
-			map = resultRelInfo->ri_PartitionInfo->pi_RootToPartitionMap;
+			map = resultRelInfo->ri_RootToPartitionMap;
 			if (insertMethod == CIM_SINGLE || !leafpart_use_multi_insert)
 			{
 				/* non batch insert */
@@ -4385,7 +4385,7 @@ CopyFrom(CopyState cstate)
 				{
 					TupleTableSlot *new_slot;
 
-					new_slot = resultRelInfo->ri_PartitionInfo->pi_PartitionTupleSlot;
+					new_slot = resultRelInfo->ri_PartitionTupleSlot;
 					myslot = execute_attr_map_slot(map->attrMap, myslot, new_slot);
 				}
 			}
