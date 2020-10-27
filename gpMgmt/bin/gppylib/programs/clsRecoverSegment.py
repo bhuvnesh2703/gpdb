@@ -31,6 +31,7 @@ from gppylib.gpparseopts import OptParser, OptChecker
 from gppylib.operations.startSegments import *
 from gppylib.operations.buildMirrorSegments import *
 from gppylib.operations.rebalanceSegments import GpSegmentRebalanceOperation
+from gppylib.operations.update_pg_hba_conf import config_primaries_for_replication
 from gppylib.programs import programIoUtils
 from gppylib.system import configurationInterface as configInterface
 from gppylib.system.environment import GpMasterEnvironment
@@ -630,6 +631,7 @@ class GpRecoverSegmentProgram:
             if new_hosts:
                 self.syncPackages(new_hosts)
 
+            config_primaries_for_replication(gpArray, False)
             if not mirrorBuilder.buildMirrors("recover", gpEnv, gpArray):
                 sys.exit(1)
 
