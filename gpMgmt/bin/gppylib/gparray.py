@@ -914,6 +914,8 @@ class GpArray:
                 first = False
                 if suffixList != firstSuffixList:
                     raise Exception("The address list for %s doesn't not have the same pattern as %s." % (str(suffixList), str(firstSuffixList)))
+                if len(suffixList) == 0 and len(firstSuffixList) == 0:
+                    raise Exception("The host name and address are same for all the segments")
         except Exception as e:
             # Assume any exception implies a non-standard array
             return False, str(e)
