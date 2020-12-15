@@ -67,7 +67,7 @@ class Global():
     opt = {'-d': [], '-D': False, '-v': False, '-V': False, '-r': '',
            '-B': 1024 * 32, '-S': 0, '-h': [], '-f': None,
            '--duration': 15, '--net': None, '--netserver': 'gpnetbenchServer',
-           '--netclient': 'gpnetbenchClient'}
+           '--netclient': 'gpnetbenchClient', '--ipprotocol': '-4'}
 
 
 GV = Global()
@@ -190,18 +190,18 @@ def parseDuration(val):
             val = val[:-1]
         return int(val) * factor
     except Exception, err:
-        print "exception: %s" % err
+        print ("exception: %s" % err)
         sys.exit(-1)
 
 
 def print_version():
-    print '%s version $Revision$' % GV.script_name
+    print ('%s version $Revision$' % GV.script_name)
     sys.exit(0)
 
 
 def parseCommandLine():
     try:
-        (options, args) = getopt.getopt(sys.argv[1:], '?vVDd:r:B:S:p:h:f:', ['duration=', 'version', 'netperf'])
+        (options, args) = getopt.getopt(sys.argv[1:], '?vVDd:r:B:S:p:h:f:', ['duration=', 'version', 'netperf', 'ipv6'])
     except Exception, e:
         usage('Error: ' + str(e))
         exit(1)
@@ -224,6 +224,8 @@ def parseCommandLine():
         elif switch == '--netperf':
             GV.opt['--netserver'] = 'netserver'
             GV.opt['--netclient'] = 'netperf'
+        elif switch == '--ipv6':
+            GV.opt['--ipprotocol'] = '-6'
 
     # run default tests (if not specified)
     if GV.opt['-r'] == '':
@@ -258,6 +260,9 @@ def parseCommandLine():
 
     if (GV.opt['-B']) > 1024 * 1024:
         usage('Error: maximum size for -B parameter is 1MB')
+
+    if GV.opt['--ipprotocol'] == '-6' and GV.opt['--netclient'] != 'netperf':
+        usage('Error: --ipv6 option can be only used by --netperf')
 
     if GV.opt['-S'] == 0:
         GV.opt['-S'] = 2 * getMemory() / len(GV.opt['-d'])
