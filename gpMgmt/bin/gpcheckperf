@@ -189,7 +189,7 @@ def parseDuration(val):
         if factor > 1:
             val = val[:-1]
         return int(val) * factor
-    except Exception, err:
+    except Exception as err:
         print ("exception: %s" % err)
         sys.exit(-1)
 
@@ -202,7 +202,7 @@ def print_version():
 def parseCommandLine():
     try:
         (options, args) = getopt.getopt(sys.argv[1:], '?vVDd:r:B:S:p:h:f:', ['duration=', 'version', 'netperf', 'ipv6'])
-    except Exception, e:
+    except Exception as e:
         usage('Error: ' + str(e))
         exit(1)
 
