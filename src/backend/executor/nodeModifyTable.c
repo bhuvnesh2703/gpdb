@@ -626,7 +626,7 @@ ExecInsert(ModifyTableState *mtstate,
 
 			/* insert index entries for tuple */
 			recheckIndexes = ExecInsertIndexTuples(resultRelInfo,
-												   slot, estate, true,
+												   slot, estate, false, true,
 												   &specConflict,
 												   arbiterIndexes);
 
@@ -667,7 +667,7 @@ ExecInsert(ModifyTableState *mtstate,
 			if (resultRelInfo->ri_NumIndices > 0)
 				recheckIndexes = ExecInsertIndexTuples(resultRelInfo,
 													   slot, estate, false,
-													   NULL, NIL);
+													   false, NULL, NIL);
 		}
 	}
 	if (canSetTag)
@@ -1643,7 +1643,7 @@ lreplace:;
 		/* insert index entries for tuple if necessary */
 		if (resultRelInfo->ri_NumIndices > 0 && update_indexes)
 			recheckIndexes = ExecInsertIndexTuples(resultRelInfo,
-												   slot, estate, false,
+												   slot, estate, true, false,
 												   NULL, NIL);
 	}
 	if (canSetTag)
