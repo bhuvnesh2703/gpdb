@@ -304,6 +304,7 @@ AppendOnlyMoveTuple(TupleTableSlot *slot,
 							  slot,
 							  estate,
 							  false, /* noDupError */
+							  false,
 							  NULL, /* specConflict */
 							  NIL /* arbiterIndexes */);
 		ResetPerTupleExprContext(estate);
