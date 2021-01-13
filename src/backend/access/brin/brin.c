@@ -152,6 +152,7 @@ bool
 brininsert(Relation idxRel, Datum *values, bool *nulls,
 		   ItemPointer heaptid, Relation heapRel,
 		   IndexUniqueCheck checkUnique,
+		   bool indexUnchanged,
 		   IndexInfo *indexInfo)
 {
 	BlockNumber pagesPerRange;

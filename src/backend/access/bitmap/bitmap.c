@@ -176,6 +176,7 @@ bool
 bminsert(Relation rel, Datum *values, bool *isnull,
 		 ItemPointer ht_ctid, Relation heapRel,
 		 IndexUniqueCheck checkUnique,
+		 bool indexUnchanged,
 		 IndexInfo *indexInfo)
 {
 	_bitmap_doinsert(rel, *ht_ctid, values, isnull);
