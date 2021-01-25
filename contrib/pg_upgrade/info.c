@@ -354,7 +354,7 @@ get_db_and_rel_infos(ClusterInfo *cluster)
 	/*
 	 * Reset the index state on the new cluster only.
 	 */
-	if (!is_greenplum_dispatcher_mode() && !user_opts.check && cluster == &new_cluster)
+	if (!is_greenplum_dispatcher_mode() && !user_opts.check && cluster == &new_cluster && user_opts.template)
 		reset_invalid_indexes();
 
 	for (dbnum = 0; dbnum < cluster->dbarr.ndbs; dbnum++)

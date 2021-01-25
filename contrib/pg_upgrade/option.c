@@ -55,6 +55,7 @@ parseCommandLine(int argc, char *argv[])
 		{"jobs", required_argument, NULL, 'j'},
 		{"socketdir", required_argument, NULL, 's'},
 		{"verbose", no_argument, NULL, 'v'},
+		{"primary-template", no_argument, NULL, 't'},
 
 		/* Greenplum specific parameters */
 		GREENPLUM_OPTIONS
@@ -194,6 +195,11 @@ parseCommandLine(int argc, char *argv[])
 			case 'v':
 				pg_log(PG_REPORT, "Running in verbose mode\n");
 				log_opts.verbose = true;
+				break;
+
+			case 't':
+				pg_log(PG_REPORT, "Creating primary template\n");
+				user_opts.template = true;
 				break;
 
 			default:

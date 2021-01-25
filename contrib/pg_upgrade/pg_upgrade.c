@@ -186,10 +186,12 @@ main(int argc, char **argv)
 		 * If this step is not done on segment, subsequent vacuum freeze can complain that
 		 * the xmin <some low number> from before relfrozenxid <some higher number>
 		 */
-		set_frozenxids(false);
+		if (user_opts.template)
+			set_frozenxids(false);
 	}
 
-	invalidate_indexes();
+	if (user_opts.template || is_greenplum_dispatcher_mode())
+		invalidate_indexes();
 
 	/*
 	 * vacuum freeze the database before restoring the ao segment tables
@@ -198,7 +200,8 @@ main(int argc, char **argv)
 	 * in Prepare phase which will otherwise result in error as the physical
 	 * files are not yet copied from the old segment.
 	 */
-	freeze_all_databases();
+	if (user_opts.template || is_greenplum_dispatcher_mode())
+		freeze_all_databases();
 
 	/*
 	 * vacuum freeze is done prior to copying / linking the data. The xmin
@@ -211,7 +214,7 @@ main(int argc, char **argv)
 	 * xmin of the tuples will not be higher than relfrozenxid for the relation.
 	 * Otherwise, vacuuming those tables once data is copied/linked will error out.
 	 */
-	if (!is_greenplum_dispatcher_mode())
+	if (!is_greenplum_dispatcher_mode() && user_opts.template)
 		update_segment_db_xids();
 
 	/*
@@ -222,7 +225,8 @@ main(int argc, char **argv)
 	 * however. So we still need to restore those separately on each
 	 * server.
 	 */
-	restore_aosegment_tables();
+	if (is_greenplum_dispatcher_mode() || user_opts.template)
+		restore_aosegment_tables();
 
 	stop_postmaster(false);
 
@@ -234,6 +238,9 @@ main(int argc, char **argv)
 	 */
 	if (user_opts.transfer_mode == TRANSFER_MODE_LINK)
 		disable_old_cluster();
+
+	if (user_opts.template)
+		return 0;
 
 	transfer_all_new_tablespaces(&old_cluster.dbarr, &new_cluster.dbarr,
 								 old_cluster.pgdata, new_cluster.pgdata);
@@ -530,13 +537,16 @@ prepare_new_cluster(void)
 	 * datfrozenxid, relfrozenxids, and relminmxid later to match the new xid
 	 * counter later.
 	 */
-	prep_status("Freezing all rows on the new cluster");
-	exec_prog(UTILITY_LOG_FILE, NULL, true, true,
-			  PG_OPTIONS_UTILITY_MODE
-			  "\"%s/vacuumdb\" %s --all --freeze %s",
-			  new_cluster.bindir, cluster_conn_opts(&new_cluster),
-			  log_opts.verbose ? "--verbose" : "");
-	check_ok();
+	if (user_opts.template || is_greenplum_dispatcher_mode())
+	{
+		prep_status("Freezing all rows on the new cluster");
+		exec_prog(UTILITY_LOG_FILE, NULL, true, true,
+				  PG_OPTIONS_UTILITY_MODE
+				  "\"%s/vacuumdb\" %s --all --freeze %s",
+				  new_cluster.bindir, cluster_conn_opts(&new_cluster),
+				  log_opts.verbose ? "--verbose" : "");
+		check_ok();
+	}
 
 	get_pg_database_relfilenode(&new_cluster);
 }
