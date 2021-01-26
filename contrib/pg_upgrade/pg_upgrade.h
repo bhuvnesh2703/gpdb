@@ -502,6 +502,7 @@ const char *linkAndUpdateFile(pageCnvCtx *pageConverter, const char *src,
 				  const char *dst);
 
 void		check_hard_link(void);
+void		check_template_hard_link(void);
 
 /* fopen_priv() is no longer different from fopen() */
 #define fopen_priv(path, mode)	fopen(path, mode)
@@ -512,6 +513,7 @@ void		install_support_functions_in_new_db(const char *db_name);
 void		uninstall_support_functions_from_new_cluster(void);
 void		get_loadable_libraries(void);
 void		check_loadable_libraries(void);
+void		check_template_loadable_libraries(void);
 
 /* info.c */
 

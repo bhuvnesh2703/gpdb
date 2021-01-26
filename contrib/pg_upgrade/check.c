@@ -189,18 +189,18 @@ check_template_cluster(void)
 
 	check_template_cluster_is_empty();
 
-	check_loadable_libraries();
+	check_template_loadable_libraries();
 
 	if (user_opts.transfer_mode == TRANSFER_MODE_LINK)
-		check_hard_link();
+		check_template_hard_link();
 
-	check_is_super_user(&new_cluster);
+	check_is_super_user(&template_cluster);
 
 	/*
 	 * We don't restore our own user, so both clusters must match have
 	 * matching install-user oids.
 	 */
-	if (old_cluster.install_role_oid != new_cluster.install_role_oid)
+	if (old_cluster.install_role_oid != template_cluster.install_role_oid)
 		pg_fatal("Old and new cluster install users have different values for pg_authid.oid.\n");
 
 	/*
@@ -216,11 +216,11 @@ check_template_cluster(void)
 	 */
 	if (is_greenplum_dispatcher_mode())
 	{
-		if (new_cluster.role_count != 1)
+		if (template_cluster.role_count != 1)
 			pg_fatal("Only the install user can be defined in the new cluster.\n");
 	}
 
-	check_for_prepared_transactions(&new_cluster);
+	check_for_prepared_transactions(&template_cluster);
 }
 
 void

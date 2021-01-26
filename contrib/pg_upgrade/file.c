@@ -228,6 +228,26 @@ check_hard_link(void)
 	unlink(new_link_file);
 }
 
+
+void
+check_template_hard_link(void)
+{
+	char		existing_file[MAXPGPATH];
+	char		new_link_file[MAXPGPATH];
+
+	snprintf(existing_file, sizeof(existing_file), "%s/PG_VERSION", old_cluster.pgdata);
+	snprintf(new_link_file, sizeof(new_link_file), "%s/PG_VERSION.linktest", template_cluster.pgdata);
+	unlink(new_link_file);		/* might fail */
+
+	if (pg_link_file(existing_file, new_link_file) == -1)
+	{
+		pg_fatal("Could not create hard link between old and new data directories: %s\n"
+				 "In link mode the old and new data directories must be on the same file system volume.\n",
+				 getErrorText());
+	}
+	unlink(new_link_file);
+}
+
 #ifdef WIN32
 static int
 win32_pghardlink(const char *src, const char *dst)

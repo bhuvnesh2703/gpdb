@@ -203,7 +203,8 @@ main(int argc, char **argv)
 	/* New now using xids of the old system */
 
 	/* -- NEW -- */
-	start_postmaster(&new_cluster, true);
+	if (is_greenplum_dispatcher_mode() || user_opts.template)
+		start_postmaster(&new_cluster, true);
 
 	if (is_greenplum_dispatcher_mode())
 	{
@@ -261,9 +262,12 @@ main(int argc, char **argv)
 	 * server.
 	 */
 	if (is_greenplum_dispatcher_mode() || user_opts.template)
-		restore_aosegment_tables();
+		{
+			restore_aosegment_tables();
 
-	stop_postmaster(false);
+			stop_postmaster(false);
+		}
+
 
 	/*
 	 * Most failures happen in create_new_objects(), which has completed at
@@ -274,11 +278,12 @@ main(int argc, char **argv)
 	if (user_opts.transfer_mode == TRANSFER_MODE_LINK)
 		disable_old_cluster();
 
-	if (user_opts.template)
-		return 0;
-
-	transfer_all_new_tablespaces(&old_cluster.dbarr, &new_cluster.dbarr,
+	if (user_opts.template || is_greenplum_dispatcher_mode())
+		transfer_all_new_tablespaces(&old_cluster.dbarr, &new_cluster.dbarr,
 								 old_cluster.pgdata, new_cluster.pgdata);
+
+	if (!user_opts.template && !is_greenplum_dispatcher_mode())
+		return 0;
 
 	/*
 	 * Assuming OIDs are only used in system tables, there is no need to
@@ -576,12 +581,12 @@ prepare_template_cluster(void)
 		exec_prog(UTILITY_LOG_FILE, NULL, true, true,
 				  PG_OPTIONS_UTILITY_MODE
 				  "\"%s/vacuumdb\" %s --all --freeze %s",
-				  new_cluster.bindir, cluster_conn_opts(&new_cluster),
+				  template_cluster.bindir, cluster_conn_opts(&template_cluster),
 				  log_opts.verbose ? "--verbose" : "");
 		check_ok();
 	}
 
-	get_pg_database_relfilenode(&new_cluster);
+	get_pg_database_relfilenode(&template_cluster);
 }
 
 static void
