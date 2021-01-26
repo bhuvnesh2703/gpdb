@@ -15,6 +15,7 @@
 
 static void set_locale_and_encoding(ClusterInfo *cluster);
 static void check_new_cluster_is_empty(void);
+static void check_template_cluster_is_empty(void);
 static void check_locale_and_encoding(ControlData *oldctrl,
 						  ControlData *newctrl);
 static bool equivalent_locale(int category, const char *loca, const char *locb);
@@ -177,6 +178,50 @@ check_and_dump_old_cluster(bool live_check, char **sequence_script_file_name)
 		stop_postmaster(false);
 }
 
+void
+check_template_cluster(void)
+{
+	set_locale_and_encoding(&template_cluster);
+
+	check_locale_and_encoding(&old_cluster.controldata, &template_cluster.controldata);
+
+	get_db_and_rel_infos(&template_cluster);
+
+	check_template_cluster_is_empty();
+
+	check_loadable_libraries();
+
+	if (user_opts.transfer_mode == TRANSFER_MODE_LINK)
+		check_hard_link();
+
+	check_is_super_user(&new_cluster);
+
+	/*
+	 * We don't restore our own user, so both clusters must match have
+	 * matching install-user oids.
+	 */
+	if (old_cluster.install_role_oid != new_cluster.install_role_oid)
+		pg_fatal("Old and new cluster install users have different values for pg_authid.oid.\n");
+
+	/*
+	 * We only allow the install user in the new cluster because other defined
+	 * users might match users defined in the old cluster and generate an
+	 * error during pg_dump restore.
+ 	 *
+ 	 * However, in Greenplum, if we are upgrading a segment, its users have
+	 * already been replicated to it from the master via gpupgrade.  Hence,
+	 * we only need to do this check for the QD.  In other words, the
+	 * Greenplum cluster upgrade scheme will overwrite the QE's schema
+ 	 * with the QD's schema, making this check inappropriate for a QE upgrade.
+	 */
+	if (is_greenplum_dispatcher_mode())
+	{
+		if (new_cluster.role_count != 1)
+			pg_fatal("Only the install user can be defined in the new cluster.\n");
+	}
+
+	check_for_prepared_transactions(&new_cluster);
+}
 
 void
 check_new_cluster(void)
@@ -392,6 +437,9 @@ check_cluster_compatibility(bool live_check)
 	get_control_data(&old_cluster, live_check);
 	get_control_data(&new_cluster, false);
 	check_control_data(&old_cluster.controldata, &new_cluster.controldata);
+	if (!user_opts.template && !is_greenplum_dispatcher_mode())
+		get_control_data(&template_cluster, false);
+
 
 	/* Is it 9.0 but without tablespace directories? */
 	if (GET_MAJOR_VERSION(new_cluster.major_version) == 900 &&
@@ -561,6 +609,35 @@ equivalent_encoding(const char *chara, const char *charb)
 	return (enca == encb);
 }
 
+static void
+check_template_cluster_is_empty(void)
+{
+	int			dbnum;
+
+	/*
+	 * If we are upgrading a segment we expect to have a complete datadir in
+	 * place from the QD at this point, so the cluster cannot be tested for
+	 * being empty.
+	 */
+	if (!is_greenplum_dispatcher_mode())
+		return;
+
+	for (dbnum = 0; dbnum < template_cluster.dbarr.ndbs; dbnum++)
+	{
+		int			relnum;
+		RelInfoArr *rel_arr = &template_cluster.dbarr.dbs[dbnum].rel_arr;
+
+		for (relnum = 0; relnum < rel_arr->nrels;
+			 relnum++)
+		{
+			/* pg_largeobject and its index should be skipped */
+			if (strcmp(rel_arr->rels[relnum].nspname, "pg_catalog") != 0)
+				pg_fatal("Template cluster database \"%s\" is not empty\n",
+						 template_cluster.dbarr.dbs[dbnum].db_name);
+		}
+	}
+
+}
 
 static void
 check_new_cluster_is_empty(void)

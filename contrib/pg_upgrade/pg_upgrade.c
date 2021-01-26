@@ -47,6 +47,7 @@
 #include "greenplum/pg_upgrade_greenplum.h"
 
 static void prepare_new_cluster(void);
+static void prepare_template_cluster(void);
 static void prepare_new_databases(void);
 static void create_new_objects(void);
 static void copy_clog_xlog_xid(void);
@@ -84,7 +85,7 @@ static char *restrict_env;
 #define GLOBAL_DUMP_DB	"postgres"
 
 ClusterInfo old_cluster,
-			new_cluster;
+			new_cluster, template_cluster;
 OSInfo		os_info;
 
 void
@@ -121,6 +122,8 @@ main(int argc, char **argv)
 
 	adjust_data_dir(&old_cluster);
 	adjust_data_dir(&new_cluster);
+	if (!user_opts.template && !is_greenplum_dispatcher_mode())
+		adjust_data_dir(&template_cluster);
 
 	setup(argv[0], &live_check);
 
@@ -131,27 +134,59 @@ main(int argc, char **argv)
 
 	get_sock_dir(&old_cluster, live_check);
 	get_sock_dir(&new_cluster, false);
+	if (!user_opts.template && !is_greenplum_dispatcher_mode())
+		get_sock_dir(&template_cluster, false);
 
 	check_cluster_compatibility(live_check);
 
 	check_and_dump_old_cluster(live_check, &sequence_script_file_name);
 
+	if (!user_opts.template && !is_greenplum_dispatcher_mode())
+	{
+		start_postmaster(&template_cluster, true);
+		check_template_cluster();
+		log_with_timing(&t, "\nPerforming Consistency Checks took");
+		report_clusters_compatible();
+		pg_log(PG_REPORT, "\nPerforming Upgrade\n");
+		pg_log(PG_REPORT, "------------------\n");
 
-	/* -- NEW -- */
-	start_postmaster(&new_cluster, true);
+		INSTR_TIME_SET_CURRENT(t.start_time);
 
-	check_new_cluster();
-	log_with_timing(&t, "\nPerforming Consistency Checks took");
-	report_clusters_compatible();
+		prepare_template_cluster();
 
-	pg_log(PG_REPORT, "\nPerforming Upgrade\n");
-	pg_log(PG_REPORT, "------------------\n");
+		stop_postmaster(false);
 
-	INSTR_TIME_SET_CURRENT(t.start_time);
+		template_cluster.dbarr = new_cluster.dbarr;
+		template_cluster.pgdata = new_cluster.pgdata;
+		template_cluster.pgconfig = new_cluster.pgconfig;
+		template_cluster.pgopts = new_cluster.pgopts;
+		template_cluster.sockdir = new_cluster.sockdir;
+		template_cluster.port = new_cluster.port;
+		template_cluster.tablespace_suffix = new_cluster.tablespace_suffix;
+		template_cluster.greenplum_cluster_info = new_cluster.greenplum_cluster_info;
 
-	prepare_new_cluster();
+		new_cluster = template_cluster;
+	}
 
-	stop_postmaster(false);
+	if (user_opts.template || is_greenplum_dispatcher_mode())
+	{
+		/* -- NEW -- */
+		start_postmaster(&new_cluster, true);
+
+		check_new_cluster();
+		log_with_timing(&t, "\nPerforming Consistency Checks took");
+		report_clusters_compatible();
+
+		pg_log(PG_REPORT, "\nPerforming Upgrade\n");
+		pg_log(PG_REPORT, "------------------\n");
+
+		INSTR_TIME_SET_CURRENT(t.start_time);
+
+		prepare_new_cluster();
+
+		stop_postmaster(false);
+	}
+
 
 	/*
 	 * Destructive Changes to New Cluster
@@ -506,7 +541,48 @@ setup(char *argv0, bool *live_check)
 	canonicalize_path(exec_path);
 	os_info.exec_path = pg_strdup(exec_path);
 }
+static void
+prepare_template_cluster(void)
+{
+	/*
+	 * It would make more sense to freeze after loading the schema, but that
+	 * would cause us to lose the frozenids restored by the load. We use
+	 * --analyze so autovacuum doesn't update statistics later
+	 *
+	 * GPDB: after we've copied the master data directory to the segments,
+	 * AO tables can't be analyzed because their aoseg tuple counts don't match
+	 * those on disk. We therefore skip this step for segments.
+	 */
+	if (is_greenplum_dispatcher_mode())
+	{
+		prep_status("Analyzing all rows in the new cluster");
+		exec_prog(UTILITY_LOG_FILE, NULL, true, true,
+				  PG_OPTIONS_UTILITY_MODE
+				  "\"%s/vacuumdb\" %s --all --analyze %s",
+				  new_cluster.bindir, cluster_conn_opts(&new_cluster),
+				  log_opts.verbose ? "--verbose" : "");
+		check_ok();
+	}
 
+	/*
+	 * We do freeze after analyze so pg_statistic is also frozen. template0 is
+	 * not frozen here, but data rows were frozen by initdb, and we set its
+	 * datfrozenxid, relfrozenxids, and relminmxid later to match the new xid
+	 * counter later.
+	 */
+	if (user_opts.template || is_greenplum_dispatcher_mode())
+	{
+		prep_status("Freezing all rows on the new cluster");
+		exec_prog(UTILITY_LOG_FILE, NULL, true, true,
+				  PG_OPTIONS_UTILITY_MODE
+				  "\"%s/vacuumdb\" %s --all --freeze %s",
+				  new_cluster.bindir, cluster_conn_opts(&new_cluster),
+				  log_opts.verbose ? "--verbose" : "");
+		check_ok();
+	}
+
+	get_pg_database_relfilenode(&new_cluster);
+}
 
 static void
 prepare_new_cluster(void)

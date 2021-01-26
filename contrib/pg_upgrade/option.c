@@ -41,12 +41,14 @@ parseCommandLine(int argc, char *argv[])
 	static struct option long_options[] = {
 		{"old-datadir", required_argument, NULL, 'd'},
 		{"new-datadir", required_argument, NULL, 'D'},
+		{"template-datadir", required_argument, NULL, 'T'},
 		{"old-bindir", required_argument, NULL, 'b'},
 		{"new-bindir", required_argument, NULL, 'B'},
 		{"old-options", required_argument, NULL, 'o'},
 		{"new-options", required_argument, NULL, 'O'},
 		{"old-port", required_argument, NULL, 'p'},
 		{"new-port", required_argument, NULL, 'P'},
+		{"template-port", required_argument, NULL, 'q'},
 
 		{"username", required_argument, NULL, 'U'},
 		{"check", no_argument, NULL, 'c'},
@@ -76,6 +78,7 @@ parseCommandLine(int argc, char *argv[])
 	/* Process libpq env. variables; load values here for usage() output */
 	old_cluster.port = getenv("PGPORTOLD") ? atoi(getenv("PGPORTOLD")) : DEF_PGUPORT;
 	new_cluster.port = getenv("PGPORTNEW") ? atoi(getenv("PGPORTNEW")) : DEF_PGUPORT;
+	template_cluster.port = getenv("PGPORTNEW") ? atoi(getenv("PGPORTNEW")) : DEF_PGUPORT;
 
 	os_user_effective_id = get_user_info(&os_info.user);
 
@@ -121,6 +124,7 @@ parseCommandLine(int argc, char *argv[])
 
 			case 'B':
 				new_cluster.bindir = pg_strdup(optarg);
+				template_cluster.bindir = pg_strdup(optarg);
 				break;
 
 			case 'c':
@@ -133,6 +137,10 @@ parseCommandLine(int argc, char *argv[])
 
 			case 'D':
 				new_cluster.pgdata = pg_strdup(optarg);
+				break;
+
+			case 'T':
+				template_cluster.pgdata = pg_strdup(optarg);
 				break;
 
 			case 'j':
@@ -166,6 +174,14 @@ parseCommandLine(int argc, char *argv[])
 
 			case 'P':
 				if ((new_cluster.port = atoi(optarg)) <= 0)
+				{
+					pg_fatal("invalid new port number\n");
+					exit(1);
+				}
+				break;
+
+			case 'q':
+				if ((template_cluster.port = atoi(optarg)) <= 0)
 				{
 					pg_fatal("invalid new port number\n");
 					exit(1);
