@@ -156,7 +156,6 @@ main(int argc, char **argv)
 
 		stop_postmaster(false);
 
-		template_cluster.dbarr = new_cluster.dbarr;
 		template_cluster.pgdata = new_cluster.pgdata;
 		template_cluster.pgconfig = new_cluster.pgconfig;
 		template_cluster.pgopts = new_cluster.pgopts;
@@ -192,13 +191,15 @@ main(int argc, char **argv)
 	 * Destructive Changes to New Cluster
 	 */
 
-	copy_clog_xlog_xid();
+	if (is_greenplum_dispatcher_mode() || user_opts.template)
+		copy_clog_xlog_xid();
 
 	/*
 	 * In upgrading from GPDB4, copy the pg_distributedlog over in vanilla.
 	 * The assumption that this works needs to be verified
 	 */
-	copy_subdir_files("pg_distributedlog");
+	if (is_greenplum_dispatcher_mode() || user_opts.template)
+		copy_subdir_files("pg_distributedlog");
 
 	/* New now using xids of the old system */
 
@@ -268,6 +269,8 @@ main(int argc, char **argv)
 			stop_postmaster(false);
 		}
 
+	if (user_opts.template)
+		return 0;
 
 	/*
 	 * Most failures happen in create_new_objects(), which has completed at
@@ -278,12 +281,10 @@ main(int argc, char **argv)
 	if (user_opts.transfer_mode == TRANSFER_MODE_LINK)
 		disable_old_cluster();
 
-	if (user_opts.template || is_greenplum_dispatcher_mode())
-		transfer_all_new_tablespaces(&old_cluster.dbarr, &new_cluster.dbarr,
-								 old_cluster.pgdata, new_cluster.pgdata);
 
-	if (!user_opts.template && !is_greenplum_dispatcher_mode())
-		return 0;
+
+	transfer_all_new_tablespaces(&old_cluster.dbarr, &new_cluster.dbarr,
+								 old_cluster.pgdata, new_cluster.pgdata);
 
 	/*
 	 * Assuming OIDs are only used in system tables, there is no need to
@@ -558,33 +559,33 @@ prepare_template_cluster(void)
 	 * AO tables can't be analyzed because their aoseg tuple counts don't match
 	 * those on disk. We therefore skip this step for segments.
 	 */
-	if (is_greenplum_dispatcher_mode())
-	{
-		prep_status("Analyzing all rows in the new cluster");
-		exec_prog(UTILITY_LOG_FILE, NULL, true, true,
-				  PG_OPTIONS_UTILITY_MODE
-				  "\"%s/vacuumdb\" %s --all --analyze %s",
-				  new_cluster.bindir, cluster_conn_opts(&new_cluster),
-				  log_opts.verbose ? "--verbose" : "");
-		check_ok();
-	}
-
-	/*
-	 * We do freeze after analyze so pg_statistic is also frozen. template0 is
-	 * not frozen here, but data rows were frozen by initdb, and we set its
-	 * datfrozenxid, relfrozenxids, and relminmxid later to match the new xid
-	 * counter later.
-	 */
-	if (user_opts.template || is_greenplum_dispatcher_mode())
-	{
-		prep_status("Freezing all rows on the new cluster");
-		exec_prog(UTILITY_LOG_FILE, NULL, true, true,
-				  PG_OPTIONS_UTILITY_MODE
-				  "\"%s/vacuumdb\" %s --all --freeze %s",
-				  template_cluster.bindir, cluster_conn_opts(&template_cluster),
-				  log_opts.verbose ? "--verbose" : "");
-		check_ok();
-	}
+//	if (is_greenplum_dispatcher_mode())
+//	{
+//		prep_status("Analyzing all rows in the new cluster");
+//		exec_prog(UTILITY_LOG_FILE, NULL, true, true,
+//				  PG_OPTIONS_UTILITY_MODE
+//				  "\"%s/vacuumdb\" %s --all --analyze %s",
+//				  new_cluster.bindir, cluster_conn_opts(&new_cluster),
+//				  log_opts.verbose ? "--verbose" : "");
+//		check_ok();
+//	}
+//
+//	/*
+//	 * We do freeze after analyze so pg_statistic is also frozen. template0 is
+//	 * not frozen here, but data rows were frozen by initdb, and we set its
+//	 * datfrozenxid, relfrozenxids, and relminmxid later to match the new xid
+//	 * counter later.
+//	 */
+//	if (user_opts.template || is_greenplum_dispatcher_mode())
+//	{
+//		prep_status("Freezing all rows on the new cluster");
+//		exec_prog(UTILITY_LOG_FILE, NULL, true, true,
+//				  PG_OPTIONS_UTILITY_MODE
+//				  "\"%s/vacuumdb\" %s --all --freeze %s",
+//				  template_cluster.bindir, cluster_conn_opts(&template_cluster),
+//				  log_opts.verbose ? "--verbose" : "");
+//		check_ok();
+//	}
 
 	get_pg_database_relfilenode(&template_cluster);
 }
@@ -618,8 +619,6 @@ prepare_new_cluster(void)
 	 * datfrozenxid, relfrozenxids, and relminmxid later to match the new xid
 	 * counter later.
 	 */
-	if (user_opts.template || is_greenplum_dispatcher_mode())
-	{
 		prep_status("Freezing all rows on the new cluster");
 		exec_prog(UTILITY_LOG_FILE, NULL, true, true,
 				  PG_OPTIONS_UTILITY_MODE
@@ -627,7 +626,6 @@ prepare_new_cluster(void)
 				  new_cluster.bindir, cluster_conn_opts(&new_cluster),
 				  log_opts.verbose ? "--verbose" : "");
 		check_ok();
-	}
 
 	get_pg_database_relfilenode(&new_cluster);
 }

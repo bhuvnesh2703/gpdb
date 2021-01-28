@@ -374,6 +374,8 @@ check_cluster_versions(void)
 	/* get old and new cluster versions */
 	old_cluster.major_version = get_major_server_version(&old_cluster);
 	new_cluster.major_version = get_major_server_version(&new_cluster);
+	if (!user_opts.template && !is_greenplum_dispatcher_mode())
+		template_cluster.major_version = get_major_server_version(&template_cluster);
 
 	/*
 	 * Upgrading within a major version is a handy feature of pg_upgrade, but
@@ -417,6 +419,7 @@ check_cluster_versions(void)
 	/* get old and new binary versions */
 	get_bin_version(&old_cluster);
 	get_bin_version(&new_cluster);
+	get_bin_version(&template_cluster);
 
 	/* Ensure binaries match the designated data directories */
 	if (GET_MAJOR_VERSION(old_cluster.major_version) !=
