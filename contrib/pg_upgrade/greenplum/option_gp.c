@@ -14,6 +14,7 @@ typedef struct {
 	segmentMode segment_mode;
 	checksumMode checksum_mode;
 	char *old_tablespace_file_path;
+	bool is_template;
 } GreenplumUserOpts;
 
 static GreenplumUserOpts greenplum_user_opts;
@@ -69,6 +70,10 @@ process_greenplum_option(greenplumOption option)
 			greenplum_user_opts.old_tablespace_file_path = pg_strdup(optarg);
 			break;
 
+		case GREENPLUM_SEGMENT_TEMPLATE: /* --template */
+			greenplum_user_opts.is_template = true;
+			break;
+
 		default:
 			return false;
 	}
@@ -91,6 +96,9 @@ validate_greenplum_options(void)
 			&old_cluster,
 			greenplum_user_opts.old_tablespace_file_path);
 	}
+
+	if (greenplum_user_opts.is_template && user_opts.check)
+		pg_fatal("--template and --check flags cannot be used together\n");
 }
 
 bool
@@ -109,4 +117,10 @@ bool
 is_show_progress_mode(void)
 {
 	return greenplum_user_opts.progress;
+}
+
+bool
+is_template_required(void)
+{
+	return greenplum_user_opts.is_template;
 }

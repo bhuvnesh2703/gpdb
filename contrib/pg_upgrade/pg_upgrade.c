@@ -136,6 +136,12 @@ main(int argc, char **argv)
 
 	check_and_dump_old_cluster(live_check, &sequence_script_file_name);
 
+	if (is_template_required() && !is_greenplum_dispatcher_mode())
+	{
+		prepare_segment_template_for_upgrade(&new_cluster, &t);
+		return 0;
+	}
+
 
 	/* -- NEW -- */
 	start_postmaster(&new_cluster, true);
@@ -972,4 +978,86 @@ cleanup(void)
 				unlink(log_file_name);
 			}
 	}
+}
+
+int
+prepare_segment_template_for_upgrade(ClusterInfo *new_cluster, step_timer *t)
+{
+	/* -- NEW -- */
+	start_postmaster(new_cluster, true);
+
+	check_new_cluster();
+	log_with_timing(t, "\nPerforming Consistency Checks took");
+	report_clusters_compatible();
+
+	pg_log(PG_REPORT, "\nCreating Segment template for upgrade\n");
+	pg_log(PG_REPORT, "------------------\n");
+
+	INSTR_TIME_SET_CURRENT(t->start_time);
+
+	prepare_new_cluster();
+
+	stop_postmaster(false);
+
+	/*
+ 	 * Destructive Changes to New Cluster
+ 	 */
+
+	copy_clog_xlog_xid();
+
+	/*
+ 	 * In upgrading from GPDB4, copy the pg_distributedlog over in vanilla.
+ 	 * The assumption that this works needs to be verified
+ 	 */
+	copy_subdir_files("pg_distributedlog");
+
+	start_postmaster(new_cluster, true);
+
+	/*
+ 	 * Restore scripts contains statements to update relfrozenxid and relminxmid
+ 	 * for the relations according to the master, and the same data is copied to the
+ 	 * segments but on segments those should reflect the values from the corresponding
+ 	 * segment database. So, update the xids on the segments for user and catalog tables.
+ 	 * If this step is not done on segment, subsequent vacuum freeze can complain that
+ 	 * the xmin <some low number> from before relfrozenxid <some higher number>
+ 	 */
+	set_frozenxids(false);
+
+	invalidate_indexes();
+
+	/*
+ 	 * vacuum freeze the database before restoring the ao segment tables
+ 	 * catalog data on segments. The catalog copied from the master indicates
+ 	 * that the files have 0 EOF and will not go further to open the files
+ 	 * in Prepare phase which will otherwise result in error as the physical
+ 	 * files are not yet copied from the old segment.
+ 	 */
+	freeze_all_databases();
+
+	/*
+ 	 * vacuum freeze is done prior to copying / linking the data. The xmin
+ 	 * of the tuples (yet to be copied/linked) for the user created tables can be
+ 	 * lower than the relfrozenxid updated with vacuum freeze.
+ 	 * So, it's safe / better to update the relfrozenxid, relminmxid for the
+ 	 * relations using datfrozenxid which is the lowest available relfrozenxid
+ 	 * for all the relation in the source database and datminmxid which is the minimum
+ 	 * of relminmxid for all the relations in source database. This ensures that the
+ 	 * xmin of the tuples will not be higher than relfrozenxid for the relation.
+ 	 * Otherwise, vacuuming those tables once data is copied/linked will error out.
+ 	 */
+	update_segment_db_xids();
+
+	/*
+ 	 * In a segment, the data directory already contains all the objects,
+ 	 * because the segment is initialized by taking a physical copy of the
+ 	 * upgraded QD data directory. The auxiliary AO tables - containing
+ 	 * information about the segment files, are different in each server,
+ 	 * however. So we still need to restore those separately on each
+ 	 * server.
+ 	 */
+	restore_aosegment_tables();
+
+	stop_postmaster(false);
+
+	return 0;
 }
