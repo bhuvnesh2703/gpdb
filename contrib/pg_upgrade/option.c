@@ -120,6 +120,7 @@ parseCommandLine(int argc, char *argv[])
 
 			case 'B':
 				new_cluster.bindir = pg_strdup(optarg);
+				template_cluster.bindir = pg_strdup(optarg);
 				break;
 
 			case 'c':

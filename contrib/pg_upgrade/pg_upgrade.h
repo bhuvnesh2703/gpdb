@@ -420,7 +420,7 @@ typedef struct
 extern LogOpts log_opts;
 extern UserOpts user_opts;
 extern ClusterInfo old_cluster,
-			new_cluster;
+			new_cluster, template_cluster;
 extern OSInfo os_info;
 
 /* check.c */
@@ -437,6 +437,10 @@ void		check_cluster_versions(void);
 void		check_cluster_compatibility(bool live_check);
 void		create_script_for_old_cluster_deletion(char **deletion_script_file_name);
 void		create_script_for_cluster_analyze(char **analyze_script_file_name);
+
+void		check_template_loadable_libraries(void);
+void		check_template_hard_link(void);
+void		check_template_cluster(void);
 
 
 /* controldata.c */

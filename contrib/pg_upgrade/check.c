@@ -28,6 +28,9 @@ static void check_for_jsonb_9_4_usage(ClusterInfo *cluster);
 static void get_bin_version(ClusterInfo *cluster);
 static char *get_canonical_locale_name(int category, const char *locale);
 
+static void check_template_cluster_is_empty(void);
+void		check_template_cluster(void);
+
 
 /*
  * fix_path_separator
@@ -223,7 +226,6 @@ check_new_cluster(void)
 	check_for_prepared_transactions(&new_cluster);
 }
 
-
 void
 report_clusters_compatible(void)
 {
@@ -329,6 +331,8 @@ check_cluster_versions(void)
 	/* get old and new cluster versions */
 	old_cluster.major_version = get_major_server_version(&old_cluster);
 	new_cluster.major_version = get_major_server_version(&new_cluster);
+	if (is_upgrade_using_template())
+		template_cluster.major_version = get_major_server_version(&template_cluster);
 
 	/*
 	 * Upgrading within a major version is a handy feature of pg_upgrade, but
@@ -372,6 +376,8 @@ check_cluster_versions(void)
 	/* get old and new binary versions */
 	get_bin_version(&old_cluster);
 	get_bin_version(&new_cluster);
+	if (is_upgrade_using_template())
+		get_bin_version(&template_cluster);
 
 	/* Ensure binaries match the designated data directories */
 	if (GET_MAJOR_VERSION(old_cluster.major_version) !=
@@ -392,6 +398,8 @@ check_cluster_compatibility(bool live_check)
 	get_control_data(&old_cluster, live_check);
 	get_control_data(&new_cluster, false);
 	check_control_data(&old_cluster.controldata, &new_cluster.controldata);
+	if (is_upgrade_using_template())
+		get_control_data(&template_cluster, false);
 
 	/* Is it 9.0 but without tablespace directories? */
 	if (GET_MAJOR_VERSION(new_cluster.major_version) == 900 &&
@@ -1276,4 +1284,79 @@ get_canonical_locale_name(int category, const char *locale)
 	pg_free(save);
 
 	return res;
+}
+
+void
+check_template_cluster(void)
+{
+	set_locale_and_encoding(&template_cluster);
+
+	check_locale_and_encoding(&old_cluster.controldata, &template_cluster.controldata);
+
+	get_db_and_rel_infos(&template_cluster);
+
+	check_template_cluster_is_empty();
+
+	check_template_loadable_libraries();
+
+	if (user_opts.transfer_mode == TRANSFER_MODE_LINK)
+		check_template_hard_link();
+
+	check_is_super_user(&template_cluster);
+
+	/*
+	 * We don't restore our own user, so both clusters must match have
+	 * matching install-user oids.
+	 */
+	if (old_cluster.install_role_oid != template_cluster.install_role_oid)
+		pg_fatal("Old and new cluster install users have different values for pg_authid.oid.\n");
+
+	/*
+	 * We only allow the install user in the new cluster because other defined
+	 * users might match users defined in the old cluster and generate an
+	 * error during pg_dump restore.
+ 	 *
+ 	 * However, in Greenplum, if we are upgrading a segment, its users have
+	 * already been replicated to it from the master via gpupgrade.  Hence,
+	 * we only need to do this check for the QD.  In other words, the
+	 * Greenplum cluster upgrade scheme will overwrite the QE's schema
+ 	 * with the QD's schema, making this check inappropriate for a QE upgrade.
+	 */
+	if (is_greenplum_dispatcher_mode())
+	{
+		if (template_cluster.role_count != 1)
+			pg_fatal("Only the install user can be defined in the new cluster.\n");
+	}
+
+	check_for_prepared_transactions(&template_cluster);
+}
+
+static void
+check_template_cluster_is_empty(void)
+{
+	int			dbnum;
+
+	/*
+	 * If we are upgrading a segment we expect to have a complete datadir in
+	 * place from the QD at this point, so the cluster cannot be tested for
+	 * being empty.
+	 */
+	if (!is_greenplum_dispatcher_mode())
+		return;
+
+	for (dbnum = 0; dbnum < template_cluster.dbarr.ndbs; dbnum++)
+	{
+		int			relnum;
+		RelInfoArr *rel_arr = &template_cluster.dbarr.dbs[dbnum].rel_arr;
+
+		for (relnum = 0; relnum < rel_arr->nrels;
+			 relnum++)
+		{
+			/* pg_largeobject and its index should be skipped */
+			if (strcmp(rel_arr->rels[relnum].nspname, "pg_catalog") != 0)
+				pg_fatal("Template cluster database \"%s\" is not empty\n",
+						 template_cluster.dbarr.dbs[dbnum].db_name);
+		}
+	}
+
 }

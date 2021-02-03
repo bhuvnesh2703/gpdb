@@ -383,3 +383,84 @@ check_loadable_libraries(void)
 	else
 		check_ok();
 }
+
+void
+check_template_loadable_libraries(void)
+{
+	PGconn	   *conn = connectToServer(&template_cluster, "template1");
+	int			libnum;
+	FILE	   *script = NULL;
+	bool		found = false;
+	char		output_path[MAXPGPATH];
+
+	prep_status("Checking for presence of required libraries");
+
+	snprintf(output_path, sizeof(output_path), "loadable_libraries.txt");
+
+	for (libnum = 0; libnum < os_info.num_libraries; libnum++)
+	{
+		char	   *lib = os_info.libraries[libnum];
+		int			llen = strlen(lib);
+		char		cmd[7 + 2 * MAXPGPATH + 1];
+		PGresult   *res;
+
+		/*
+		 * In Postgres 9.0, Python 3 support was added, and to do that, a
+		 * plpython2u language was created with library name plpython2.so as a
+		 * symbolic link to plpython.so.  In Postgres 9.1, only the
+		 * plpython2.so library was created, and both plpythonu and plpython2u
+		 * pointing to it.  For this reason, any reference to library name
+		 * "plpython" in an old PG <= 9.1 cluster must look for "plpython2" in
+		 * the new cluster.
+		 *
+		 * For this case, we could check pg_pltemplate, but that only works
+		 * for languages, and does not help with function shared objects, so
+		 * we just do a general fix.
+		 */
+		if (GET_MAJOR_VERSION(old_cluster.major_version) < 901 &&
+			strcmp(lib, "$libdir/plpython") == 0)
+		{
+			lib = "$libdir/plpython2";
+			llen = strlen(lib);
+		}
+
+		strcpy(cmd, "LOAD '");
+		PQescapeStringConn(conn, cmd + strlen(cmd), lib, llen, NULL);
+		strcat(cmd, "'");
+
+		res = PQexec(conn, cmd);
+
+		if (PQresultStatus(res) != PGRES_COMMAND_OK)
+		{
+			found = true;
+
+			/* exit and report missing support library with special message */
+			if (strcmp(lib, PG_UPGRADE_SUPPORT) == 0)
+				pg_fatal("The pg_upgrade_support module must be created and installed in the new cluster.\n");
+
+			if (script == NULL && (script = fopen_priv(output_path, "w")) == NULL)
+				pg_fatal("Could not open file \"%s\": %s\n",
+						 output_path, getErrorText());
+			fprintf(script, "Could not load library \"%s\"\n%s\n",
+					lib,
+					PQerrorMessage(conn));
+		}
+
+		PQclear(res);
+	}
+
+	PQfinish(conn);
+
+	if (found)
+	{
+		fclose(script);
+		pg_log(PG_REPORT, "fatal\n");
+		pg_fatal("Your installation references loadable libraries that are missing from the\n"
+				 "new installation.  You can add these libraries to the new installation,\n"
+				 "or remove the functions using them from the old installation.  A list of\n"
+				 "problem libraries is in the file:\n"
+				 "    %s\n\n", output_path);
+	}
+	else
+		check_ok();
+}

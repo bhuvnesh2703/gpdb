@@ -327,6 +327,8 @@ stop_postmaster(bool in_atexit)
 		cluster = &old_cluster;
 	else if (os_info.running_cluster == &new_cluster)
 		cluster = &new_cluster;
+	else if (os_info.running_cluster == &template_cluster)
+		cluster = &template_cluster;
 	else
 		return;					/* no cluster running */
 

@@ -54,6 +54,7 @@ static void set_frozenxids(bool minmxid_only);
 static void setup(char *argv0, bool *live_check);
 static void cleanup(void);
 static void	get_restricted_token(const char *progname);
+static void prepare_template_cluster(void);
 
 static void copy_subdir_files(char *subdir);
 
@@ -62,7 +63,8 @@ static int	CreateRestrictedProcess(char *cmd, PROCESS_INFORMATION *processInfo, 
 #endif
 
 ClusterInfo old_cluster,
-			new_cluster;
+			new_cluster,
+			template_cluster;
 OSInfo		os_info;
 
 char	   *output_files[] = {
@@ -121,6 +123,9 @@ main(int argc, char **argv)
 
 	adjust_data_dir(&old_cluster);
 	adjust_data_dir(&new_cluster);
+	if (is_upgrade_using_template())
+		adjust_data_dir(&template_cluster);
+
 
 	setup(argv[0], &live_check);
 
@@ -131,6 +136,8 @@ main(int argc, char **argv)
 
 	get_sock_dir(&old_cluster, live_check);
 	get_sock_dir(&new_cluster, false);
+	if (is_upgrade_using_template())
+		get_sock_dir(&template_cluster, false);
 
 	check_cluster_compatibility(live_check);
 
@@ -142,6 +149,11 @@ main(int argc, char **argv)
 		return 0;
 	}
 
+	if (is_upgrade_using_template() && !is_greenplum_dispatcher_mode())
+	{
+		upgrade_segment_using_template(&t);
+		return 0;
+	}
 
 	/* -- NEW -- */
 	start_postmaster(&new_cluster, true);
@@ -1058,6 +1070,95 @@ prepare_segment_template_for_upgrade(ClusterInfo *new_cluster, step_timer *t)
 	restore_aosegment_tables();
 
 	stop_postmaster(false);
+
+	return 0;
+}
+
+static void
+prepare_template_cluster(void)
+{
+	get_pg_database_relfilenode(&template_cluster);
+}
+
+int upgrade_segment_using_template(step_timer *t)
+{
+	char	   *sequence_script_file_name = NULL;
+	char	   *analyze_script_file_name = NULL;
+	char	   *deletion_script_file_name = NULL;
+
+	start_postmaster(&template_cluster, true);
+	check_template_cluster();
+	log_with_timing(t, "\nPerforming Consistency Checks took");
+	report_clusters_compatible();
+	pg_log(PG_REPORT, "\nPerforming Upgrade\n");
+	pg_log(PG_REPORT, "------------------\n");
+
+	INSTR_TIME_SET_CURRENT(t->start_time);
+
+	prepare_template_cluster();
+
+	stop_postmaster(false);
+
+	template_cluster.pgdata = new_cluster.pgdata;
+	template_cluster.pgconfig = new_cluster.pgconfig;
+	template_cluster.pgopts = new_cluster.pgopts;
+	template_cluster.sockdir = new_cluster.sockdir;
+	template_cluster.port = new_cluster.port;
+	template_cluster.tablespace_suffix = new_cluster.tablespace_suffix;
+	template_cluster.greenplum_cluster_info = new_cluster.greenplum_cluster_info;
+
+	new_cluster = template_cluster;
+
+	if (user_opts.transfer_mode == TRANSFER_MODE_LINK)
+		disable_old_cluster();
+
+	transfer_all_new_tablespaces(&old_cluster.dbarr, &new_cluster.dbarr,
+								 old_cluster.pgdata, new_cluster.pgdata);
+
+	/*
+ * Assuming OIDs are only used in system tables, there is no need to
+ * restore the OID counter because we have not transferred any OIDs from
+ * the old system, but we do it anyway just in case.  We do it late here
+ * because there is no need to have the schema load use new oids.
+ */
+	prep_status("Setting next OID for new cluster");
+	exec_prog(UTILITY_LOG_FILE, NULL, true, true,
+			  "\"%s/pg_resetxlog\" --binary-upgrade -o %u \"%s\"",
+			  new_cluster.bindir, old_cluster.controldata.chkpnt_nxtoid,
+			  new_cluster.pgdata);
+	check_ok();
+
+	/* For non-master segments, uniquify the system identifier. */
+	if (!is_greenplum_dispatcher_mode())
+		reset_system_identifier();
+
+	prep_status("Sync data directory to disk");
+	exec_prog(UTILITY_LOG_FILE, NULL, true, true,
+			  "\"%s/initdb\" --sync-only \"%s\"", new_cluster.bindir,
+			  new_cluster.pgdata);
+	check_ok();
+
+	create_script_for_cluster_analyze(&analyze_script_file_name);
+	create_script_for_old_cluster_deletion(&deletion_script_file_name);
+
+	issue_warnings_and_set_wal_level(sequence_script_file_name);
+
+	log_with_timing(t, "\nPerforming Upgrade took");
+
+	pg_log(PG_REPORT, "\nUpgrade Complete\n");
+	pg_log(PG_REPORT, "----------------\n");
+
+	report_progress(NULL, DONE, "Upgrade complete");
+	close_progress();
+
+	output_completion_banner(analyze_script_file_name,
+							 deletion_script_file_name);
+
+	pg_free(analyze_script_file_name);
+	pg_free(deletion_script_file_name);
+	pg_free(sequence_script_file_name);
+
+	cleanup();
 
 	return 0;
 }

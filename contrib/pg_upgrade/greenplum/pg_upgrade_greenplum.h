@@ -50,6 +50,8 @@ typedef enum {
 	GREENPLUM_NEW_GP_DBID = 6,
 	GREENPLUM_OLD_TABLESPACES_FILE = 7,
 	GREENPLUM_SEGMENT_TEMPLATE = 8,
+	GREENPLUM_SEGMENT_TEMPLATE_DATADIR = 9,
+	GREENPLUM_SEGMENT_TEMPLATE_PORT = 10,
 } greenplumOption;
 
 
@@ -61,8 +63,9 @@ typedef enum {
 	{"old-gp-dbid", required_argument, NULL, GREENPLUM_OLD_GP_DBID}, \
 	{"new-gp-dbid", required_argument, NULL, GREENPLUM_NEW_GP_DBID}, \
 	{"old-tablespaces-file", required_argument, NULL, GREENPLUM_OLD_TABLESPACES_FILE}, \
-	{"template", no_argument, NULL, GREENPLUM_SEGMENT_TEMPLATE},
-
+	{"template", no_argument, NULL, GREENPLUM_SEGMENT_TEMPLATE}, \
+	{"template-datadir", required_argument, NULL, GREENPLUM_SEGMENT_TEMPLATE_DATADIR}, \
+	{"template-port", required_argument, NULL, GREENPLUM_SEGMENT_TEMPLATE_PORT},
 #define GREENPLUM_USAGE "\
       --mode=TYPE               designate node type to upgrade, \"segment\" or \"dispatcher\" (default \"segment\")\n\
       --progress                enable progress reporting\n\
@@ -72,6 +75,8 @@ typedef enum {
       --new-gp-dbid             greenplum database id of the new segment\n\
       --old-tablespaces-file    file containing the tablespaces from an old gpdb five cluster\n\
       --template                prepare the segment for the upgrade, but don't perform actual data copying or linking\n\
+      --template-datadir        use the template data directory prepared for upgrade and perform data copying/linking\n\
+      --template-port           port for the template data directory \n\
 "
 
 /* option_gp.c */
@@ -83,6 +88,8 @@ bool is_show_progress_mode(void);
 void validate_greenplum_options(void);
 bool is_template_required(void);
 int prepare_segment_template_for_upgrade(ClusterInfo *new_cluster, step_timer *timer);
+bool is_upgrade_using_template(void);
+int upgrade_segment_using_template(step_timer *t);
 
 /* pg_upgrade_greenplum.c */
 void freeze_all_databases(void);

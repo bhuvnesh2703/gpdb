@@ -27,6 +27,7 @@ initialize_greenplum_user_options(void)
 
 	old_cluster.greenplum_cluster_info = make_cluster_info();
 	new_cluster.greenplum_cluster_info = make_cluster_info();
+	template_cluster.greenplum_cluster_info = make_cluster_info();
 }
 
 bool
@@ -64,6 +65,7 @@ process_greenplum_option(greenplumOption option)
 
 		case GREENPLUM_NEW_GP_DBID: /* --new-gp-dbid */
 			set_gp_dbid(new_cluster.greenplum_cluster_info, atoi(optarg));
+			set_gp_dbid(template_cluster.greenplum_cluster_info, atoi(optarg));
 			break;
 
 		case GREENPLUM_OLD_TABLESPACES_FILE: /* --old-tablespaces-file */
@@ -72,6 +74,14 @@ process_greenplum_option(greenplumOption option)
 
 		case GREENPLUM_SEGMENT_TEMPLATE: /* --template */
 			greenplum_user_opts.is_template = true;
+			break;
+
+		case GREENPLUM_SEGMENT_TEMPLATE_DATADIR: /* --template-datadir */
+			template_cluster.pgdata = pg_strdup(optarg);
+			break;
+
+		case GREENPLUM_SEGMENT_TEMPLATE_PORT:
+			template_cluster.port = atoi(optarg);
 			break;
 
 		default:
@@ -123,4 +133,10 @@ bool
 is_template_required(void)
 {
 	return greenplum_user_opts.is_template;
+}
+
+bool
+is_upgrade_using_template(void)
+{
+	return !is_greenplum_dispatcher_mode() && template_cluster.pgdata != NULL;
 }
