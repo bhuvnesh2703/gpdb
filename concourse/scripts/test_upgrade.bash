@@ -420,6 +420,7 @@ gpinitsystem_for_upgrade
 
 segment_gp_dbid=1; # starting at one, the master value, will increment
 
+exit 1
 # TODO: we need to switch the mode argument according to GPDB version
 echo "Upgrading master at ${MASTER_HOST}..."
 run_upgrade ${MASTER_HOST} "${OLD_MASTER_DATA_DIRECTORY}" --mode=dispatcher \
