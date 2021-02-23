@@ -449,6 +449,12 @@ CTranslatorRelcacheToDXL::RetrieveRel(CMemoryPool *mp, CMDAccessor *md_accessor,
 		{
 			Oid oid = rel->rd_partdesc->oids[i];
 			partition_oids->Append(GPOS_NEW(mp) CMDIdGPDB(oid));
+			if (gpdb::RelIsPartitioned(oid))
+			{
+				// Multi-level partitioned tables are unsupported - fall back
+				GPOS_RAISE(gpdxl::ExmaMD, gpdxl::ExmiMDObjUnsupported,
+						   GPOS_WSZ_LIT("Multi-level partitioned tables"));
+			}
 		}
 	}
 
