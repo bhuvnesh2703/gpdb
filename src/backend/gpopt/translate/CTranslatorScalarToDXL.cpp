@@ -71,6 +71,7 @@ CTranslatorScalarToDXL::CTranslatorScalarToDXL(CContextQueryToDXL *context,
 	  m_cte_entries(cte_entries),
 	  m_cte_producers(cte_dxlnode_array)
 {
+	m_subquery_output_columns = GPOS_NEW(m_mp) CDXLNodeArray(m_mp);
 }
 
 
@@ -91,6 +92,12 @@ CTranslatorScalarToDXL::CTranslatorScalarToDXL(CMemoryPool *mp,
 	  m_cte_entries(nullptr),
 	  m_cte_producers(nullptr)
 {
+	m_subquery_output_columns = GPOS_NEW(m_mp) CDXLNodeArray(m_mp);
+}
+
+CTranslatorScalarToDXL::~CTranslatorScalarToDXL()
+{
+	m_subquery_output_columns->Release();
 }
 
 //---------------------------------------------------------------------------
@@ -225,6 +232,16 @@ CTranslatorScalarToDXL::TranslateVarToDXL(
 	return dxlnode;
 }
 
+CDXLNode *
+CTranslatorScalarToDXL::TranslateParamToDXL(
+		const Expr *expr)
+{
+	GPOS_ASSERT(IsA(expr, Param));
+	const Param *param = (Param *) expr;
+	CDXLNode *dxl_node = (*m_subquery_output_columns)[param->paramid-1];
+	dxl_node->AddRef();
+	return dxl_node;
+}
 //---------------------------------------------------------------------------
 //	@function:
 //		CTranslatorScalarToDXL::TranslateScalarToDXL
@@ -255,6 +272,10 @@ CTranslatorScalarToDXL::TranslateScalarToDXL(
 		}
 		case T_Param:
 		{
+			if (QueryOutputColumnsDXLNodeArray()->Size() != 0)
+			{
+				return CTranslatorScalarToDXL::TranslateParamToDXL(expr);
+			}
 			// Note: The choose_custom_plan() function in plancache.c
 			// knows that GPORCA doesn't support Params. If you lift this
 			// limitation, adjust choose_custom_plan() accordingly!
@@ -1748,6 +1769,8 @@ CTranslatorScalarToDXL::CreateQuantifiedSubqueryFromSublink(
 				   GPOS_WSZ_LIT("Non-Scalar Subquery"));
 	}
 
+	CUtils::AddRefAppend(m_subquery_output_columns, query_output_dxlnode_array);
+
 	CDXLNode *dxl_sc_ident = (*query_output_dxlnode_array)[0];
 	GPOS_ASSERT(nullptr != dxl_sc_ident);
 
@@ -1772,7 +1795,7 @@ CTranslatorScalarToDXL::CreateQuantifiedSubqueryFromSublink(
 	GPOS_ASSERT(nullptr != op_expr->args);
 	Expr *LHS_expr = (Expr *) gpdb::ListNth(op_expr->args, 0);
 
-	CDXLNode *outer_dxlnode = TranslateScalarToDXL(LHS_expr, var_colid_mapping);
+	CDXLNode *outer_dxlnode = TranslateScalarToDXL((Expr *) sublink->testexpr, var_colid_mapping);
 
 	CDXLNode *dxlnode = nullptr;
 	CDXLScalar *subquery = nullptr;
@@ -2433,6 +2456,12 @@ CTranslatorScalarToDXL::CreateIDatumFromGpdbDatum(CMemoryPool *mp,
 	IDatum *datum = md_type->GetDatumForDXLDatum(mp, datum_dxl);
 	datum_dxl->Release();
 	return datum;
+}
+
+CDXLNodeArray *
+CTranslatorScalarToDXL::QueryOutputColumnsDXLNodeArray()
+{
+	return m_subquery_output_columns;
 }
 
 // EOF

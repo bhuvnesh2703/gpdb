@@ -85,6 +85,8 @@ private:
 	// list of CTE producers shared among the logical and scalar translators
 	CDXLNodeArray *m_cte_producers;
 
+	CDXLNodeArray *m_subquery_output_columns;
+
 	EdxlBoolExprType EdxlbooltypeFromGPDBBoolType(BoolExprType) const;
 
 	CTranslatorQueryToDXL *CreateSubqueryTranslator(
@@ -193,6 +195,8 @@ private:
 	CDXLNode *TranslateVarToDXL(const Expr *expr,
 								const CMappingVarColId *var_colid_mapping);
 
+	CDXLNode *TranslateParamToDXL(const Expr *expr);
+
 	CDXLNode *CreateInitPlanFromParam(const Param *param) const;
 
 	// create a DXL SubPlan node for a from a GPDB SubPlan
@@ -244,6 +248,8 @@ public:
 						   HMUlCTEListEntry *cte_entries,
 						   CDXLNodeArray *cte_dxlnode_array);
 
+	~CTranslatorScalarToDXL();
+
 	// set the caller type
 	void
 	SetCallingPhysicalOpType(EPlStmtPhysicalOpType plstmt_physical_op_type)
@@ -275,6 +281,8 @@ public:
 		int frame_options, const Node *start_offset, const Node *end_offset,
 		const CMappingVarColId *var_colid_mapping,
 		CDXLNode *new_scalar_proj_list);
+
+	CDXLNodeArray *QueryOutputColumnsDXLNodeArray();
 
 	// translate stand-alone expression that's not part of a query
 	static CDXLNode *TranslateStandaloneExprToDXL(
