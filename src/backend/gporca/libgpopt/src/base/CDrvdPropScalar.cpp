@@ -204,14 +204,16 @@ CDrvdPropScalar::DeriveUsedColumns(CExpressionHandle &exprhdl)
 			// only propagate properties from scalar children
 			if (exprhdl.FScalarChild(i))
 			{
-				m_pcrsUsed->Union(exprhdl.DeriveUsedColumns(i));
+				CColRefSet *pcrsUsedColumns = exprhdl.DeriveUsedColumns(i);
+				m_pcrsUsed->Union(pcrsUsedColumns);
 			}
 			else
 			{
 				GPOS_ASSERT(CUtils::FSubquery(popScalar));
 				// parent operator is a subquery, add outer references
 				// from its relational child as used columns
-				m_pcrsUsed->Union(exprhdl.DeriveOuterReferences(0));
+				CColRefSet *pcrsOuterReferences = exprhdl.DeriveOuterReferences(0);
+				m_pcrsUsed->Union(pcrsOuterReferences);
 			}
 		}
 
