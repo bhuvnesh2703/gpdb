@@ -45,6 +45,17 @@ CScalarSubqueryQuantified::CScalarSubqueryQuantified(
 	GPOS_ASSERT(nullptr != colref);
 }
 
+CScalarSubqueryQuantified::CScalarSubqueryQuantified(
+	CMemoryPool *mp, const CColRef *colref)
+	: CScalar(mp),
+	  m_pcr(colref)
+{
+	m_scalar_op_mdid = nullptr;
+	m_pstrScalarOp = nullptr;
+
+	GPOS_ASSERT(nullptr != colref);
+}
+
 //---------------------------------------------------------------------------
 //	@function:
 //		CScalarSubqueryQuantified::~CScalarSubqueryQuantified
@@ -55,8 +66,9 @@ CScalarSubqueryQuantified::CScalarSubqueryQuantified(
 //---------------------------------------------------------------------------
 CScalarSubqueryQuantified::~CScalarSubqueryQuantified()
 {
-	m_scalar_op_mdid->Release();
-	GPOS_DELETE(m_pstrScalarOp);
+	CRefCount::SafeRelease(m_scalar_op_mdid);
+	if (m_pstrScalarOp != nullptr)
+		GPOS_DELETE(m_pstrScalarOp);
 }
 
 //---------------------------------------------------------------------------
@@ -119,10 +131,14 @@ CScalarSubqueryQuantified::MdidType() const
 ULONG
 CScalarSubqueryQuantified::HashValue() const
 {
+	if (m_scalar_op_mdid != nullptr)
+		return gpos::CombineHashes(
+			COperator::HashValue(),
+			gpos::CombineHashes(m_scalar_op_mdid->HashValue(),
+								gpos::HashPtr<CColRef>(m_pcr)));
 	return gpos::CombineHashes(
 		COperator::HashValue(),
-		gpos::CombineHashes(m_scalar_op_mdid->HashValue(),
-							gpos::HashPtr<CColRef>(m_pcr)));
+		gpos::HashPtr<CColRef>(m_pcr));
 }
 
 
@@ -145,7 +161,9 @@ CScalarSubqueryQuantified::Matches(COperator *pop) const
 	// match if contents are identical
 	CScalarSubqueryQuantified *popSsq =
 		CScalarSubqueryQuantified::PopConvert(pop);
-	return popSsq->Pcr() == m_pcr && popSsq->MdIdOp()->Equals(m_scalar_op_mdid);
+	if (m_scalar_op_mdid != nullptr)
+		return popSsq->Pcr() == m_pcr && popSsq->MdIdOp()->Equals(m_scalar_op_mdid);
+	return popSsq->Pcr() == m_pcr;
 }
 
 
@@ -206,7 +224,8 @@ IOstream &
 CScalarSubqueryQuantified::OsPrint(IOstream &os) const
 {
 	os << SzId();
-	os << "(" << PstrOp()->GetBuffer() << ")";
+	if (PstrOp())
+		os << "(" << PstrOp()->GetBuffer() << ")";
 	os << "[";
 	m_pcr->OsPrint(os);
 	os << "]";

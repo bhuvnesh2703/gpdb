@@ -32,6 +32,12 @@ CScalarSubqueryAny::CScalarSubqueryAny(CMemoryPool *mp, IMDId *scalar_op_mdid,
 {
 }
 
+CScalarSubqueryAny::CScalarSubqueryAny(CMemoryPool *mp,
+									   const CColRef *colref)
+	: CScalarSubqueryQuantified(mp, colref)
+{
+}
+
 //---------------------------------------------------------------------------
 //	@function:
 //		CScalarSubqueryAny::PopCopyWithRemappedColumns

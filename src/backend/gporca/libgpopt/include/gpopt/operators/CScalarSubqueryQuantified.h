@@ -57,6 +57,8 @@ protected:
 							  const CWStringConst *pstrScalarOp,
 							  const CColRef *colref);
 
+	CScalarSubqueryQuantified(CMemoryPool *mp, const CColRef *colref);
+
 	// dtor
 	~CScalarSubqueryQuantified() override;
 

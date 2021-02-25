@@ -2379,7 +2379,6 @@ CTranslatorDXLToExpr::PexprScalarSubqueryQuantified(
 {
 	GPOS_ASSERT(EdxlopScalarSubqueryAny == edxlopid ||
 				EdxlopScalarSubqueryAll == edxlopid);
-	GPOS_ASSERT(nullptr != str);
 	GPOS_ASSERT(nullptr != pdxlnLogicalChild);
 	GPOS_ASSERT(nullptr != pdxlnScalarChild);
 
@@ -2395,8 +2394,7 @@ CTranslatorDXLToExpr::PexprScalarSubqueryQuantified(
 	if (EdxlopScalarSubqueryAny == edxlopid)
 	{
 		popScalarSubquery = GPOS_NEW(m_mp) CScalarSubqueryAny(
-			m_mp, scalar_op_mdid,
-			GPOS_NEW(m_mp) CWStringConst(m_mp, str->GetBuffer()), colref);
+			m_mp, colref);
 	}
 	else
 	{
@@ -2436,6 +2434,19 @@ CTranslatorDXLToExpr::PexprScalarSubqueryQuantified(
 		CDXLScalarSubqueryQuantified::Cast(pdxlnSubquery->GetOperator());
 	GPOS_ASSERT(nullptr != pdxlopSubqueryQuantified);
 
+	if (dxl_op->GetDXLOperator() == EdxlopScalarSubqueryAny)
+	{
+		return PexprScalarSubqueryQuantified(
+			dxl_op->GetDXLOperator(), NULL,
+			NULL,
+			pdxlopSubqueryQuantified->GetColId(),
+			(*pdxlnSubquery)
+			[CDXLScalarSubqueryQuantified::EdxlsqquantifiedIndexRelational],
+			(*pdxlnSubquery)
+			[CDXLScalarSubqueryQuantified::EdxlsqquantifiedIndexScalar]);
+	}
+
+	GPOS_ASSERT(dxl_op->GetDXLOperator() == EdxlopScalarSubqueryAll);
 	IMDId *mdid = pdxlopSubqueryQuantified->GetScalarOpMdId();
 	mdid->AddRef();
 	return PexprScalarSubqueryQuantified(

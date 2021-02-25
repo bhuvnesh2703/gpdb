@@ -39,6 +39,9 @@ public:
 					   const CWStringConst *pstrScalarOp,
 					   const CColRef *colref);
 
+	CScalarSubqueryAny(CMemoryPool *mp,
+					   const CColRef *colref);
+
 	// dtor
 	~CScalarSubqueryAny() override = default;
 
