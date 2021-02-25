@@ -229,7 +229,6 @@ CSubqueryHandler::PexprSubqueryPred(CExpression *pexprOuter,
 	if (pexprSubquery->Pop()->Eopid() == COperator::EopScalarSubqueryAny)
 	{
 		CExpression *pexprPredicate = pexprNewScalar;
-		pexprPredicate->AddRef();
 		return pexprPredicate;
 	}
 
