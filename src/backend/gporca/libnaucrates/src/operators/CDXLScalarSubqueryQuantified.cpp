@@ -40,6 +40,16 @@ CDXLScalarSubqueryQuantified::CDXLScalarSubqueryQuantified(
 	GPOS_ASSERT(nullptr != scalar_op_mdname);
 }
 
+CDXLScalarSubqueryQuantified::CDXLScalarSubqueryQuantified(
+	CMemoryPool *mp,
+	ULONG colid)
+	: CDXLScalar(mp),
+	  m_colid(colid)
+{
+	m_scalar_op_mdid = nullptr;
+	m_scalar_op_mdname= nullptr;
+}
+
 //---------------------------------------------------------------------------
 //	@function:
 //		CDXLScalarSubqueryQuantified::~CDXLScalarSubqueryQuantified
@@ -50,8 +60,9 @@ CDXLScalarSubqueryQuantified::CDXLScalarSubqueryQuantified(
 //---------------------------------------------------------------------------
 CDXLScalarSubqueryQuantified::~CDXLScalarSubqueryQuantified()
 {
-	m_scalar_op_mdid->Release();
-	GPOS_DELETE(m_scalar_op_mdname);
+	CRefCount::SafeRelease(m_scalar_op_mdid);
+	if (m_scalar_op_mdname != nullptr)
+		GPOS_DELETE(m_scalar_op_mdname);
 }
 
 //---------------------------------------------------------------------------

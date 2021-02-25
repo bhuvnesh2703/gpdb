@@ -59,6 +59,8 @@ public:
 	CDXLScalarSubqueryQuantified(CMemoryPool *mp, IMDId *scalar_op_mdid,
 								 CMDName *mdname, ULONG colid);
 
+	CDXLScalarSubqueryQuantified(CMemoryPool *mp, ULONG colid);
+
 	// dtor
 	~CDXLScalarSubqueryQuantified() override;
 
