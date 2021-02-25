@@ -190,12 +190,13 @@ CDrvdPropScalar::DeriveUsedColumns(CExpressionHandle &exprhdl)
 	{
 		CScalar *popScalar = CScalar::PopConvert(exprhdl.Pop());
 		m_pcrsUsed = popScalar->PcrsUsed(m_mp, exprhdl);
-		const CColRef *pcr = NULL;
-		if (popScalar->Eopid() == COperator::EopScalarSubqueryAny)
-		{
-			CScalarSubqueryAny *subqueryany = CScalarSubqueryAny::PopConvert(popScalar);
-			pcr = subqueryany->Pcr();
-		}
+		CColRefSet *pcrsOutputColumns = nullptr;
+//		const CColRef *pcr = NULL;
+//		if (popScalar->Eopid() == COperator::EopScalarSubqueryAny)
+//		{
+//			CScalarSubqueryAny *subqueryany = CScalarSubqueryAny::PopConvert(popScalar);
+//			pcr = subqueryany->Pcr();
+//		}
 
 		// add used columns of children
 		const ULONG arity = exprhdl.Arity();
@@ -213,12 +214,14 @@ CDrvdPropScalar::DeriveUsedColumns(CExpressionHandle &exprhdl)
 				// parent operator is a subquery, add outer references
 				// from its relational child as used columns
 				CColRefSet *pcrsOuterReferences = exprhdl.DeriveOuterReferences(0);
+				pcrsOutputColumns = exprhdl.DeriveOutputColumns(0);
+				pcrsOutputColumns->Exclude(pcrsOuterReferences);
 				m_pcrsUsed->Union(pcrsOuterReferences);
 			}
 		}
 
-		if (pcr != NULL)
-			m_pcrsUsed->Exclude(pcr);
+		if (pcrsOutputColumns != nullptr)
+			m_pcrsUsed->Exclude(pcrsOutputColumns);
 	}
 	return m_pcrsUsed;
 }
