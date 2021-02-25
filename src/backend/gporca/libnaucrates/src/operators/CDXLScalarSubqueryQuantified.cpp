@@ -81,11 +81,14 @@ CDXLScalarSubqueryQuantified::SerializeToDXL(CXMLSerializer *xml_serializer,
 	xml_serializer->OpenElement(
 		CDXLTokens::GetDXLTokenStr(EdxltokenNamespacePrefix), element_name);
 
-	// serialize operator id and name
-	xml_serializer->AddAttribute(CDXLTokens::GetDXLTokenStr(EdxltokenOpName),
-								 m_scalar_op_mdname->GetMDName());
-	m_scalar_op_mdid->Serialize(xml_serializer,
-								CDXLTokens::GetDXLTokenStr(EdxltokenOpNo));
+	if (this->GetDXLOperator() == EdxlopScalarSubqueryAll)
+	{
+		// serialize operator id and name
+		xml_serializer->AddAttribute(CDXLTokens::GetDXLTokenStr(EdxltokenOpName),
+									 m_scalar_op_mdname->GetMDName());
+		m_scalar_op_mdid->Serialize(xml_serializer,
+									CDXLTokens::GetDXLTokenStr(EdxltokenOpNo));
+	}
 
 	// serialize computed column id
 	xml_serializer->AddAttribute(CDXLTokens::GetDXLTokenStr(EdxltokenColId),

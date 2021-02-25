@@ -226,6 +226,13 @@ CSubqueryHandler::PexprSubqueryPred(CExpression *pexprOuter,
 
 	GPOS_ASSERT(nullptr != pexprNewScalar);
 
+	if (pexprSubquery->Pop()->Eopid() == COperator::EopScalarSubqueryAny)
+	{
+		CExpression *pexprPredicate = pexprNewScalar;
+		pexprPredicate->AddRef();
+		return pexprPredicate;
+	}
+
 	CScalarSubqueryQuantified *popSqQuantified =
 		CScalarSubqueryQuantified::PopConvert(pexprSubquery->Pop());
 
