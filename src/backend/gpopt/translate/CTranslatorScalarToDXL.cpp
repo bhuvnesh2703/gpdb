@@ -1804,13 +1804,12 @@ CTranslatorScalarToDXL::CreateQuantifiedSubqueryFromSublink(
 				ANY_SUBLINK == sublink->subLinkType);
 	if (ALL_SUBLINK == sublink->subLinkType)
 	{
-		subquery = GPOS_NEW(m_mp) CDXLScalarSubqueryAll(
-			m_mp, mdid, GPOS_NEW(m_mp) CMDName(m_mp, str), colid);
+		subquery = nullptr;
 	}
 	else
 	{
 		subquery = GPOS_NEW(m_mp) CDXLScalarSubqueryAny(
-			m_mp, mdid, GPOS_NEW(m_mp) CMDName(m_mp, str), colid);
+			m_mp, colid);
 	}
 
 	dxlnode = GPOS_NEW(m_mp) CDXLNode(m_mp, subquery);
