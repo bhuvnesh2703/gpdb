@@ -74,18 +74,24 @@ CParseHandlerScalarSubqueryQuantified::StartElement(
 				   str->GetBuffer());
 	}
 
-	// parse column id
-	ULONG colid = CDXLOperatorFactory::ExtractConvertAttrValueToUlong(
-		m_parse_handler_mgr->GetDXLMemoryManager(), attrs, EdxltokenColId,
-		dxl_token);
+	// parse distribution columns
+	const XMLCh *colrefs_xml = CDXLOperatorFactory::ExtractAttrValue(
+			attrs, EdxltokenColId, EdxltokenScalarSubqueryAny);
+	ULongPtrArray *colrefs = CDXLOperatorFactory::ExtractIntsToUlongArray(
+			m_parse_handler_mgr->GetDXLMemoryManager(), colrefs_xml,
+			EdxltokenColId, EdxltokenScalarSubqueryAny);
 
 	if (EdxltokenScalarSubqueryAny == dxl_token)
 	{
 		m_dxl_op = GPOS_NEW(m_mp)
-			CDXLScalarSubqueryAny(m_mp, colid);
+			CDXLScalarSubqueryAny(m_mp, colrefs);
 	}
 	else
 	{
+		// parse column id
+		ULONG colid = CDXLOperatorFactory::ExtractConvertAttrValueToUlong(
+				m_parse_handler_mgr->GetDXLMemoryManager(), attrs, EdxltokenColId,
+				dxl_token);
 
 		// parse operator id
 		IMDId *mdid_op = CDXLOperatorFactory::ExtractConvertAttrValueToMdId(

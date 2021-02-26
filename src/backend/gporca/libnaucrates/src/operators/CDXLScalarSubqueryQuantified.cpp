@@ -15,6 +15,7 @@
 
 #include "naucrates/dxl/operators/CDXLNode.h"
 #include "naucrates/dxl/xml/CXMLSerializer.h"
+#include "naucrates/dxl/CDXLUtils.h"
 
 using namespace gpos;
 using namespace gpdxl;
@@ -42,12 +43,13 @@ CDXLScalarSubqueryQuantified::CDXLScalarSubqueryQuantified(
 
 CDXLScalarSubqueryQuantified::CDXLScalarSubqueryQuantified(
 	CMemoryPool *mp,
-	ULONG colid)
+	ULongPtrArray *colrefs)
 	: CDXLScalar(mp),
-	  m_colid(colid)
+	  m_colrefs(colrefs)
 {
 	m_scalar_op_mdid = nullptr;
 	m_scalar_op_mdname= nullptr;
+	m_colid = 0;
 }
 
 //---------------------------------------------------------------------------
@@ -63,6 +65,8 @@ CDXLScalarSubqueryQuantified::~CDXLScalarSubqueryQuantified()
 	CRefCount::SafeRelease(m_scalar_op_mdid);
 	if (m_scalar_op_mdname != nullptr)
 		GPOS_DELETE(m_scalar_op_mdname);
+	if (m_colrefs != nullptr)
+		CRefCount::SafeRelease(m_colrefs);
 }
 
 //---------------------------------------------------------------------------
@@ -93,6 +97,15 @@ CDXLScalarSubqueryQuantified::SerializeToDXL(CXMLSerializer *xml_serializer,
 	// serialize computed column id
 	xml_serializer->AddAttribute(CDXLTokens::GetDXLTokenStr(EdxltokenColId),
 								 m_colid);
+
+	// serialize distribution columns
+	CWStringDynamic *str_colref_ids =
+			CDXLUtils::Serialize(m_mp, m_colrefs);
+
+	xml_serializer->AddAttribute(
+			CDXLTokens::GetDXLTokenStr(EdxltokenColId),
+			str_colref_ids);
+	GPOS_DELETE(str_colref_ids);
 
 	dxlnode->SerializeChildrenToDXL(xml_serializer);
 	xml_serializer->CloseElement(

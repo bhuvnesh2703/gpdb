@@ -22,6 +22,7 @@
 #include "gpopt/operators/CScalarArrayCmp.h"
 #include "gpopt/operators/CScalarBoolOp.h"
 #include "gpopt/operators/CScalarConst.h"
+#include "gpopt/base/CColRefSetIter.h"
 
 // fwd declarations
 namespace gpmd
@@ -402,6 +403,12 @@ public:
 	static CExpression *PexprLogicalApply(
 		CMemoryPool *mp, CExpression *pexprLeft, CExpression *pexprRight,
 		const CColRef *pcrInner, COperator::EOperatorId eopidOriginSubq,
+		CExpression *pexprPred = nullptr);
+
+	template <class T>
+	static CExpression *PexprLogicalApply(
+		CMemoryPool *mp, CExpression *pexprLeft, CExpression *pexprRight,
+		const CColRefSet *pcrInnerSet, COperator::EOperatorId eopidOriginSubq,
 		CExpression *pexprPred = nullptr);
 
 	// generate an apply expression with a known array of inner columns
@@ -1042,7 +1049,7 @@ CUtils::PexprLogicalApply(CMemoryPool *mp, CExpression *pexprLeft,
 {
 	GPOS_ASSERT(nullptr != pexprLeft);
 	GPOS_ASSERT(nullptr != pexprRight);
-	GPOS_ASSERT(nullptr != pcrInner);
+//	GPOS_ASSERT(nullptr != pcrInner);
 
 	CExpression *pexprScalar = pexprPred;
 	if (nullptr == pexprPred)
@@ -1052,6 +1059,36 @@ CUtils::PexprLogicalApply(CMemoryPool *mp, CExpression *pexprLeft,
 
 	CColRefArray *colref_array = GPOS_NEW(mp) CColRefArray(mp);
 	colref_array->Append(const_cast<CColRef *>(pcrInner));
+	return GPOS_NEW(mp)
+		CExpression(mp, GPOS_NEW(mp) T(mp, colref_array, eopidOriginSubq),
+					pexprLeft, pexprRight, pexprScalar);
+}
+
+template <class T>
+CExpression *
+CUtils::PexprLogicalApply(CMemoryPool *mp, CExpression *pexprLeft,
+						  CExpression *pexprRight, const CColRefSet *pcrInnerSet,
+						  COperator::EOperatorId eopidOriginSubq,
+						  CExpression *pexprPred)
+{
+	GPOS_ASSERT(nullptr != pexprLeft);
+	GPOS_ASSERT(nullptr != pexprRight);
+//	GPOS_ASSERT(nullptr != pcrInner);
+
+	CExpression *pexprScalar = pexprPred;
+	if (nullptr == pexprPred)
+	{
+		pexprScalar = PexprScalarConstBool(mp, true /*value*/);
+	}
+
+	CColRefArray *colref_array = GPOS_NEW(mp) CColRefArray(mp);
+	CColRefSetIter crsi(*pcrInnerSet);
+	while (crsi.Advance())
+	{
+		const CColRef *p = crsi.Pcr();
+		colref_array->Append(const_cast<CColRef *>(p));
+	}
+
 	return GPOS_NEW(mp)
 		CExpression(mp, GPOS_NEW(mp) T(mp, colref_array, eopidOriginSubq),
 					pexprLeft, pexprRight, pexprScalar);

@@ -46,14 +46,15 @@ CScalarSubqueryQuantified::CScalarSubqueryQuantified(
 }
 
 CScalarSubqueryQuantified::CScalarSubqueryQuantified(
-	CMemoryPool *mp, const CColRef *colref)
+	CMemoryPool *mp, CColRefSet *pcrsSubquery)
 	: CScalar(mp),
-	  m_pcr(colref)
+	  m_pcrSubquery(pcrsSubquery)
 {
 	m_scalar_op_mdid = nullptr;
 	m_pstrScalarOp = nullptr;
+	m_pcr = nullptr;
 
-	GPOS_ASSERT(nullptr != colref);
+	GPOS_ASSERT(nullptr != pcrsSubquery);
 }
 
 //---------------------------------------------------------------------------
@@ -69,6 +70,7 @@ CScalarSubqueryQuantified::~CScalarSubqueryQuantified()
 	CRefCount::SafeRelease(m_scalar_op_mdid);
 	if (m_pstrScalarOp != nullptr)
 		GPOS_DELETE(m_pstrScalarOp);
+	CRefCount::SafeRelease(m_pcrSubquery);
 }
 
 //---------------------------------------------------------------------------
@@ -183,11 +185,14 @@ CScalarSubqueryQuantified::PcrsUsed(CMemoryPool *mp, CExpressionHandle &exprhdl)
 
 	CColRefSet *pcrsChildOutput =
 		exprhdl.DeriveOutputColumns(0 /* child_index */);
-	if (!pcrsChildOutput->FMember(m_pcr))
+	CColRefSet *pcrsSubquery = GPOS_NEW(mp) CColRefSet(mp, *m_pcrSubquery);
+	pcrsSubquery->Exclude(pcrsChildOutput);
+	if (pcrsSubquery->Size() >0 )
 	{
 		// subquery column is not produced by relational child, add it to used columns
-		pcrs->Include(m_pcr);
+		pcrs->Include(pcrsSubquery);
 	}
+	pcrsSubquery->Release();
 
 	return pcrs;
 }
@@ -227,7 +232,8 @@ CScalarSubqueryQuantified::OsPrint(IOstream &os) const
 	if (PstrOp())
 		os << "(" << PstrOp()->GetBuffer() << ")";
 	os << "[";
-	m_pcr->OsPrint(os);
+	if (m_pcr != nullptr)
+		m_pcr->OsPrint(os);
 	os << "]";
 
 	return os;

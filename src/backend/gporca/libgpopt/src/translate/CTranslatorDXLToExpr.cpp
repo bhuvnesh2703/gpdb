@@ -39,6 +39,7 @@
 #include "naucrates/md/IMDRelation.h"
 #include "naucrates/md/IMDScalarOp.h"
 #include "naucrates/traceflags/traceflags.h"
+#include "gpopt/base/CColRefSetIter.h"
 
 #define GPDB_DENSE_RANK_OID 7002
 #define GPDB_PERCENT_RANK_OID 7003
@@ -2391,16 +2392,50 @@ CTranslatorDXLToExpr::PexprScalarSubqueryQuantified(
 	const CColRef *colref = LookupColRef(m_phmulcr, colid);
 
 	CScalar *popScalarSubquery = nullptr;
-	if (EdxlopScalarSubqueryAny == edxlopid)
-	{
-		popScalarSubquery = GPOS_NEW(m_mp) CScalarSubqueryAny(
-			m_mp, colref);
-	}
-	else
-	{
 		popScalarSubquery = GPOS_NEW(m_mp) CScalarSubqueryAll(
 			m_mp, scalar_op_mdid,
 			GPOS_NEW(m_mp) CWStringConst(m_mp, str->GetBuffer()), colref);
+
+	// create a scalar subquery any expression with the relational expression as
+	// first child and the scalar expression as second child
+	CExpression *pexpr = GPOS_NEW(m_mp) CExpression(
+		m_mp, popScalarSubquery, pexprLogicalChild, pexprScalarChild);
+
+	return pexpr;
+}
+
+CExpression *
+CTranslatorDXLToExpr::PexprScalarSubqueryQuantified(
+	Edxlopid edxlopid,
+	ULongPtrArray *colrefs,
+	CDXLNode *pdxlnLogicalChild,
+	CDXLNode *pdxlnScalarChild)
+{
+	GPOS_ASSERT(EdxlopScalarSubqueryAny == edxlopid ||
+				EdxlopScalarSubqueryAll == edxlopid);
+	GPOS_ASSERT(nullptr != pdxlnLogicalChild);
+	GPOS_ASSERT(nullptr != pdxlnScalarChild);
+
+	// translate children
+
+	GPOS_ASSERT(colrefs != nullptr);
+
+	CExpression *pexprLogicalChild = Pexpr(pdxlnLogicalChild);
+	CExpression *pexprScalarChild = Pexpr(pdxlnScalarChild);
+
+	CColRefSet *pcrsSubquery = GPOS_NEW(m_mp) CColRefSet(m_mp);
+	for (ULONG i = 0; i < colrefs->Size(); i++)
+	{
+		INT *id = reinterpret_cast<INT *>((*colrefs)[i]);
+		const CColRef *colref = LookupColRef(m_phmulcr, *id);
+		pcrsSubquery->Include(colref);
+	}
+
+	CScalar *popScalarSubquery = nullptr;
+	if (EdxlopScalarSubqueryAny == edxlopid)
+	{
+		popScalarSubquery = GPOS_NEW(m_mp) CScalarSubqueryAny(
+			m_mp, pcrsSubquery);
 	}
 
 	// create a scalar subquery any expression with the relational expression as
@@ -2437,9 +2472,8 @@ CTranslatorDXLToExpr::PexprScalarSubqueryQuantified(
 	if (dxl_op->GetDXLOperator() == EdxlopScalarSubqueryAny)
 	{
 		return PexprScalarSubqueryQuantified(
-			dxl_op->GetDXLOperator(), NULL,
-			NULL,
-			pdxlopSubqueryQuantified->GetColId(),
+			dxl_op->GetDXLOperator(),
+			pdxlopSubqueryQuantified->GetColRefs(),
 			(*pdxlnSubquery)
 			[CDXLScalarSubqueryQuantified::EdxlsqquantifiedIndexRelational],
 			(*pdxlnSubquery)

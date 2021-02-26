@@ -40,7 +40,7 @@ public:
 					   const CColRef *colref);
 
 	CScalarSubqueryAny(CMemoryPool *mp,
-					   const CColRef *colref);
+					   CColRefSet *pcrsSubquery);
 
 	// dtor
 	~CScalarSubqueryAny() override = default;

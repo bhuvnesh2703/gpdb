@@ -49,8 +49,10 @@ private:
 	// name of scalar comparison operator
 	CMDName *m_scalar_op_mdname;
 
-	// colid produced by the relational child of the AnySubquery operator
 	ULONG m_colid;
+
+	// colid produced by the relational child of the AnySubquery operator
+	ULongPtrArray *m_colrefs;
 
 public:
 	CDXLScalarSubqueryQuantified(CDXLScalarSubqueryQuantified &) = delete;
@@ -59,7 +61,7 @@ public:
 	CDXLScalarSubqueryQuantified(CMemoryPool *mp, IMDId *scalar_op_mdid,
 								 CMDName *mdname, ULONG colid);
 
-	CDXLScalarSubqueryQuantified(CMemoryPool *mp, ULONG colid);
+	CDXLScalarSubqueryQuantified(CMemoryPool *mp, ULongPtrArray *colrefs);
 
 	// dtor
 	~CDXLScalarSubqueryQuantified() override;
@@ -83,6 +85,12 @@ public:
 	GetColId() const
 	{
 		return m_colid;
+	}
+
+	ULongPtrArray *
+	GetColRefs() const
+	{
+		return m_colrefs;
 	}
 
 	// serialize operator in DXL format

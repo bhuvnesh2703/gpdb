@@ -51,13 +51,15 @@ private:
 	// column reference used in comparison
 	const CColRef *m_pcr;
 
+	CColRefSet *m_pcrSubquery;
+
 protected:
 	// ctor
 	CScalarSubqueryQuantified(CMemoryPool *mp, IMDId *scalar_op_mdid,
 							  const CWStringConst *pstrScalarOp,
 							  const CColRef *colref);
 
-	CScalarSubqueryQuantified(CMemoryPool *mp, const CColRef *colref);
+	CScalarSubqueryQuantified(CMemoryPool *mp, CColRefSet *pcrsSubquery);
 
 	// dtor
 	~CScalarSubqueryQuantified() override;
@@ -76,6 +78,13 @@ public:
 	Pcr() const
 	{
 		return m_pcr;
+	}
+
+	// column reference accessor
+	const CColRefSet *
+	PcrSet() const
+	{
+		return m_pcrSubquery;
 	}
 
 	// return the type of the scalar expression

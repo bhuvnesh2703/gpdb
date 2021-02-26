@@ -37,8 +37,8 @@ CDXLScalarSubqueryAny::CDXLScalarSubqueryAny(CMemoryPool *mp,
 }
 
 CDXLScalarSubqueryAny::CDXLScalarSubqueryAny(CMemoryPool *mp,
-											 ULONG colid)
-	: CDXLScalarSubqueryQuantified(mp, colid)
+											 ULongPtrArray *colrefs)
+	: CDXLScalarSubqueryQuantified(mp, colrefs)
 {
 }
 

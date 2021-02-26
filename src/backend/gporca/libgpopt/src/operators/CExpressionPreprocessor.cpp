@@ -2509,11 +2509,12 @@ CExpressionPreprocessor::PexprExistWithPredFromINSubq(CMemoryPool *mp,
 		else
 		{
 			// perform conversion if subquery does not output any of the columns from relational child
-			const CColRef *pcrSubquery =
-				CScalarSubqueryAny::PopConvert(pop)->Pcr();
+			const CScalarSubqueryAny *popSubquery =
+				CScalarSubqueryAny::PopConvert(pop);
 			CColRefSet *pcrsRelationalChild =
 				(*pexpr)[0]->DeriveOutputColumns();
-			if (pcrsRelationalChild->FMember(pcrSubquery))
+			const CColRefSet *pcrsSubquery = popSubquery->PcrSet();
+			if(pcrsRelationalChild->ContainsAll(pcrsSubquery))
 			{
 				return pexprNew;
 			}

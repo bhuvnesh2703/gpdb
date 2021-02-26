@@ -862,6 +862,8 @@ CXformUtils::SubqueryAnyToAgg(
 	{
 		// TODO: change this to <pexprSubqPred> is not false, get rid of pexprNullIndicator
 		// add a null indicator
+		pcrSubq =
+			CScalarSubqueryQuantified::PopConvert(pexprSubquery->Pop())->PcrSet()->PcrFirst();
 		CExpression *pexprNullIndicator =
 			PexprNullIndicator(mp, CUtils::PexprScalarIdent(mp, pcrSubq));
 		CExpression *pexprPrj =

@@ -1227,6 +1227,7 @@ CSubqueryHandler::FCreateCorrelatedApplyForQuantifiedSubquery(
 	CScalarSubqueryQuantified *popSubquery =
 		CScalarSubqueryQuantified::PopConvert(pexprSubquery->Pop());
 	CColRef *colref = const_cast<CColRef *>(popSubquery->Pcr());
+	const CColRefSet *pcrsSubquery = popSubquery->PcrSet();
 
 	// build subquery quantified comparison
 	CExpression *pexprResult = nullptr;
@@ -1242,7 +1243,7 @@ CSubqueryHandler::FCreateCorrelatedApplyForQuantifiedSubquery(
 		{
 			*ppexprNewOuter =
 				CUtils::PexprLogicalApply<CLogicalLeftSemiCorrelatedApplyIn>(
-					mp, pexprOuter, pexprResult, colref, eopidSubq,
+					mp, pexprOuter, pexprResult, pcrsSubquery, eopidSubq,
 					pexprPredicate);
 		}
 		else
@@ -1520,8 +1521,10 @@ CSubqueryHandler::FRemoveAnySubquery(CExpression *pexprOuter,
 	{
 		GPOS_ASSERT(EsqctxtFilter == esqctxt);
 
+		const CColRefSet *colrefs = CScalarSubqueryAny::PopConvert(pexprSubquery->Pop())->PcrSet();
+
 		*ppexprNewOuter = CUtils::PexprLogicalApply<CLogicalLeftSemiApplyIn>(
-			mp, pexprOuter, pexprSelect, colref, eopidSubq);
+			mp, pexprOuter, pexprSelect, colrefs, eopidSubq);
 		*ppexprResidualScalar =
 			CUtils::PexprScalarConstBool(mp, true /*value*/);
 	}

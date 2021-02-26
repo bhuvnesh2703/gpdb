@@ -41,7 +41,7 @@ public:
 	CDXLScalarSubqueryAny(CMemoryPool *mp, IMDId *scalar_op_mdid,
 						  CMDName *mdname, ULONG colid);
 
-	CDXLScalarSubqueryAny(CMemoryPool *mp, ULONG colid);
+	CDXLScalarSubqueryAny(CMemoryPool *mp, ULongPtrArray *colrefs);
 
 	// ident accessors
 	Edxlopid GetDXLOperator() const override;
