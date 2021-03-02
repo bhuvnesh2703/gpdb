@@ -344,6 +344,8 @@ public:
 												 INT type_modifier,
 												 BOOL is_null, ULONG len,
 												 Datum datum);
+
+	static BOOL IsSupportedSubLink(const SubLink *sublink, int num_output_columns);
 };
 }  // namespace gpdxl
 #endif	// GPDXL_CTranslatorScalarToDXL_H

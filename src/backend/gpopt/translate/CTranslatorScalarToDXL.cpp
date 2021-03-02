@@ -1742,7 +1742,7 @@ CTranslatorScalarToDXL::CreateQuantifiedSubqueryFromSublink(
 	CDXLNodeArray *cte_dxlnode_array = query_to_dxl_translator->GetCTEs();
 	CUtils::AddRefAppend(m_cte_producers, cte_dxlnode_array);
 
-	if (1 != query_output_dxlnode_array->Size())
+	if (!IsSupportedSubLink(sublink, query_output_dxlnode_array->Size()))
 	{
 		GPOS_RAISE(gpdxl::ExmaDXL, gpdxl::ExmiQuery2DXLUnsupportedFeature,
 				   GPOS_WSZ_LIT("Non-Scalar Subquery"));
@@ -2433,6 +2433,27 @@ CTranslatorScalarToDXL::CreateIDatumFromGpdbDatum(CMemoryPool *mp,
 	IDatum *datum = md_type->GetDatumForDXLDatum(mp, datum_dxl);
 	datum_dxl->Release();
 	return datum;
+}
+
+BOOL
+CTranslatorScalarToDXL::IsSupportedSubLink(const SubLink *sublink, int num_output_columns)
+{
+	if (1 != num_output_columns)
+	{
+		// ALL_SUBLINK is not supported
+		if (sublink->subLinkType == ALL_SUBLINK)
+			return false;
+
+		if (IsA(sublink->testexpr, BoolExpr))
+		{
+			// ANY_SUBLINK with Boolop OR is not supported., i.e <> ANY
+			BoolExpr *bool_expr = (BoolExpr *) sublink->testexpr;
+			if (bool_expr->boolop == OR_EXPR)
+				return false;
+		}
+	}
+
+	return true;
 }
 
 // EOF
