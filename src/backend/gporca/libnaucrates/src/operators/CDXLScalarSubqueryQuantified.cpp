@@ -92,20 +92,22 @@ CDXLScalarSubqueryQuantified::SerializeToDXL(CXMLSerializer *xml_serializer,
 									 m_scalar_op_mdname->GetMDName());
 		m_scalar_op_mdid->Serialize(xml_serializer,
 									CDXLTokens::GetDXLTokenStr(EdxltokenOpNo));
+
+		// serialize computed column id
+		xml_serializer->AddAttribute(CDXLTokens::GetDXLTokenStr(EdxltokenColId),
+									 m_colid);
 	}
-
-	// serialize computed column id
-	xml_serializer->AddAttribute(CDXLTokens::GetDXLTokenStr(EdxltokenColId),
-								 m_colid);
-
-	// serialize distribution columns
-	CWStringDynamic *str_colref_ids =
+	else
+	{
+		// serialize distribution columns
+		CWStringDynamic *str_colref_ids =
 			CDXLUtils::Serialize(m_mp, m_colrefs);
 
-	xml_serializer->AddAttribute(
+		xml_serializer->AddAttribute(
 			CDXLTokens::GetDXLTokenStr(EdxltokenColId),
 			str_colref_ids);
-	GPOS_DELETE(str_colref_ids);
+		GPOS_DELETE(str_colref_ids);
+	}
 
 	dxlnode->SerializeChildrenToDXL(xml_serializer);
 	xml_serializer->CloseElement(

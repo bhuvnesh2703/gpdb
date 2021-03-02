@@ -1008,7 +1008,8 @@ CGroup::CreateScalarExpression()
 		if (COperator::EopScalarSubquery == pop->Eopid())
 		{
 			CScalarSubquery *subquery_pop = CScalarSubquery::PopConvert(pop);
-			const CColRef *subquery_colref = subquery_pop->Pcr();
+			//TODOBC
+			const CColRef *subquery_colref = subquery_pop->PcrSet()->PcrAny();
 
 			// replace the scalar subquery with a NULL value of the same type
 			m_pexprScalarRep = CUtils::PexprScalarConstNull(

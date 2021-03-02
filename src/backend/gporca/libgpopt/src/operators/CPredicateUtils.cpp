@@ -2902,4 +2902,21 @@ CPredicateUtils::ExprsContainsOnlyStrictComparisons(CExpressionArray *conjuncts)
 	return result;
 }
 
+BOOL
+CPredicateUtils::FContainsVeryStrictBuiltInComparision(CMemoryPool *mp, CExpression *pexpr)
+{
+
+	CExpressionArray *pdrgpexpr = CPredicateUtils::PdrgpexprConjuncts(mp, pexpr);
+	BOOL isVeryStrict = false;
+	for (ULONG i = 0; i < pdrgpexpr->Size(); i++)
+	{
+		CExpression *pscalarCmpExpr = (*pdrgpexpr)[i];
+		CScalarCmp *scalar_cmp = CScalarCmp::PopConvert(pscalarCmpExpr->Pop());
+		isVeryStrict = isVeryStrict || CPredicateUtils::FBuiltInComparisonIsVeryStrict(scalar_cmp->MdIdOp());
+	}
+	return isVeryStrict;
+}
+
+
+
 // EOF

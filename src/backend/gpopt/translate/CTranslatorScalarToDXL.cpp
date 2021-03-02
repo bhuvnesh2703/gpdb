@@ -1763,16 +1763,10 @@ CTranslatorScalarToDXL::CreateQuantifiedSubqueryFromSublink(
 	CDXLNodeArray *cte_dxlnode_array = query_to_dxl_translator->GetCTEs();
 	CUtils::AddRefAppend(m_cte_producers, cte_dxlnode_array);
 
-	if (1 != query_output_dxlnode_array->Size())
-	{
-		GPOS_RAISE(gpdxl::ExmaDXL, gpdxl::ExmiQuery2DXLUnsupportedFeature,
-				   GPOS_WSZ_LIT("Non-Scalar Subquery"));
-	}
-
 	ULongPtrArray *colrefs = GPOS_NEW(m_mp) ULongPtrArray(m_mp);
 	for (ULONG i = 0; i < query_output_dxlnode_array->Size(); i++)
 	{
-		CDXLNode *dxl_sc_ident = (*query_output_dxlnode_array)[0];
+		CDXLNode *dxl_sc_ident = (*query_output_dxlnode_array)[i];
 		CDXLScalarIdent *scalar_ident =
 				dynamic_cast<CDXLScalarIdent *>(dxl_sc_ident->GetOperator());
 		const CDXLColRef *dxl_colref = scalar_ident->GetDXLColRef();
@@ -1780,30 +1774,6 @@ CTranslatorScalarToDXL::CreateQuantifiedSubqueryFromSublink(
 	}
 
 	CUtils::AddRefAppend(m_subquery_output_columns, query_output_dxlnode_array);
-
-	CDXLNode *dxl_sc_ident = (*query_output_dxlnode_array)[0];
-	GPOS_ASSERT(nullptr != dxl_sc_ident);
-
-	// get dxl scalar identifier
-	CDXLScalarIdent *scalar_ident =
-		dynamic_cast<CDXLScalarIdent *>(dxl_sc_ident->GetOperator());
-
-	// get the dxl column reference
-	const CDXLColRef *dxl_colref = scalar_ident->GetDXLColRef();
-	const ULONG colid = dxl_colref->Id();
-
-	// get the test expression
-	GPOS_ASSERT(IsA(sublink->testexpr, OpExpr));
-	OpExpr *op_expr = (OpExpr *) sublink->testexpr;
-
-	IMDId *mdid = GPOS_NEW(m_mp) CMDIdGPDB(op_expr->opno);
-
-	// get operator name
-	const CWStringConst *str = GetDXLArrayCmpType(mdid);
-
-	// translate left hand side of the expression
-	GPOS_ASSERT(nullptr != op_expr->args);
-	Expr *LHS_expr = (Expr *) gpdb::ListNth(op_expr->args, 0);
 
 	CDXLNode *outer_dxlnode = TranslateScalarToDXL((Expr *) sublink->testexpr, var_colid_mapping);
 

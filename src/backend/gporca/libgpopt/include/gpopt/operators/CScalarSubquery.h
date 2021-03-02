@@ -39,11 +39,16 @@ private:
 	// is subquery generated from quantified subquery?
 	BOOL m_fGeneratedByQuantified;
 
+	CColRefSet *m_pcrs;
+
 public:
 	CScalarSubquery(const CScalarSubquery &) = delete;
 
 	// ctor
 	CScalarSubquery(CMemoryPool *mp, const CColRef *colref,
+					BOOL fGeneratedByExist, BOOL fGeneratedByQuantified);
+
+	CScalarSubquery(CMemoryPool *mp, CColRefSet *colrefset,
 					BOOL fGeneratedByExist, BOOL fGeneratedByQuantified);
 
 	// dtor
@@ -68,6 +73,12 @@ public:
 	Pcr() const
 	{
 		return m_pcr;
+	}
+
+	const CColRefSet *
+	PcrSet() const
+	{
+		return m_pcrs;
 	}
 
 	// the type of the scalar expression

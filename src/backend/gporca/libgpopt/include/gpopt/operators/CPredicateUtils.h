@@ -481,6 +481,8 @@ public:
 	// NB: This does NOT recurse into Boolean AND/OR operations
 	static BOOL ExprsContainsOnlyStrictComparisons(CExpressionArray *conjuncts);
 
+	static BOOL FContainsVeryStrictBuiltInComparision(CMemoryPool *mp, CExpression *pexpr);
+
 };	// class CPredicateUtils
 }  // namespace gpopt
 

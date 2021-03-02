@@ -40,6 +40,18 @@ CScalarSubquery::CScalarSubquery(CMemoryPool *mp, const CColRef *colref,
 	GPOS_ASSERT(!(fGeneratedByExist && fGeneratedByQuantified));
 }
 
+CScalarSubquery::CScalarSubquery(CMemoryPool *mp, CColRefSet *colrefset,
+								 BOOL fGeneratedByExist,
+								 BOOL fGeneratedByQuantified)
+	: CScalar(mp),
+	  m_pcr(nullptr),
+	  m_fGeneratedByExist(fGeneratedByExist),
+	  m_fGeneratedByQuantified(fGeneratedByQuantified),
+	  m_pcrs(colrefset)
+{
+	GPOS_ASSERT(!(fGeneratedByExist && fGeneratedByQuantified));
+}
+
 //---------------------------------------------------------------------------
 //	@function:
 //		CScalarSubquery::~CScalarSubquery
@@ -48,7 +60,9 @@ CScalarSubquery::CScalarSubquery(CMemoryPool *mp, const CColRef *colref,
 //		Destructor
 //
 //---------------------------------------------------------------------------
-CScalarSubquery::~CScalarSubquery() = default;
+CScalarSubquery::~CScalarSubquery() {
+	CRefCount::SafeRelease(m_pcrs);
+}
 
 //---------------------------------------------------------------------------
 //	@function:
@@ -144,11 +158,14 @@ CScalarSubquery::PcrsUsed(CMemoryPool *mp, CExpressionHandle &exprhdl)
 
 	CColRefSet *pcrsChildOutput =
 		exprhdl.DeriveOutputColumns(0 /* child_index */);
-	if (!pcrsChildOutput->FMember(m_pcr))
+	CColRefSet *pcrsSubquery = GPOS_NEW(mp) CColRefSet(mp, *m_pcrs);
+	pcrsSubquery->Exclude(pcrsChildOutput);
+	if (pcrsSubquery->Size() >0 )
 	{
 		// subquery column is not produced by relational child, add it to used columns
-		pcrs->Include(m_pcr);
+		pcrs->Include(pcrsSubquery);
 	}
+	pcrsSubquery->Release();
 
 	return pcrs;
 }
