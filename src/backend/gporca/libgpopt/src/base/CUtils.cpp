@@ -1826,6 +1826,57 @@ CUtils::PexprCountStarAndSum(CMemoryPool *mp, const CColRef *colref,
 								   pexprPrjList);
 }
 
+CExpression *
+CUtils::PexprCountStarAndSum(CMemoryPool *mp, const CColRefSet *colrefset,
+							 CExpression *pexprLogical)
+{
+	GPOS_ASSERT(pexprLogical->DeriveOutputColumns()->ContainsAll(colrefset));
+
+	CColumnFactory *col_factory = COptCtxt::PoctxtFromTLS()->Pcf();
+	CMDAccessor *md_accessor = COptCtxt::PoctxtFromTLS()->Pmda();
+
+	// generate a count(*) expression
+	CExpression *pexprCountStar = PexprCountStar(mp);
+
+	// generate a computed column with count(*) type
+	CScalarAggFunc *popScalarAggFunc =
+		CScalarAggFunc::PopConvert(pexprCountStar->Pop());
+	IMDId *mdid_type = popScalarAggFunc->MdidType();
+	INT type_modifier = popScalarAggFunc->TypeModifier();
+	const IMDType *pmdtype = md_accessor->RetrieveType(mdid_type);
+	CColRef *pcrComputed = col_factory->PcrCreate(pmdtype, type_modifier);
+	CExpression *pexprPrjElemCount =
+		PexprScalarProjectElement(mp, pcrComputed, pexprCountStar);
+
+
+	CColRefSetIter crsi(*colrefset);
+	CExpressionArray *pexprProjections = GPOS_NEW(mp) CExpressionArray(mp);
+	pexprProjections->Append(pexprPrjElemCount);
+	while (crsi.Advance())
+	{
+		const CColRef *colref = crsi.Pcr();
+		CExpression *pexprSum = PexprSum(mp, colref);
+		CScalarAggFunc *popScalarSumFunc =
+			CScalarAggFunc::PopConvert(pexprSum->Pop());
+		const IMDType *pmdtypeSum =
+			md_accessor->RetrieveType(popScalarSumFunc->MdidType());
+		CColRef *pcrSum =
+			col_factory->PcrCreate(pmdtypeSum, popScalarSumFunc->TypeModifier());
+		CExpression *pexprPrjElemSum =
+			PexprScalarProjectElement(mp, pcrSum, pexprSum);
+		pexprProjections->Append(pexprPrjElemSum);
+
+	}
+	CExpression *pexprPrjList =
+		GPOS_NEW(mp) CExpression(mp, GPOS_NEW(mp) CScalarProjectList(mp),pexprProjections);
+
+
+	// generate a Gb expression
+	CColRefArray *colref_array = GPOS_NEW(mp) CColRefArray(mp);
+	return PexprLogicalGbAggGlobal(mp, colref_array, pexprLogical,
+								   pexprPrjList);
+}
+
 // return True if passed expression is a Project Element defined on count(*)/count(Any) agg
 BOOL
 CUtils::FCountAggProjElem(

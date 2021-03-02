@@ -1009,7 +1009,7 @@ CGroup::CreateScalarExpression()
 		{
 			CScalarSubquery *subquery_pop = CScalarSubquery::PopConvert(pop);
 			//TODOBC
-			const CColRef *subquery_colref = subquery_pop->PcrSet()->PcrAny();
+			const CColRef *subquery_colref = subquery_pop->Pcr();
 
 			// replace the scalar subquery with a NULL value of the same type
 			m_pexprScalarRep = CUtils::PexprScalarConstNull(

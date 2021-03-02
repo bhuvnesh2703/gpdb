@@ -2906,7 +2906,18 @@ BOOL
 CPredicateUtils::FContainsVeryStrictBuiltInComparision(CMemoryPool *mp, CExpression *pexpr)
 {
 
-	CExpressionArray *pdrgpexpr = CPredicateUtils::PdrgpexprConjuncts(mp, pexpr);
+
+	CExpressionArray *pdrgpexpr = nullptr;
+	if (FAnd(pexpr))
+		pdrgpexpr = CPredicateUtils::PdrgpexprConjuncts(mp, pexpr);
+	else if (FOr(pexpr))
+		pdrgpexpr = CPredicateUtils::PdrgpexprDisjuncts(mp, pexpr);
+	else
+	{
+		GPOS_ASSERT(pexpr->Pop()->Eopid() == COperator::EopScalarCmp);
+		return CPredicateUtils::FBuiltInComparisonIsVeryStrict(CScalarCmp::PopConvert(pexpr->Pop())->MdIdOp());
+	}
+
 	BOOL isVeryStrict = false;
 	for (ULONG i = 0; i < pdrgpexpr->Size(); i++)
 	{
@@ -2914,6 +2925,7 @@ CPredicateUtils::FContainsVeryStrictBuiltInComparision(CMemoryPool *mp, CExpress
 		CScalarCmp *scalar_cmp = CScalarCmp::PopConvert(pscalarCmpExpr->Pop());
 		isVeryStrict = isVeryStrict || CPredicateUtils::FBuiltInComparisonIsVeryStrict(scalar_cmp->MdIdOp());
 	}
+	pdrgpexpr->Release();
 	return isVeryStrict;
 }
 

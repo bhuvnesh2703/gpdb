@@ -274,6 +274,10 @@ public:
 											 const CColRef *colref,
 											 CExpression *pexprLogical);
 
+	static CExpression *PexprCountStarAndSum(CMemoryPool *mp,
+											 const CColRefSet *colrefset,
+											 CExpression *pexprLogical);
+
 	// generate a sum(col) expression
 	static CExpression *PexprSum(CMemoryPool *mp, const CColRef *colref);
 

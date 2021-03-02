@@ -357,7 +357,7 @@ CSubqueryHandler::Psd(CMemoryPool *mp, CExpression *pexprSubquery,
 
 	SSubqueryDesc *psd = GPOS_NEW(mp) SSubqueryDesc();
 	psd->m_returns_set = (1 < pexprInner->DeriveMaxCard().Ull());
-	psd->m_fReturnedPcrIsOuterRef = (!subqueryOutputCols->ContainsAll(CScalarSubquery::PopConvert(pexprSubquery->Pop())->PcrSet()));
+	psd->m_fReturnedPcrIsOuterRef = (!subqueryOutputCols->FMember(pcrSubquery));
 	psd->m_fHasOuterRefs =
 		pexprInner->HasOuterRefs() || psd->m_fReturnedPcrIsOuterRef;
 	psd->m_fHasVolatileFunctions =
