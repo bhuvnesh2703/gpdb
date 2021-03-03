@@ -28,15 +28,15 @@ using namespace gpopt;
 //		Constructor
 //
 //---------------------------------------------------------------------------
-CScalarSubquery::CScalarSubquery(CMemoryPool *mp, const CColRef *colref,
+CScalarSubquery::CScalarSubquery(CMemoryPool *mp, CColRefSet *colrefset,
 								 BOOL fGeneratedByExist,
 								 BOOL fGeneratedByQuantified)
 	: CScalar(mp),
-	  m_pcr(colref),
+	  m_pcrs(colrefset),
 	  m_fGeneratedByExist(fGeneratedByExist),
 	  m_fGeneratedByQuantified(fGeneratedByQuantified)
 {
-	GPOS_ASSERT(nullptr != colref);
+	GPOS_ASSERT(nullptr != colrefset);
 	GPOS_ASSERT(!(fGeneratedByExist && fGeneratedByQuantified));
 }
 
@@ -76,7 +76,7 @@ ULONG
 CScalarSubquery::HashValue() const
 {
 	return gpos::CombineHashes(COperator::HashValue(),
-							   gpos::HashPtr<CColRef>(m_pcr));
+							   m_pcrs->HashValue());
 }
 
 
@@ -96,7 +96,7 @@ CScalarSubquery::Matches(COperator *pop) const
 		CScalarSubquery *popScalarSubquery = CScalarSubquery::PopConvert(pop);
 
 		// match if computed columns are identical
-		return popScalarSubquery->Pcr() == m_pcr &&
+		return popScalarSubquery->Pcrs()->Equals(m_pcrs) &&
 			   popScalarSubquery->FGeneratedByQuantified() ==
 				   m_fGeneratedByQuantified &&
 			   popScalarSubquery->FGeneratedByExist() == m_fGeneratedByExist;

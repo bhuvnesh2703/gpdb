@@ -48,14 +48,16 @@ private:
 	// name of comparison operator
 	const CWStringConst *m_pstrScalarOp;
 
-	// column reference used in comparison
-	const CColRef *m_pcr;
+	// column references used in comparision
+	CColRefSet *m_pcrs;
 
 protected:
 	// ctor
 	CScalarSubqueryQuantified(CMemoryPool *mp, IMDId *scalar_op_mdid,
 							  const CWStringConst *pstrScalarOp,
-							  const CColRef *colref);
+							  CColRefSet *pcrs);
+
+	CScalarSubqueryQuantified(CMemoryPool *mp, CColRefSet *pcrs);
 
 	// dtor
 	~CScalarSubqueryQuantified() override;
@@ -70,10 +72,10 @@ public:
 	const CWStringConst *PstrOp() const;
 
 	// column reference accessor
-	const CColRef *
-	Pcr() const
+	CColRefSet *
+	Pcrs() const
 	{
-		return m_pcr;
+		return m_pcrs;
 	}
 
 	// return the type of the scalar expression

@@ -162,6 +162,15 @@ private:
 			*ppexprNewScalar  // output argument for new scalar expression
 	);
 
+	static void SubqueryAnyToAgg(
+		CMemoryPool *mp, CExpression *pexprResult,
+		CExpression *pexprSubquery,
+		CExpression *pexprSubqPred,
+		BOOL uses_nullable_cols,
+		CExpression **ppexprNewSubquery,  // output argument for new scalar subquery
+		CExpression **ppexprNewScalar  // output argument for new scalar expression
+	);
+
 	// create the Gb operator to be pushed below a join
 	static CLogicalGbAgg *PopGbAggPushableBelowJoin(CMemoryPool *mp,
 													CLogicalGbAgg *popGbAggOld,

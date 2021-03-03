@@ -16,6 +16,8 @@
 #include "naucrates/dxl/operators/CDXLNode.h"
 #include "naucrates/dxl/xml/CXMLSerializer.h"
 
+#include "naucrates/dxl/CDXLUtils.h"
+
 using namespace gpos;
 using namespace gpdxl;
 using namespace gpmd;
@@ -36,8 +38,20 @@ CDXLScalarSubqueryQuantified::CDXLScalarSubqueryQuantified(
 	  m_scalar_op_mdname(scalar_op_mdname),
 	  m_colid(colid)
 {
+	m_in_clause_colids = nullptr;
 	GPOS_ASSERT(scalar_op_mdid->IsValid());
 	GPOS_ASSERT(nullptr != scalar_op_mdname);
+}
+
+CDXLScalarSubqueryQuantified::CDXLScalarSubqueryQuantified(
+		CMemoryPool *mp,
+		ULongPtrArray *in_clause_colids)
+		: CDXLScalar(mp),
+		  m_in_clause_colids(in_clause_colids)
+{
+	m_scalar_op_mdid = nullptr;
+	m_scalar_op_mdname= nullptr;
+	m_colid = 0;
 }
 
 //---------------------------------------------------------------------------
@@ -50,8 +64,13 @@ CDXLScalarSubqueryQuantified::CDXLScalarSubqueryQuantified(
 //---------------------------------------------------------------------------
 CDXLScalarSubqueryQuantified::~CDXLScalarSubqueryQuantified()
 {
-	m_scalar_op_mdid->Release();
-	GPOS_DELETE(m_scalar_op_mdname);
+	CRefCount::SafeRelease(m_scalar_op_mdid);
+	if (m_scalar_op_mdname != nullptr)
+	{
+		GPOS_DELETE(m_scalar_op_mdname);
+	}
+	CRefCount::SafeRelease(m_in_clause_colids);
+
 }
 
 //---------------------------------------------------------------------------
@@ -70,15 +89,34 @@ CDXLScalarSubqueryQuantified::SerializeToDXL(CXMLSerializer *xml_serializer,
 	xml_serializer->OpenElement(
 		CDXLTokens::GetDXLTokenStr(EdxltokenNamespacePrefix), element_name);
 
-	// serialize operator id and name
-	xml_serializer->AddAttribute(CDXLTokens::GetDXLTokenStr(EdxltokenOpName),
-								 m_scalar_op_mdname->GetMDName());
-	m_scalar_op_mdid->Serialize(xml_serializer,
-								CDXLTokens::GetDXLTokenStr(EdxltokenOpNo));
+	if (m_scalar_op_mdname != nullptr)
+	{
+		// serialize operator id and name
+		xml_serializer->AddAttribute(CDXLTokens::GetDXLTokenStr(EdxltokenOpName),
+									 m_scalar_op_mdname->GetMDName());
+	}
 
-	// serialize computed column id
-	xml_serializer->AddAttribute(CDXLTokens::GetDXLTokenStr(EdxltokenColId),
-								 m_colid);
+	if (m_scalar_op_mdid != nullptr)
+	{
+		m_scalar_op_mdid->Serialize(xml_serializer,
+									CDXLTokens::GetDXLTokenStr(EdxltokenOpNo));
+	}
+
+	if (m_colid != 0)
+	{
+		// serialize computed column id
+		xml_serializer->AddAttribute(CDXLTokens::GetDXLTokenStr(EdxltokenColId),
+									 m_colid);
+	}
+
+	if (m_in_clause_colids != nullptr)
+	{
+		CWStringDynamic *str_in_colids =
+				CDXLUtils::Serialize(m_mp, m_in_clause_colids);
+		xml_serializer->AddAttribute(CDXLTokens::GetDXLTokenStr(EdxltokenColId),
+									 str_in_colids);
+		GPOS_DELETE(str_in_colids);
+	}
 
 	dxlnode->SerializeChildrenToDXL(xml_serializer);
 	xml_serializer->CloseElement(

@@ -36,6 +36,12 @@ CDXLScalarSubqueryAny::CDXLScalarSubqueryAny(CMemoryPool *mp,
 {
 }
 
+CDXLScalarSubqueryAny::CDXLScalarSubqueryAny(CMemoryPool *mp,
+											 ULongPtrArray *in_clause_colids)
+		: CDXLScalarSubqueryQuantified(mp, in_clause_colids)
+{
+}
+
 //---------------------------------------------------------------------------
 //	@function:
 //		CDXLScalarSubqueryAny::GetDXLOperator

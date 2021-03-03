@@ -231,12 +231,12 @@ CExpressionPreprocessor::PexprSimplifyQuantifiedSubqueries(CMemoryPool *mp,
 			CExpression *pexprScalar = (*pexpr)[1];
 			CScalarSubqueryQuantified *popSubqQuantified =
 				CScalarSubqueryQuantified::PopConvert(pexpr->Pop());
-			const CColRef *colref = popSubqQuantified->Pcr();
+			CColRefSet *colrefset = popSubqQuantified->Pcrs();
 			pexprInner->AddRef();
 			CExpression *pexprSubquery = GPOS_NEW(mp) CExpression(
 				mp,
 				GPOS_NEW(mp)
-					CScalarSubquery(mp, colref, false /*fGeneratedByExist*/,
+					CScalarSubquery(mp, colrefset, false /*fGeneratedByExist*/,
 									true /*fGeneratedByQuantified*/),
 				pexprInner);
 
@@ -341,7 +341,7 @@ CExpressionPreprocessor::PexprUnnestScalarSubqueries(CMemoryPool *mp,
 	else if (CUtils::FScalarSubqWithConstTblGet(pexpr))
 	{
 		const CColRef *pcrSubq =
-			CScalarSubquery::PopConvert(pexpr->Pop())->Pcr();
+			CScalarSubquery::PopConvert(pexpr->Pop())->Pcrs()->PcrFirst();
 		CColRefSet *pcrsConstTableOutput = (*pexpr)[0]->DeriveOutputColumns();
 
 		// if the subquery has outer ref, we do not make use of the output columns of constant table get.
@@ -2434,7 +2434,7 @@ CExpressionPreprocessor::ConvertInToSimpleExists(CMemoryPool *mp,
 	else
 	{
 		pexprRight = CUtils::PexprScalarIdent(
-			mp, CScalarSubqueryAny::PopConvert(pop)->Pcr());
+			mp, CScalarSubqueryAny::PopConvert(pop)->Pcrs()->PcrFirst());
 		pexprSubqOfExists = pexprRelational;
 	}
 

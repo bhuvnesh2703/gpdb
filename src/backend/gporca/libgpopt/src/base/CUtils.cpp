@@ -1826,6 +1826,59 @@ CUtils::PexprCountStarAndSum(CMemoryPool *mp, const CColRef *colref,
 								   pexprPrjList);
 }
 
+// generate a GbAgg with count(*) and sum(col1), sum(col2) ... sum(coln) over the given expression
+CExpression *
+CUtils::PexprCountStarAndSum(CMemoryPool *mp, const CColRefSet *in_clause_colrefset,
+							 CExpression *pexprLogical)
+{
+	GPOS_ASSERT(pexprLogical->DeriveOutputColumns()->ContainsAll(in_clause_colrefset));
+
+	CColumnFactory *col_factory = COptCtxt::PoctxtFromTLS()->Pcf();
+	CMDAccessor *md_accessor = COptCtxt::PoctxtFromTLS()->Pmda();
+
+	// generate a count(*) expression
+	CExpression *pexprCountStar = PexprCountStar(mp);
+
+	// generate a computed column with count(*) type
+	CScalarAggFunc *popScalarAggFunc =
+			CScalarAggFunc::PopConvert(pexprCountStar->Pop());
+	IMDId *mdid_type = popScalarAggFunc->MdidType();
+	INT type_modifier = popScalarAggFunc->TypeModifier();
+	const IMDType *pmdtype = md_accessor->RetrieveType(mdid_type);
+	CColRef *pcrComputed = col_factory->PcrCreate(pmdtype, type_modifier);
+	CExpression *pexprPrjElemCount =
+			PexprScalarProjectElement(mp, pcrComputed, pexprCountStar);
+
+
+	// iterate over all the colrefs used in the in clause and generate sum(col) expression
+	CColRefSetIter crsi(*in_clause_colrefset);
+	CExpressionArray *pexprCountAndSumProjections = GPOS_NEW(mp) CExpressionArray(mp);
+	pexprCountAndSumProjections->Append(pexprPrjElemCount);
+	while (crsi.Advance())
+	{
+		const CColRef *colref = crsi.Pcr();
+		CExpression *pexprSum = PexprSum(mp, colref);
+		CScalarAggFunc *popScalarSumFunc =
+				CScalarAggFunc::PopConvert(pexprSum->Pop());
+		const IMDType *pmdtypeSum =
+				md_accessor->RetrieveType(popScalarSumFunc->MdidType());
+		CColRef *pcrSum =
+				col_factory->PcrCreate(pmdtypeSum, popScalarSumFunc->TypeModifier());
+		CExpression *pexprPrjElemSum =
+				PexprScalarProjectElement(mp, pcrSum, pexprSum);
+		pexprCountAndSumProjections->Append(pexprPrjElemSum);
+	}
+
+	// create a project list with count(*), sum(col1)...sum(coln) projections
+	CExpression *pexprPrjList =
+	GPOS_NEW(mp) CExpression(mp, GPOS_NEW(mp) CScalarProjectList(mp), pexprCountAndSumProjections);
+
+	// generate a Gb expression
+	CColRefArray *colref_array = GPOS_NEW(mp) CColRefArray(mp);
+	return PexprLogicalGbAggGlobal(mp, colref_array, pexprLogical,
+								   pexprPrjList);
+}
+
 // return True if passed expression is a Project Element defined on count(*)/count(Any) agg
 BOOL
 CUtils::FCountAggProjElem(

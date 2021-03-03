@@ -71,6 +71,7 @@ CTranslatorScalarToDXL::CTranslatorScalarToDXL(CContextQueryToDXL *context,
 	  m_cte_entries(cte_entries),
 	  m_cte_producers(cte_dxlnode_array)
 {
+	m_subquery_output_col_dxlnode_array = GPOS_NEW(m_mp) CDXLNodeArray(m_mp);
 }
 
 
@@ -89,8 +90,15 @@ CTranslatorScalarToDXL::CTranslatorScalarToDXL(CMemoryPool *mp,
 	  m_query_level(0),
 	  m_op_type(EpspotNone),
 	  m_cte_entries(nullptr),
-	  m_cte_producers(nullptr)
+	  m_cte_producers(nullptr),
+	  m_subquery_output_col_dxlnode_array(nullptr)
 {
+	m_subquery_output_col_dxlnode_array = GPOS_NEW(m_mp) CDXLNodeArray(m_mp);
+}
+
+CTranslatorScalarToDXL::~CTranslatorScalarToDXL()
+{
+	m_subquery_output_col_dxlnode_array->Release();
 }
 
 //---------------------------------------------------------------------------
@@ -255,6 +263,11 @@ CTranslatorScalarToDXL::TranslateScalarToDXL(
 		}
 		case T_Param:
 		{
+			if (m_subquery_output_col_dxlnode_array->Size() != 0)
+			{
+				return CTranslatorScalarToDXL::TranslateParamToDXL(expr);
+			}
+
 			// Note: The choose_custom_plan() function in plancache.c
 			// knows that GPORCA doesn't support Params. If you lift this
 			// limitation, adjust choose_custom_plan() accordingly!
@@ -1719,6 +1732,36 @@ CTranslatorScalarToDXL::TranslateSubLinkToDXL(
 	}
 }
 
+CDXLNode *
+CTranslatorScalarToDXL::CreateQuantifiedSubqueryFromSublink(
+		const SubLink *sublink, const CMappingVarColId *var_colid_mapping,
+		CDXLNode *inner_dxlnode)
+{
+	GPOS_ASSERT(ANY_SUBLINK == sublink->subLinkType);
+
+	ULongPtrArray *in_clause_colids = GPOS_NEW(m_mp) ULongPtrArray(m_mp);
+	for (ULONG i = 0; i < m_subquery_output_col_dxlnode_array->Size(); i++)
+	{
+		CDXLNode *dxl_sc_ident = (*m_subquery_output_col_dxlnode_array)[i];
+		CDXLScalarIdent *scalar_ident =
+				dynamic_cast<CDXLScalarIdent *>(dxl_sc_ident->GetOperator());
+		const CDXLColRef *dxl_colref = scalar_ident->GetDXLColRef();
+		in_clause_colids->Append(GPOS_NEW(m_mp) ULONG(dxl_colref->Id()));
+	}
+
+	CDXLNode *outer_dxlnode = TranslateScalarToDXL((Expr *) sublink->testexpr, var_colid_mapping);
+	CDXLNode *dxlnode = GPOS_NEW(m_mp) CDXLNode(m_mp,
+								   GPOS_NEW(m_mp) CDXLScalarSubqueryAny(m_mp, in_clause_colids));
+	dxlnode->AddChild(outer_dxlnode);
+	dxlnode->AddChild(inner_dxlnode);
+
+#ifdef GPOS_DEBUG
+	dxlnode->GetOperator()->AssertValid(dxlnode, false /* fValidateChildren */);
+#endif
+
+	return dxlnode;
+}
+
 //---------------------------------------------------------------------------
 //	@function:
 //		CTranslatorScalarToDXL::CreateQuantifiedSubqueryFromSublink
@@ -1741,11 +1784,17 @@ CTranslatorScalarToDXL::CreateQuantifiedSubqueryFromSublink(
 		query_to_dxl_translator->GetQueryOutputCols();
 	CDXLNodeArray *cte_dxlnode_array = query_to_dxl_translator->GetCTEs();
 	CUtils::AddRefAppend(m_cte_producers, cte_dxlnode_array);
+	CUtils::AddRefAppend(m_subquery_output_col_dxlnode_array, query_output_dxlnode_array);
 
-	if (!IsSupportedSubLink(sublink, query_output_dxlnode_array->Size()))
+	if (!IsSupportedSubLink(sublink))
 	{
 		GPOS_RAISE(gpdxl::ExmaDXL, gpdxl::ExmiQuery2DXLUnsupportedFeature,
 				   GPOS_WSZ_LIT("Non-Scalar Subquery"));
+	}
+
+	if (m_subquery_output_col_dxlnode_array->Size() > 1)
+	{
+		return CreateQuantifiedSubqueryFromSublink(sublink, var_colid_mapping, inner_dxlnode);
 	}
 
 	CDXLNode *dxl_sc_ident = (*query_output_dxlnode_array)[0];
@@ -2436,9 +2485,9 @@ CTranslatorScalarToDXL::CreateIDatumFromGpdbDatum(CMemoryPool *mp,
 }
 
 BOOL
-CTranslatorScalarToDXL::IsSupportedSubLink(const SubLink *sublink, int num_output_columns)
+CTranslatorScalarToDXL::IsSupportedSubLink(const SubLink *sublink)
 {
-	if (1 != num_output_columns)
+	if (1 != m_subquery_output_col_dxlnode_array->Size())
 	{
 		// ALL_SUBLINK is not supported
 		if (sublink->subLinkType == ALL_SUBLINK)
@@ -2454,6 +2503,19 @@ CTranslatorScalarToDXL::IsSupportedSubLink(const SubLink *sublink, int num_outpu
 	}
 
 	return true;
+}
+
+CDXLNode *
+CTranslatorScalarToDXL::TranslateParamToDXL(const Expr *expr)
+{
+	GPOS_ASSERT(IsA(expr, Param));
+	const Param *param = (Param *) expr;
+
+	GPOS_ASSERT(m_subquery_output_col_dxlnode_array->Size() >= param->paramid);
+	CDXLNode *dxl_node = (*m_subquery_output_col_dxlnode_array)[param->paramid-1];
+	dxl_node->AddRef();
+
+	return dxl_node;
 }
 
 // EOF

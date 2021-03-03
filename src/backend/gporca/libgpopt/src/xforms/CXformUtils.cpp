@@ -847,13 +847,19 @@ CXformUtils::SubqueryAnyToAgg(
 	CExpression *pexprSubqPred =
 		sh.PexprSubqueryPred(pexprInner, pexprSubquery, &pexprResult);
 	CScalarCmp *scalarCmp = CScalarCmp::PopConvert(pexprSubqPred->Pop());
+	BOOL uses_nullable_cols = CUtils::FUsesNullableCol(mp, pexprSubqPred, pexprResult);
+
+	if (CUtils::FScalarBoolOp(pexprSubqPred, CScalarBoolOp::EboolopAnd))
+	{
+		return SubqueryAnyToAgg(mp, pexprResult, pexprSubquery, pexprSubqPred, uses_nullable_cols, ppexprNewSubquery, ppexprNewScalar);
+	}
 
 	GPOS_ASSERT(nullptr != scalarCmp);
 
 	const CColRef *pcrSubq =
 		CScalarSubqueryQuantified::PopConvert(pexprSubquery->Pop())->Pcr();
 	BOOL fCanEvaluateToNull =
-		(CUtils::FUsesNullableCol(mp, pexprSubqPred, pexprResult) ||
+		(uses_nullable_cols ||
 		 !CPredicateUtils::FBuiltInComparisonIsVeryStrict(scalarCmp->MdIdOp()));
 
 	CExpression *pexprInnerNew = nullptr;
@@ -946,6 +952,160 @@ CXformUtils::SubqueryAnyToAgg(
 			GPOS_NEW(mp)
 				CScalarSubquery(mp, pcrCount, false /*fGeneratedByExist*/,
 								true /*fGeneratedByQuantified*/),
+			pexprInnerNew);
+		*ppexprNewScalar = CUtils::PexprCmpWithZero(
+			mp, CUtils::PexprScalarIdent(mp, pcrCount),
+			pcrCount->RetrieveType()->MDId(), IMDType::EcmptG);
+	}
+}
+
+void
+CXformUtils::SubqueryAnyToAgg(
+	CMemoryPool *mp, CExpression *pexprResult,
+	CExpression *pexprSubquery,
+	CExpression *pexprSubqPred,
+	BOOL uses_nullable_cols,
+	CExpression **ppexprNewSubquery,  // output argument for new scalar subquery
+	CExpression **ppexprNewScalar  // output argument for new scalar expression
+)
+{
+	BOOL fCanEvaluateToNull = (uses_nullable_cols ||
+								   !CPredicateUtils::FBuiltInComparisonAreVeryStrict(mp, pexprSubqPred));
+
+	CExpression *pexprInnerNew = nullptr;
+	CExpression *pexprInner = (*pexprSubquery)[0];
+	pexprInner->AddRef();
+
+	if (fCanEvaluateToNull)
+	{
+		CExpressionArray *subqueryPredicates = GPOS_NEW(mp) CExpressionArray(mp);
+		subqueryPredicates->Append(pexprSubqPred);
+		CExpressionArray *isNulls =  GPOS_NEW(mp) CExpressionArray(mp);
+
+		// TODO: change this to <pexprSubqPred> is not false, get rid of pexprNullIndicator
+		// add a null indicator
+		const CColRefSet *pcrs = CScalarSubqueryQuantified::PopConvert(pexprSubquery->Pop())->Pcrs();
+		CColRefSetIter crsi(*pcrs);
+		CExpressionArray *nullIndicators = GPOS_NEW(mp) CExpressionArray(mp);
+		while (crsi.Advance())
+		{
+			const CColRef *pcr = crsi.Pcr();
+			CExpression *pexprNullIndicator =
+				PexprNullIndicator(mp, CUtils::PexprScalarIdent(mp, pcr));
+			nullIndicators->Append(pexprNullIndicator);
+
+			CExpression *pexprIsNull = CUtils::PexprIsNull(mp, CUtils::PexprScalarIdent(mp, pcr));
+			isNulls->Append(pexprIsNull);
+
+		}
+
+		CExpression *pexprPrj =
+			CUtils::PexprAddProjection(mp, pexprResult, nullIndicators);
+		nullIndicators->Release();
+
+		pexprResult = pexprPrj;
+
+		CExpression *isNullConjunctPred = CPredicateUtils::PexprConjunction(mp, isNulls);
+		subqueryPredicates->Append(isNullConjunctPred);
+
+		pexprSubqPred = CPredicateUtils::PexprDisjunction(mp, subqueryPredicates);
+	}
+
+	CExpression *pexprSelect = CUtils::PexprLogicalSelect(mp, pexprResult, pexprSubqPred);
+	if (fCanEvaluateToNull)
+	{
+		CExpression *pexprScalarProjectList = (*(*pexprSelect)[0])[1];
+		CColRefSet *colrefset = GPOS_NEW(mp) CColRefSet(mp);
+		for (ULONG i = 0; i < pexprScalarProjectList->Arity(); i++)
+		{
+			CExpression *pexprScalarProjectElement = (*pexprScalarProjectList)[i];
+			const CColRef *pcrNullIndicator = CScalarProjectElement::PopConvert(pexprScalarProjectElement->Pop())->Pcr();
+			colrefset->Include(pcrNullIndicator);
+		}
+
+		pexprInnerNew = CUtils::PexprCountStarAndSum(mp, colrefset, pexprSelect);
+		colrefset->Release();
+
+		CExpression *pexprProjectList = (*pexprInnerNew)[1];
+		const CColRef *pcrCount = CScalarProjectElement::PopConvert((*pexprProjectList)[0]->Pop())->Pcr();
+
+		CExpression *pexprScalarIdentCount = CUtils::PexprScalarIdent(mp, pcrCount);
+
+		CExpression *pexprCountEqZero =
+			CUtils::PexprCmpWithZero(mp,
+									 pexprScalarIdentCount,
+									 CScalarIdent::PopConvert(pexprScalarIdentCount->Pop())->MdidType(),
+									 IMDType::EcmptEq);
+
+		CMDAccessor *md_accessor = COptCtxt::PoctxtFromTLS()->Pmda();
+		const IMDTypeInt8 *pmdtypeint8 = md_accessor->PtMDType<IMDTypeInt8>();
+
+		IMDId *pmdidInt8 = pmdtypeint8->MDId();
+		pmdidInt8->AddRef();
+		CExpressionArray *disjunctions = GPOS_NEW(mp) CExpressionArray(mp);
+		for (ULONG ul = 1; ul < pexprProjectList->Arity();ul++)
+		{
+			const CColRef *pcrSum =
+				CScalarProjectElement::PopConvert((*pexprProjectList)[ul]->Pop())
+					->Pcr();
+			CExpression *pexprCountEqSum =
+				CUtils::PexprScalarEqCmp(mp, pcrCount, pcrSum);
+			disjunctions->Append(pexprCountEqSum);
+		}
+
+		CExpression *scalarif2ndchild = CPredicateUtils::PexprDisjunction(mp, disjunctions);
+		CExpression *scalarif3rdchild = CUtils::PexprScalarIdent(mp, pcrCount);
+
+		IMDId *pmdid = nullptr;
+		if (scalarif2ndchild->Pop()->Eopid() == COperator::EopScalarBoolOp)
+		{
+			pmdid = md_accessor->PtMDType<IMDTypeBool>()->MDId();
+		}
+		else
+		{
+			pmdid = md_accessor->PtMDType<IMDTypeInt8>()->MDId();
+		}
+
+		pmdid->AddRef();
+
+		CExpression *pexprProjected = GPOS_NEW(mp) CExpression(
+			mp, GPOS_NEW(mp) CScalarIf(mp, pmdidInt8), pexprCountEqZero,
+			CUtils::PexprScalarConstInt8(mp, 0 /*val*/),
+			GPOS_NEW(mp) CExpression(
+			mp, GPOS_NEW(mp) CScalarIf(mp, pmdid), scalarif2ndchild,
+			CUtils::PexprScalarConstInt8(mp, -1 /*val*/),
+			scalarif3rdchild));
+
+		CExpression *pexprPrj = CUtils::PexprAddProjection(mp, pexprInnerNew, pexprProjected);
+		const CColRef *pcrSubquery = CScalarProjectElement::PopConvert((*(*pexprPrj)[1])[0]->Pop())->Pcr();
+		*ppexprNewSubquery = GPOS_NEW(mp) CExpression(
+			mp,
+			GPOS_NEW(mp) CScalarSubquery(mp,
+										 pcrSubquery,
+										 false /*fGeneratedByExist*/,
+										 true /*fGeneratedByQuantified*/),
+			pexprPrj);
+
+		*ppexprNewScalar = CUtils::PexprCmpWithZero(
+			mp,
+			CUtils::PexprScalarIdent(mp, pcrSubquery),
+			pcrSubquery->RetrieveType()->MDId(),
+			IMDType::EcmptG);
+	}
+	else
+	{
+		// replace <col1> <op> ANY (select <col2> from SQ) with
+		//         (select count(*) from (select )) > 0
+		pexprInnerNew = CUtils::PexprCountStar(mp, pexprSelect);
+		const CColRef *pcrCount =
+			CScalarProjectElement::PopConvert((*(*pexprInnerNew)[1])[0]->Pop())
+				->Pcr();
+
+		*ppexprNewSubquery = GPOS_NEW(mp) CExpression(
+			mp,
+			GPOS_NEW(mp)
+		CScalarSubquery(mp, pcrCount, false /*fGeneratedByExist*/,
+						true /*fGeneratedByQuantified*/),
 			pexprInnerNew);
 		*ppexprNewScalar = CUtils::PexprCmpWithZero(
 			mp, CUtils::PexprScalarIdent(mp, pcrCount),

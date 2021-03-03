@@ -79,29 +79,43 @@ CParseHandlerScalarSubqueryQuantified::StartElement(
 		m_parse_handler_mgr->GetDXLMemoryManager(), attrs, EdxltokenOpNo,
 		dxl_token);
 
-	// parse operator name
-	const XMLCh *xmlszScalarOpName = CDXLOperatorFactory::ExtractAttrValue(
-		attrs, EdxltokenOpName, dxl_token);
-
-	CWStringDynamic *op_name_str = CDXLUtils::CreateDynamicStringFromXMLChArray(
-		m_parse_handler_mgr->GetDXLMemoryManager(), xmlszScalarOpName);
-	CMDName *md_op_name = GPOS_NEW(m_mp) CMDName(m_mp, op_name_str);
-	GPOS_DELETE(op_name_str);
-
-	// parse column id
-	ULONG colid = CDXLOperatorFactory::ExtractConvertAttrValueToUlong(
-		m_parse_handler_mgr->GetDXLMemoryManager(), attrs, EdxltokenColId,
-		dxl_token);
-
-	if (EdxltokenScalarSubqueryAny == dxl_token)
+	if (mdid_op == nullptr)
 	{
-		m_dxl_op = GPOS_NEW(m_mp)
-			CDXLScalarSubqueryAny(m_mp, mdid_op, md_op_name, colid);
+		const XMLCh *in_colids_xml = CDXLOperatorFactory::ExtractAttrValue(
+				attrs, EdxltokenColId, EdxltokenScalarSubqueryAny);
+		ULongPtrArray *in_colids = CDXLOperatorFactory::ExtractIntsToUlongArray(
+				m_parse_handler_mgr->GetDXLMemoryManager(),
+				in_colids_xml,
+				EdxltokenColId, EdxltokenScalarSubqueryAny);
+
+		m_dxl_op = GPOS_NEW(m_mp) CDXLScalarSubqueryAny(m_mp, in_colids);
 	}
 	else
 	{
-		m_dxl_op = GPOS_NEW(m_mp)
+		// parse operator name
+		const XMLCh *xmlszScalarOpName = CDXLOperatorFactory::ExtractAttrValue(
+				attrs, EdxltokenOpName, dxl_token);
+
+		CWStringDynamic *op_name_str = CDXLUtils::CreateDynamicStringFromXMLChArray(
+				m_parse_handler_mgr->GetDXLMemoryManager(), xmlszScalarOpName);
+		CMDName *md_op_name = GPOS_NEW(m_mp) CMDName(m_mp, op_name_str);
+		GPOS_DELETE(op_name_str);
+
+		// parse column id
+		ULONG colid = CDXLOperatorFactory::ExtractConvertAttrValueToUlong(
+				m_parse_handler_mgr->GetDXLMemoryManager(), attrs, EdxltokenColId,
+				dxl_token);
+
+		if (EdxltokenScalarSubqueryAny == dxl_token)
+		{
+			m_dxl_op = GPOS_NEW(m_mp)
+			CDXLScalarSubqueryAny(m_mp, mdid_op, md_op_name, colid);
+		}
+		else
+		{
+			m_dxl_op = GPOS_NEW(m_mp)
 			CDXLScalarSubqueryAll(m_mp, mdid_op, md_op_name, colid);
+		}
 	}
 
 	// parse handler for the child nodes

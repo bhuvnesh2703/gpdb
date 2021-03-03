@@ -34,15 +34,26 @@ using namespace gpmd;
 //---------------------------------------------------------------------------
 CScalarSubqueryQuantified::CScalarSubqueryQuantified(
 	CMemoryPool *mp, IMDId *scalar_op_mdid, const CWStringConst *pstrScalarOp,
-	const CColRef *colref)
+	CColRefSet *colrefs)
 	: CScalar(mp),
 	  m_scalar_op_mdid(scalar_op_mdid),
 	  m_pstrScalarOp(pstrScalarOp),
-	  m_pcr(colref)
+	  m_pcrs(colrefs)
 {
 	GPOS_ASSERT(scalar_op_mdid->IsValid());
 	GPOS_ASSERT(nullptr != pstrScalarOp);
-	GPOS_ASSERT(nullptr != colref);
+	GPOS_ASSERT(nullptr != colrefs);
+}
+
+CScalarSubqueryQuantified::CScalarSubqueryQuantified(
+		CMemoryPool *mp, CColRefSet *pcrs)
+		: CScalar(mp),
+		  m_pcrs(pcrs)
+{
+	m_scalar_op_mdid = nullptr;
+	m_pstrScalarOp = nullptr;
+
+	GPOS_ASSERT(nullptr != m_pcrs);
 }
 
 //---------------------------------------------------------------------------
@@ -55,8 +66,10 @@ CScalarSubqueryQuantified::CScalarSubqueryQuantified(
 //---------------------------------------------------------------------------
 CScalarSubqueryQuantified::~CScalarSubqueryQuantified()
 {
-	m_scalar_op_mdid->Release();
-	GPOS_DELETE(m_pstrScalarOp);
+	CRefCount::SafeRelease(m_scalar_op_mdid);
+	if (m_pstrScalarOp != nullptr)
+		GPOS_DELETE(m_pstrScalarOp);
+	GPOS_DELETE(m_pcrs);
 }
 
 //---------------------------------------------------------------------------
@@ -122,7 +135,7 @@ CScalarSubqueryQuantified::HashValue() const
 	return gpos::CombineHashes(
 		COperator::HashValue(),
 		gpos::CombineHashes(m_scalar_op_mdid->HashValue(),
-							gpos::HashPtr<CColRef>(m_pcr)));
+							m_pcrs->HashValue()));
 }
 
 
@@ -145,7 +158,11 @@ CScalarSubqueryQuantified::Matches(COperator *pop) const
 	// match if contents are identical
 	CScalarSubqueryQuantified *popSsq =
 		CScalarSubqueryQuantified::PopConvert(pop);
-	return popSsq->Pcr() == m_pcr && popSsq->MdIdOp()->Equals(m_scalar_op_mdid);
+
+	BOOL isColsEqual = popSsq->Pcrs()->Equals(m_pcrs);
+	if (m_scalar_op_mdid != nullptr)
+		return isColsEqual && popSsq->MdIdOp()->Equals(m_scalar_op_mdid);
+	return isColsEqual;
 }
 
 
@@ -161,17 +178,19 @@ CColRefSet *
 CScalarSubqueryQuantified::PcrsUsed(CMemoryPool *mp, CExpressionHandle &exprhdl)
 {
 	// used columns is an empty set unless subquery column is an outer reference
-	CColRefSet *pcrs = GPOS_NEW(mp) CColRefSet(mp);
+	CColRefSet *pcrsUsed = GPOS_NEW(mp) CColRefSet(mp);
 
 	CColRefSet *pcrsChildOutput =
 		exprhdl.DeriveOutputColumns(0 /* child_index */);
-	if (!pcrsChildOutput->FMember(m_pcr))
+	CColRefSet *pcrs = GPOS_NEW(mp) CColRefSet(mp, *m_pcrs);
+	pcrs->Exclude(pcrsChildOutput);
+	if (pcrs->Size() > 0)
 	{
 		// subquery column is not produced by relational child, add it to used columns
-		pcrs->Include(m_pcr);
+		pcrsUsed->Include(pcrs);
 	}
 
-	return pcrs;
+	return pcrsUsed;
 }
 
 
@@ -206,9 +225,10 @@ IOstream &
 CScalarSubqueryQuantified::OsPrint(IOstream &os) const
 {
 	os << SzId();
-	os << "(" << PstrOp()->GetBuffer() << ")";
+	if (PstrOp() != nullptr)
+		os << "(" << PstrOp()->GetBuffer() << ")";
 	os << "[";
-	m_pcr->OsPrint(os);
+	m_pcrs->OsPrint(os);
 	os << "]";
 
 	return os;

@@ -31,7 +31,7 @@ class CScalarSubquery : public CScalar
 {
 private:
 	// computed column reference
-	const CColRef *m_pcr;
+	CColRefSet *m_pcrs;
 
 	// is subquery generated from existential subquery?
 	BOOL m_fGeneratedByExist;
@@ -43,7 +43,7 @@ public:
 	CScalarSubquery(const CScalarSubquery &) = delete;
 
 	// ctor
-	CScalarSubquery(CMemoryPool *mp, const CColRef *colref,
+	CScalarSubquery(CMemoryPool *mp, CColRefSet *colrefset,
 					BOOL fGeneratedByExist, BOOL fGeneratedByQuantified);
 
 	// dtor
@@ -64,10 +64,10 @@ public:
 	}
 
 	// accessor to computed column reference
-	const CColRef *
-	Pcr() const
+	CColRefSet *
+	Pcrs() const
 	{
-		return m_pcr;
+		return m_pcrs;
 	}
 
 	// the type of the scalar expression

@@ -229,7 +229,7 @@ CSubqueryHandler::PexprSubqueryPred(CExpression *pexprOuter,
 	CScalarSubqueryQuantified *popSqQuantified =
 		CScalarSubqueryQuantified::PopConvert(pexprSubquery->Pop());
 
-	const CColRef *colref = popSqQuantified->Pcr();
+	const CColRef *colref = popSqQuantified->Pcrs()->PcrFirst();
 	IMDId *mdid_op = popSqQuantified->MdIdOp();
 	const CWStringConst *str = popSqQuantified->PstrOp();
 
@@ -266,7 +266,7 @@ CSubqueryHandler::FProjectCountSubquery(CExpression *pexprSubquery,
 
 	CScalarSubquery *popScalarSubquery =
 		CScalarSubquery::PopConvert(pexprSubquery->Pop());
-	const CColRef *pcrSubquery = popScalarSubquery->Pcr();
+	const CColRef *pcrSubquery = popScalarSubquery->Pcrs()->PcrFirst();
 
 	if (pcrCount == pcrSubquery)
 	{
@@ -414,7 +414,7 @@ CSubqueryHandler::FRemoveScalarSubquery(CExpression *pexprOuter,
 
 	CScalarSubquery *popScalarSubquery =
 		CScalarSubquery::PopConvert(pexprSubquery->Pop());
-	const CColRef *pcrSubquery = popScalarSubquery->Pcr();
+	const CColRef *pcrSubquery = popScalarSubquery->Pcrs()->PcrFirst();
 
 	SSubqueryDesc *psd =
 		Psd(pmp, pexprSubquery, pexprOuter, pcrSubquery, esqctxt);

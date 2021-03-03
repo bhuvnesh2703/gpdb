@@ -16,6 +16,7 @@
 #include "gpopt/base/CColRef.h"
 #include "gpopt/base/COrderSpec.h"
 #include "gpopt/base/CWindowFrame.h"
+#include "gpopt/base/CColRefSetIter.h"
 #include "gpopt/metadata/CTableDescriptor.h"
 #include "gpopt/operators/CExpression.h"
 #include "gpopt/operators/CScalarAggFunc.h"
@@ -273,6 +274,10 @@ public:
 											 const CColRef *colref,
 											 CExpression *pexprLogical);
 
+	static CExpression *PexprCountStarAndSum(CMemoryPool *mp,
+										  	 const CColRefSet *colrefset,
+										  	 CExpression *pexprLogical);
+
 	// generate a sum(col) expression
 	static CExpression *PexprSum(CMemoryPool *mp, const CColRef *colref);
 
@@ -409,6 +414,12 @@ public:
 	static CExpression *PexprLogicalApply(
 		CMemoryPool *mp, CExpression *pexprLeft, CExpression *pexprRight,
 		CColRefArray *pdrgpcrInner, COperator::EOperatorId eopidOriginSubq,
+		CExpression *pexprPred = nullptr);
+
+	template <class T>
+	static CExpression *PexprLogicalApply(
+		CMemoryPool *mp, CExpression *pexprLeft, CExpression *pexprRight,
+		const CColRefSet *pcrInnerSet, COperator::EOperatorId eopidOriginSubq,
 		CExpression *pexprPred = nullptr);
 
 	// generate a correlated apply for quantified subquery with a known array of inner columns
@@ -1056,6 +1067,35 @@ CUtils::PexprLogicalApply(CMemoryPool *mp, CExpression *pexprLeft,
 		CExpression(mp, GPOS_NEW(mp) T(mp, colref_array, eopidOriginSubq),
 					pexprLeft, pexprRight, pexprScalar);
 }
+
+	template <class T>
+	CExpression *
+	CUtils::PexprLogicalApply(CMemoryPool *mp, CExpression *pexprLeft,
+							  CExpression *pexprRight, const CColRefSet *pcrsInner,
+							  COperator::EOperatorId eopidOriginSubq,
+							  CExpression *pexprPred)
+	{
+		GPOS_ASSERT(nullptr != pexprLeft);
+		GPOS_ASSERT(nullptr != pexprRight);
+
+		CExpression *pexprScalar = pexprPred;
+		if (nullptr == pexprPred)
+		{
+			pexprScalar = PexprScalarConstBool(mp, true /*value*/);
+		}
+
+		CColRefArray *colref_array = GPOS_NEW(mp) CColRefArray(mp);
+		CColRefSetIter crsi(*pcrsInner);
+		while (crsi.Advance())
+		{
+			const CColRef *p = crsi.Pcr();
+			colref_array->Append(const_cast<CColRef *>(p));
+		}
+
+		return GPOS_NEW(mp)
+		CExpression(mp, GPOS_NEW(mp) T(mp, colref_array, eopidOriginSubq),
+				pexprLeft, pexprRight, pexprScalar);
+	}
 
 //---------------------------------------------------------------------------
 //	@function:
