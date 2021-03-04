@@ -42,11 +42,6 @@ class CExpressionHandle;
 class CScalarSubqueryQuantified : public CScalar
 {
 private:
-	// id of comparison operator
-	IMDId *m_scalar_op_mdid;
-
-	// name of comparison operator
-	const CWStringConst *m_pstrScalarOp;
 
 	// column reference used in comparison
 	CColRefSet *m_pcrs;
@@ -61,7 +56,6 @@ protected:
 public:
 	CScalarSubqueryQuantified(const CScalarSubqueryQuantified &) = delete;
 
-	// operator mdid accessor
 	IMDId *MdIdOp() const;
 
 	// operator name accessor

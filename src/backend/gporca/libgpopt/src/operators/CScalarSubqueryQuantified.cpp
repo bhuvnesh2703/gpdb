@@ -53,53 +53,18 @@ CScalarSubqueryQuantified::~CScalarSubqueryQuantified()
 	m_pcrs->Release();
 }
 
-//---------------------------------------------------------------------------
-//	@function:
-//		CScalarSubqueryQuantified::PstrOp
-//
-//	@doc:
-//		Operator name
-//
-//---------------------------------------------------------------------------
-const CWStringConst *
-CScalarSubqueryQuantified::PstrOp() const
-{
-	return m_pstrScalarOp;
-}
-
-//---------------------------------------------------------------------------
-//	@function:
-//		CScalarSubqueryQuantified::MdIdOp
-//
-//	@doc:
-//		Scalar operator metadata id
-//
-//---------------------------------------------------------------------------
-IMDId *
-CScalarSubqueryQuantified::MdIdOp() const
-{
-	return m_scalar_op_mdid;
-}
-
-//---------------------------------------------------------------------------
-//	@function:
-//		CScalarSubqueryQuantified::MdidType
-//
-//	@doc:
-//		Type of scalar's value
-//
-//---------------------------------------------------------------------------
 IMDId *
 CScalarSubqueryQuantified::MdidType() const
 {
-	CMDAccessor *md_accessor = COptCtxt::PoctxtFromTLS()->Pmda();
-	IMDId *mdid_type =
-		md_accessor->RetrieveScOp(m_scalar_op_mdid)->GetResultTypeMdid();
+	GPOS_ASSERT(!"Invalid function call: CScalarSubqueryQuantified::MdidType()");
+	return nullptr;
+}
 
-	GPOS_ASSERT(
-		md_accessor->PtMDType<IMDTypeBool>()->MDId()->Equals(mdid_type));
-
-	return mdid_type;
+IMDId *
+CScalarSubqueryQuantified::MdIdOp() const
+{
+	GPOS_ASSERT(!"Invalid function call: CScalarSubqueryQuantified::MdIdOp()");
+	return nullptr;
 }
 
 //---------------------------------------------------------------------------

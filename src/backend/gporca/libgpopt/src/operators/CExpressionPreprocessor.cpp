@@ -229,9 +229,11 @@ CExpressionPreprocessor::PexprSimplifyQuantifiedSubqueries(CMemoryPool *mp,
 		{
 			// quantified subquery with max card 1
 			CExpression *pexprScalar = (*pexpr)[1];
+			CScalarCmp *popScCmp = CScalarCmp::PopConvert(pexprScalar->Pop());
+			CExpression *pexprLeft = (*pexprScalar)[0];
 			CScalarSubqueryQuantified *popSubqQuantified =
 				CScalarSubqueryQuantified::PopConvert(pexpr->Pop());
-			//TODOBC
+			GPOS_ASSERT(popSubqQuantified->Pcrs()->Size() == 1);
 			const CColRef *colref = popSubqQuantified->Pcrs()->PcrFirst();
 			pexprInner->AddRef();
 			CExpression *pexprSubquery = GPOS_NEW(mp) CExpression(
@@ -242,13 +244,13 @@ CExpressionPreprocessor::PexprSimplifyQuantifiedSubqueries(CMemoryPool *mp,
 				pexprInner);
 
 			CMDAccessor *md_accessor = COptCtxt::PoctxtFromTLS()->Pmda();
-			IMDId *mdid = popSubqQuantified->MdIdOp();
+			IMDId *mdid = popScCmp->MdIdOp();
 			const CWStringConst *str =
 				md_accessor->RetrieveScOp(mdid)->Mdname().GetMDName();
 			mdid->AddRef();
-			pexprScalar->AddRef();
+			pexprLeft->AddRef();
 
-			return CUtils::PexprScalarCmp(mp, pexprScalar, pexprSubquery, *str,
+			return CUtils::PexprScalarCmp(mp, pexprLeft, pexprSubquery, *str,
 										  mdid);
 		}
 	}
@@ -2439,15 +2441,15 @@ CExpressionPreprocessor::ConvertInToSimpleExists(CMemoryPool *mp,
 		pexprSubqOfExists = pexprRelational;
 	}
 
-	CMDAccessor *md_accessor = COptCtxt::PoctxtFromTLS()->Pmda();
-	IMDId *mdid = CScalarSubqueryAny::PopConvert(pop)->MdIdOp();
-	const CWStringConst *str =
-		md_accessor->RetrieveScOp(mdid)->Mdname().GetMDName();
+//	CMDAccessor *md_accessor = COptCtxt::PoctxtFromTLS()->Pmda();
+//	IMDId *mdid = CScalarSubqueryAny::PopConvert(pop)->MdIdOp();
+//	const CWStringConst *str =
+//		md_accessor->RetrieveScOp(mdid)->Mdname().GetMDName();
 
-	mdid->AddRef();
+//	mdid->AddRef();
 	pexprLeft->AddRef();
 	CExpression *pexprScalarOp =
-		CUtils::PexprScalarCmp(mp, pexprLeft, pexprRight, *str, mdid);
+		CUtils::PexprScalarCmp(mp, pexprLeft, pexprRight, nullptr, nullptr);
 
 	pexprSubqOfExists->AddRef();
 	CExpression *pexprScalarSubqExists = GPOS_NEW(mp) CExpression(
