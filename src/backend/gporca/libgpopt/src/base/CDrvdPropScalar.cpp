@@ -15,6 +15,7 @@
 
 #include "gpopt/operators/CExpressionHandle.h"
 #include "gpopt/operators/CScalar.h"
+#include "gpopt/operators/CScalarSubqueryQuantified.h"
 #include "gpopt/operators/CScalarProjectElement.h"
 #include "gpopt/operators/CScalarProjectList.h"
 
@@ -206,6 +207,14 @@ CDrvdPropScalar::DeriveUsedColumns(CExpressionHandle &exprhdl)
 				// from its relational child as used columns
 				m_pcrsUsed->Union(exprhdl.DeriveOuterReferences(0));
 			}
+		}
+
+		if (COperator::EopScalarSubqueryAll == popScalar->Eopid() ||
+			COperator::EopScalarSubqueryAny == popScalar->Eopid())
+		{
+			CScalarSubqueryQuantified *popQuantified = CScalarSubqueryQuantified::PopConvert(popScalar);
+			CColRefSet *pcrs = popQuantified->Pcrs();
+			m_pcrsUsed->Exclude(pcrs);
 		}
 	}
 	return m_pcrsUsed;

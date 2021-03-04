@@ -933,16 +933,16 @@ CTestUtils::PexprLogicalSubqueryWithConstTableGet(CMemoryPool *mp,
 	pcrs = pexprOuter->DeriveOutputColumns();
 	const CColRef *pcrOuter = pcrs->PcrAny();
 
-	const CWStringConst *str = GPOS_NEW(mp) CWStringConst(GPOS_WSZ_LIT("="));
-
 	CExpression *pexprSubquery = nullptr;
+	CColRefSet *pcrsU = GPOS_NEW(mp) CColRefSet(mp);
+	pcrsU->Include(pcrInner);
 	if (COperator::EopScalarSubqueryAny == op_id)
 	{
 		// construct ANY subquery expression
 		pexprSubquery = GPOS_NEW(mp) CExpression(
 			mp,
 			GPOS_NEW(mp) CScalarSubqueryAny(
-				mp, GPOS_NEW(mp) CMDIdGPDB(GPDB_INT4_EQ_OP), str, pcrInner),
+				mp, pcrsU),
 			pexprConstTableGet, CUtils::PexprScalarIdent(mp, pcrOuter));
 	}
 	else
@@ -951,7 +951,7 @@ CTestUtils::PexprLogicalSubqueryWithConstTableGet(CMemoryPool *mp,
 		pexprSubquery = GPOS_NEW(mp) CExpression(
 			mp,
 			GPOS_NEW(mp) CScalarSubqueryAll(
-				mp, GPOS_NEW(mp) CMDIdGPDB(GPDB_INT4_EQ_OP), str, pcrInner),
+				mp, pcrsU),
 			pexprConstTableGet, CUtils::PexprScalarIdent(mp, pcrOuter));
 	}
 
@@ -3964,12 +3964,13 @@ CTestUtils::PexpSubqueryAll(CMemoryPool *mp, CExpression *pexprOuter)
 	CExpression *pexprInner = CTestUtils::PexprLogicalGet(mp);
 	CColRefSet *pcrsInner = pexprInner->DeriveOutputColumns();
 	const CColRef *pcrInner = pcrsInner->PcrAny();
+	CColRefSet *pcrsU = GPOS_NEW(mp) CColRefSet(mp);
+	pcrsU->Include(pcrInner);
 
 	return GPOS_NEW(mp) CExpression(
 		mp,
 		GPOS_NEW(mp) CScalarSubqueryAll(
-			mp, GPOS_NEW(mp) CMDIdGPDB(GPDB_INT4_EQ_OP),
-			GPOS_NEW(mp) CWStringConst(GPOS_WSZ_LIT("=")), pcrInner),
+			mp, pcrsU),
 		pexprInner, CUtils::PexprScalarIdent(mp, pcrOuter));
 }
 
@@ -3996,11 +3997,12 @@ CTestUtils::PexpSubqueryAny(CMemoryPool *mp, CExpression *pexprOuter)
 	CColRefSet *pcrsInner = pexprInner->DeriveOutputColumns();
 	const CColRef *pcrInner = pcrsInner->PcrAny();
 
+	CColRefSet *pcrsU = GPOS_NEW(mp) CColRefSet(mp);
+	pcrsU->Include(pcrInner);
 	return GPOS_NEW(mp) CExpression(
 		mp,
 		GPOS_NEW(mp) CScalarSubqueryAny(
-			mp, GPOS_NEW(mp) CMDIdGPDB(GPDB_INT4_EQ_OP),
-			GPOS_NEW(mp) CWStringConst(GPOS_WSZ_LIT("=")), pcrInner),
+			mp, pcrsU),
 		pexprInner, CUtils::PexprScalarIdent(mp, pcrOuter));
 }
 

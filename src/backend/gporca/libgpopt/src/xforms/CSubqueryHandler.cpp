@@ -226,7 +226,7 @@ CSubqueryHandler::PexprSubqueryPred(CExpression *pexprOuter,
 
 	GPOS_ASSERT(nullptr != pexprNewScalar);
 
-	return pexprNewScalar;	
+	return pexprNewScalar;
 }
 
 //---------------------------------------------------------------------------
