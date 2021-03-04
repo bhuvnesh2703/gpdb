@@ -133,7 +133,9 @@ public:
 	// are the columns in the column reference set covered by the array of column ref sets
 	static BOOL FCovered(CColRefSetArray *pdrgpcrs, CColRefSet *pcrs);
 
-};	// class CColRefSet
+	void DbgPrint();
+
+};	// class CColRefSetu
 
 
 // shorthand for printing

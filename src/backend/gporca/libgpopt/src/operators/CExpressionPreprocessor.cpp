@@ -231,7 +231,8 @@ CExpressionPreprocessor::PexprSimplifyQuantifiedSubqueries(CMemoryPool *mp,
 			CExpression *pexprScalar = (*pexpr)[1];
 			CScalarSubqueryQuantified *popSubqQuantified =
 				CScalarSubqueryQuantified::PopConvert(pexpr->Pop());
-			const CColRef *colref = popSubqQuantified->Pcr();
+			//TODOBC
+			const CColRef *colref = popSubqQuantified->Pcrs()->PcrFirst();
 			pexprInner->AddRef();
 			CExpression *pexprSubquery = GPOS_NEW(mp) CExpression(
 				mp,
@@ -2434,7 +2435,7 @@ CExpressionPreprocessor::ConvertInToSimpleExists(CMemoryPool *mp,
 	else
 	{
 		pexprRight = CUtils::PexprScalarIdent(
-			mp, CScalarSubqueryAny::PopConvert(pop)->Pcr());
+			mp, CScalarSubqueryAny::PopConvert(pop)->Pcrs()->PcrFirst());
 		pexprSubqOfExists = pexprRelational;
 	}
 
@@ -2510,7 +2511,7 @@ CExpressionPreprocessor::PexprExistWithPredFromINSubq(CMemoryPool *mp,
 		{
 			// perform conversion if subquery does not output any of the columns from relational child
 			const CColRef *pcrSubquery =
-				CScalarSubqueryAny::PopConvert(pop)->Pcr();
+				CScalarSubqueryAny::PopConvert(pop)->Pcrs()->PcrFirst();
 			CColRefSet *pcrsRelationalChild =
 				(*pexpr)[0]->DeriveOutputColumns();
 			if (pcrsRelationalChild->FMember(pcrSubquery))

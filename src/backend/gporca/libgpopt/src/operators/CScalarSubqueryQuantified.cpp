@@ -33,16 +33,11 @@ using namespace gpmd;
 //
 //---------------------------------------------------------------------------
 CScalarSubqueryQuantified::CScalarSubqueryQuantified(
-	CMemoryPool *mp, IMDId *scalar_op_mdid, const CWStringConst *pstrScalarOp,
-	const CColRef *colref)
+	CMemoryPool *mp, CColRefSet *colrefset)
 	: CScalar(mp),
-	  m_scalar_op_mdid(scalar_op_mdid),
-	  m_pstrScalarOp(pstrScalarOp),
-	  m_pcr(colref)
+	  m_pcrs(colrefset)
 {
-	GPOS_ASSERT(scalar_op_mdid->IsValid());
-	GPOS_ASSERT(nullptr != pstrScalarOp);
-	GPOS_ASSERT(nullptr != colref);
+	GPOS_ASSERT(nullptr != colrefset);
 }
 
 //---------------------------------------------------------------------------
@@ -55,8 +50,7 @@ CScalarSubqueryQuantified::CScalarSubqueryQuantified(
 //---------------------------------------------------------------------------
 CScalarSubqueryQuantified::~CScalarSubqueryQuantified()
 {
-	m_scalar_op_mdid->Release();
-	GPOS_DELETE(m_pstrScalarOp);
+	m_pcrs->Release();
 }
 
 //---------------------------------------------------------------------------
@@ -121,8 +115,7 @@ CScalarSubqueryQuantified::HashValue() const
 {
 	return gpos::CombineHashes(
 		COperator::HashValue(),
-		gpos::CombineHashes(m_scalar_op_mdid->HashValue(),
-							gpos::HashPtr<CColRef>(m_pcr)));
+		m_pcrs->HashValue());
 }
 
 
@@ -145,7 +138,7 @@ CScalarSubqueryQuantified::Matches(COperator *pop) const
 	// match if contents are identical
 	CScalarSubqueryQuantified *popSsq =
 		CScalarSubqueryQuantified::PopConvert(pop);
-	return popSsq->Pcr() == m_pcr && popSsq->MdIdOp()->Equals(m_scalar_op_mdid);
+	return popSsq->Pcrs()->Equals(m_pcrs);
 }
 
 
@@ -165,11 +158,14 @@ CScalarSubqueryQuantified::PcrsUsed(CMemoryPool *mp, CExpressionHandle &exprhdl)
 
 	CColRefSet *pcrsChildOutput =
 		exprhdl.DeriveOutputColumns(0 /* child_index */);
-	if (!pcrsChildOutput->FMember(m_pcr))
+	CColRefSet *pcrsSubquery = GPOS_NEW(mp) CColRefSet(mp, *m_pcrs);
+	pcrsSubquery->Exclude(pcrsChildOutput);
+	if (pcrsSubquery->Size() > 0)
 	{
 		// subquery column is not produced by relational child, add it to used columns
-		pcrs->Include(m_pcr);
+		pcrs->Include(pcrsSubquery);
 	}
+	pcrsSubquery->Release();
 
 	return pcrs;
 }
@@ -206,9 +202,8 @@ IOstream &
 CScalarSubqueryQuantified::OsPrint(IOstream &os) const
 {
 	os << SzId();
-	os << "(" << PstrOp()->GetBuffer() << ")";
 	os << "[";
-	m_pcr->OsPrint(os);
+	m_pcrs->OsPrint(os);
 	os << "]";
 
 	return os;

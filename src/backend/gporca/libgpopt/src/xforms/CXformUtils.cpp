@@ -851,7 +851,7 @@ CXformUtils::SubqueryAnyToAgg(
 	GPOS_ASSERT(nullptr != scalarCmp);
 
 	const CColRef *pcrSubq =
-		CScalarSubqueryQuantified::PopConvert(pexprSubquery->Pop())->Pcr();
+		CScalarSubqueryQuantified::PopConvert(pexprSubquery->Pop())->Pcrs()->PcrFirst();
 	BOOL fCanEvaluateToNull =
 		(CUtils::FUsesNullableCol(mp, pexprSubqPred, pexprResult) ||
 		 !CPredicateUtils::FBuiltInComparisonIsVeryStrict(scalarCmp->MdIdOp()));
@@ -1012,7 +1012,7 @@ CXformUtils::SubqueryAllToAgg(
 
 	// generate null indicator for inner expression
 	const CColRef *pcrSubq =
-		CScalarSubqueryQuantified::PopConvert(pexprSubquery->Pop())->Pcr();
+		CScalarSubqueryQuantified::PopConvert(pexprSubquery->Pop())->Pcrs()->PcrFirst();
 	CExpression *pexprInnerNullIndicator =
 		PexprNullIndicator(mp, CUtils::PexprScalarIdent(mp, pcrSubq));
 	pdrgpexpr->Append(pexprInnerNullIndicator);
@@ -1232,7 +1232,7 @@ CXformUtils::PexprInversePred(CMemoryPool *mp, CExpression *pexprSubquery)
 	CScalarSubqueryAll *popSqAll =
 		CScalarSubqueryAll::PopConvert(pexprSubquery->Pop());
 	CExpression *pexprScalar = (*pexprSubquery)[1];
-	const CColRef *colref = popSqAll->Pcr();
+	const CColRef *colref = popSqAll->Pcrs()->PcrFirst();
 	CMDAccessor *md_accessor = COptCtxt::PoctxtFromTLS()->Pmda();
 
 	// get mdid and name of the inverse of the comparison operator used by subquery

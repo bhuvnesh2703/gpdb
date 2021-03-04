@@ -226,18 +226,7 @@ CSubqueryHandler::PexprSubqueryPred(CExpression *pexprOuter,
 
 	GPOS_ASSERT(nullptr != pexprNewScalar);
 
-	CScalarSubqueryQuantified *popSqQuantified =
-		CScalarSubqueryQuantified::PopConvert(pexprSubquery->Pop());
-
-	const CColRef *colref = popSqQuantified->Pcr();
-	IMDId *mdid_op = popSqQuantified->MdIdOp();
-	const CWStringConst *str = popSqQuantified->PstrOp();
-
-	mdid_op->AddRef();
-	CExpression *pexprPredicate =
-		CUtils::PexprScalarCmp(m_mp, pexprNewScalar, colref, *str, mdid_op);
-
-	return pexprPredicate;
+	return pexprNewScalar;	
 }
 
 //---------------------------------------------------------------------------
@@ -1123,7 +1112,7 @@ CSubqueryHandler::FCreateOuterApplyForExistOrQuant(
 		// the actual comparison, but we'll pass just <inner col> to the apply as the inner
 		// colref
 		pcrSubquery =
-			CScalarSubqueryQuantified::PopConvert(pexprSubquery->Pop())->Pcr();
+			CScalarSubqueryQuantified::PopConvert(pexprSubquery->Pop())->Pcrs()->PcrFirst();
 	}
 
 	CColRef *pcrCount = nullptr;
@@ -1220,7 +1209,7 @@ CSubqueryHandler::FCreateCorrelatedApplyForQuantifiedSubquery(
 	CExpression *pexprInner = (*pexprSubquery)[0];
 	CScalarSubqueryQuantified *popSubquery =
 		CScalarSubqueryQuantified::PopConvert(pexprSubquery->Pop());
-	CColRef *colref = const_cast<CColRef *>(popSubquery->Pcr());
+	CColRef *colref = const_cast<CColRef *>(popSubquery->Pcrs()->PcrFirst());
 
 	// build subquery quantified comparison
 	CExpression *pexprResult = nullptr;
@@ -1452,7 +1441,7 @@ CSubqueryHandler::FRemoveAnySubquery(CExpression *pexprOuter,
 	CExpression *pexprInner = (*pexprSubquery)[0];
 	BOOL fOuterRefsUnderInner = pexprInner->HasOuterRefs();
 	const CColRef *colref =
-		CScalarSubqueryAny::PopConvert(pexprSubquery->Pop())->Pcr();
+		CScalarSubqueryAny::PopConvert(pexprSubquery->Pop())->Pcrs()->PcrFirst();
 	COperator::EOperatorId eopidSubq = pexprSubquery->Pop()->Eopid();
 
 	// build subquery quantified comparison
@@ -1623,7 +1612,7 @@ CSubqueryHandler::FRemoveAllSubquery(CExpression *pexprOuter,
 	CExpression *pexprInner = (*pexprSubquery)[0];
 	COperator::EOperatorId eopidSubq = pexprSubquery->Pop()->Eopid();
 	const CColRef *colref =
-		CScalarSubqueryAll::PopConvert(pexprSubquery->Pop())->Pcr();
+		CScalarSubqueryAll::PopConvert(pexprSubquery->Pop())->Pcrs()->PcrFirst();
 
 	BOOL fOuterRefsUnderInner = pexprInner->HasOuterRefs();
 	BOOL fUseNotNullOptimization = false;

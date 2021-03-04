@@ -85,6 +85,10 @@ private:
 	// list of CTE producers shared among the logical and scalar translators
 	CDXLNodeArray *m_cte_producers;
 
+	// list of output columns from the subquery
+	CDXLNodeArray *m_subquery_output_col_dxlnode_array;
+
+	EdxlBoolExprType EdxlbooltypeFromGPDBBoolType(BoolExprType) const;
 	static EdxlBoolExprType EdxlbooltypeFromGPDBBoolType(BoolExprType);
 
 	CTranslatorQueryToDXL *CreateSubqueryTranslator(
@@ -193,6 +197,8 @@ private:
 	CDXLNode *TranslateVarToDXL(const Expr *expr,
 								const CMappingVarColId *var_colid_mapping);
 
+	CDXLNode *TranslateParamToDXL(const Expr *expr);
+
 	CDXLNode *CreateInitPlanFromParam(const Param *param) const;
 
 	// create a DXL SubPlan node for a from a GPDB SubPlan
@@ -243,6 +249,8 @@ public:
 						   CMDAccessor *md_accessor, ULONG query_level,
 						   HMUlCTEListEntry *cte_entries,
 						   CDXLNodeArray *cte_dxlnode_array);
+
+	~CTranslatorScalarToDXL();
 
 	// set the caller type
 	void

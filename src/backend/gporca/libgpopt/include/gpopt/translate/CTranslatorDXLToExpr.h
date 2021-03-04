@@ -107,8 +107,7 @@ private:
 
 	// helper for creating quantified subquery
 	CExpression *PexprScalarSubqueryQuantified(
-		Edxlopid edxlopid, IMDId *scalar_op_mdid, const CWStringConst *str,
-		ULONG colid, CDXLNode *pdxlnLogicalChild, CDXLNode *pdxlnScalarChild);
+		Edxlopid edxlopid, ULongPtrArray *colids, CDXLNode *pdxlnLogicalChild, CDXLNode *pdxlnScalarChild);
 
 	// translate a logical DXL operator into an optimizer expression
 	CExpression *PexprLogical(const CDXLNode *dxlnode);
