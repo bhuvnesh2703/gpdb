@@ -2585,7 +2585,10 @@ CTranslatorDXLToExpr::PexprCollapseNot(const CDXLNode *pdxlnNotExpr)
 								   : EdxlopScalarSubqueryAny;
 
 		// get mdid and name of the inverse of the comparison operator used by quantified subquery
-		IMDId *mdid_op = pdxlopSubqueryQuantified->GetScalarOpMdId();
+		CDXLNode *pdxlnScalarChild =
+			(*pdxlnNotChild)[CDXLScalarSubqueryQuantified::EdxlsqquantifiedIndexScalar];
+		CDXLScalarComp *dxlScalarCmp = CDXLScalarComp::Cast(pdxlnScalarChild->GetOperator());
+		IMDId *mdid_op = dxlScalarCmp->MDId();
 		IMDId *pmdidInverseOp =
 			m_pmda->RetrieveScOp(mdid_op)->GetInverseOpMdid();
 

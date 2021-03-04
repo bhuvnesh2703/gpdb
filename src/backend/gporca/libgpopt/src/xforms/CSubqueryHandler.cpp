@@ -1611,8 +1611,10 @@ CSubqueryHandler::FRemoveAllSubquery(CExpression *pexprOuter,
 	CExpression *pexprPredicate = nullptr;
 	CExpression *pexprInner = (*pexprSubquery)[0];
 	COperator::EOperatorId eopidSubq = pexprSubquery->Pop()->Eopid();
+	CScalarSubqueryAll *popSqAll = CScalarSubqueryAll::PopConvert(pexprSubquery->Pop());
+	GPOS_ASSERT(popSqAll->Pcrs()->Size() == 1);
 	const CColRef *colref =
-		CScalarSubqueryAll::PopConvert(pexprSubquery->Pop())->Pcrs()->PcrFirst();
+		popSqAll->Pcrs()->PcrFirst();
 
 	BOOL fOuterRefsUnderInner = pexprInner->HasOuterRefs();
 	BOOL fUseNotNullOptimization = false;

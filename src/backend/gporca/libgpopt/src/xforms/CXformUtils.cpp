@@ -995,7 +995,7 @@ CXformUtils::SubqueryAllToAgg(
 	CMDAccessor *md_accessor = COptCtxt::PoctxtFromTLS()->Pmda();
 
 	CExpression *pexprInner = (*pexprSubquery)[0];
-	CExpression *pexprScalarOuter = (*pexprSubquery)[1];
+	CExpression *pexprScalar = (*pexprSubquery)[1];
 	CExpression *pexprSubqPred = PexprInversePred(mp, pexprSubquery);
 
 	// generate subquery test expression
@@ -1010,9 +1010,10 @@ CXformUtils::SubqueryAllToAgg(
 	CExpressionArray *pdrgpexpr = GPOS_NEW(mp) CExpressionArray(mp);
 	pdrgpexpr->Append(pexprSubqTest);
 
+	CScalarSubqueryQuantified *popSubquery = CScalarSubqueryQuantified::PopConvert(pexprSubquery->Pop());
+	GPOS_ASSERT(popSubquery->Pcrs()->Size() == 1);
 	// generate null indicator for inner expression
-	const CColRef *pcrSubq =
-		CScalarSubqueryQuantified::PopConvert(pexprSubquery->Pop())->Pcrs()->PcrFirst();
+	const CColRef *pcrSubq = popSubquery->Pcrs()->PcrFirst();
 	CExpression *pexprInnerNullIndicator =
 		PexprNullIndicator(mp, CUtils::PexprScalarIdent(mp, pcrSubq));
 	pdrgpexpr->Append(pexprInnerNullIndicator);
@@ -1057,6 +1058,8 @@ CXformUtils::SubqueryAllToAgg(
 		mp, pexprScalarIdentSumNulls,
 		CScalarIdent::PopConvert(pexprScalarIdentSumNulls->Pop())->MdidType(),
 		IMDType::EcmptG);
+	GPOS_ASSERT(pexprScalar->Pop()->Eopid() == COperator::EopScalarCmp);
+	CExpression *pexprScalarOuter = (*pexprScalar)[0];
 	pexprScalarOuter->AddRef();
 	CExpression *pexprIsOuterNull = CUtils::PexprIsNull(mp, pexprScalarOuter);
 
@@ -1228,26 +1231,26 @@ CXformUtils::PexprSeparateSubqueryPreds(CMemoryPool *mp, CExpression *pexpr)
 CExpression *
 CXformUtils::PexprInversePred(CMemoryPool *mp, CExpression *pexprSubquery)
 {
-	// get the scalar child of subquery
-	CScalarSubqueryAll *popSqAll =
-		CScalarSubqueryAll::PopConvert(pexprSubquery->Pop());
 	CExpression *pexprScalar = (*pexprSubquery)[1];
-	const CColRef *colref = popSqAll->Pcrs()->PcrFirst();
+	GPOS_ASSERT(pexprScalar->Pop()->Eopid() == COperator::EopScalarCmp);
 	CMDAccessor *md_accessor = COptCtxt::PoctxtFromTLS()->Pmda();
 
 	// get mdid and name of the inverse of the comparison operator used by subquery
-	IMDId *mdid_op = popSqAll->MdIdOp();
+	CScalarCmp *popScalarCmp = CScalarCmp::PopConvert(pexprScalar->Pop());
+	IMDId *mdid_op = popScalarCmp->MdIdOp();
 	IMDId *pmdidInverseOp =
 		md_accessor->RetrieveScOp(mdid_op)->GetInverseOpMdid();
 	const CWStringConst *pstrFirst =
 		md_accessor->RetrieveScOp(pmdidInverseOp)->Mdname().GetMDName();
 
+	CExpression *pexprLeft = (*pexprScalar)[0];
+	CExpression *pexprRight = (*pexprScalar)[1];
 	// generate a predicate for the inversion of the comparison involved in the subquery
-	pexprScalar->AddRef();
+	pexprLeft->AddRef();
+	pexprRight->AddRef();
 	pmdidInverseOp->AddRef();
 
-	return CUtils::PexprScalarCmp(mp, pexprScalar, colref, *pstrFirst,
-								  pmdidInverseOp);
+	return CUtils::PexprScalarCmp(mp, pexprLeft, pexprRight, *pstrFirst, pmdidInverseOp);
 }
 
 
