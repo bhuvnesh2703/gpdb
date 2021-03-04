@@ -43,11 +43,6 @@ public:
 	};
 
 private:
-	// id of the scalar comparison operator
-	IMDId *m_scalar_op_mdid;
-
-	// name of scalar comparison operator
-	CMDName *m_scalar_op_mdname;
 
 	// colids produced by the relational child of the AnySubquery operator
 	ULongPtrArray *m_colids;
@@ -60,20 +55,6 @@ public:
 
 	// dtor
 	~CDXLScalarSubqueryQuantified() override;
-
-	// scalar operator id
-	IMDId *
-	GetScalarOpMdId() const
-	{
-		return m_scalar_op_mdid;
-	}
-
-	// scalar operator name
-	const CMDName *
-	GetScalarOpMdName() const
-	{
-		return m_scalar_op_mdname;
-	}
 
 	// subquery colids
 	ULongPtrArray *
