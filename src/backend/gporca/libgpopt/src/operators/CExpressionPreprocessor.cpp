@@ -2414,7 +2414,9 @@ CExpressionPreprocessor::ConvertInToSimpleExists(CMemoryPool *mp,
 	// generate scalarOp expression by using column reference of the IN subquery's
 	// inner child's column reference as well as the expression extracted above
 	// from the project element
-	CExpression *pexprLeft = (*pexpr)[1];
+	CExpression *pexprScalar = (*pexpr)[1];
+	GPOS_ASSERT(pexprScalar->Pop()->Eopid() == COperator::EopScalarCmp);
+	CExpression *pexprLeft = (*pexprScalar)[0];
 	if (CUtils::FSubquery(pexprLeft->Pop()))
 	{
 		// don't convert if inner child is a subquery
@@ -2436,20 +2438,21 @@ CExpressionPreprocessor::ConvertInToSimpleExists(CMemoryPool *mp,
 	}
 	else
 	{
+		GPOS_ASSERT(CScalarSubqueryAny::PopConvert(pop)->Pcrs()->Size() == 1);
 		pexprRight = CUtils::PexprScalarIdent(
 			mp, CScalarSubqueryAny::PopConvert(pop)->Pcrs()->PcrFirst());
 		pexprSubqOfExists = pexprRelational;
 	}
 
-//	CMDAccessor *md_accessor = COptCtxt::PoctxtFromTLS()->Pmda();
-//	IMDId *mdid = CScalarSubqueryAny::PopConvert(pop)->MdIdOp();
-//	const CWStringConst *str =
-//		md_accessor->RetrieveScOp(mdid)->Mdname().GetMDName();
+	CMDAccessor *md_accessor = COptCtxt::PoctxtFromTLS()->Pmda();
+	IMDId *mdid = CScalarCmp::PopConvert(pexprScalar->Pop())->MdIdOp();
+	const CWStringConst *str =
+		md_accessor->RetrieveScOp(mdid)->Mdname().GetMDName();
 
-//	mdid->AddRef();
+	mdid->AddRef();
 	pexprLeft->AddRef();
 	CExpression *pexprScalarOp =
-		CUtils::PexprScalarCmp(mp, pexprLeft, pexprRight, nullptr, nullptr);
+		CUtils::PexprScalarCmp(mp, pexprLeft, pexprRight, *str, mdid);
 
 	pexprSubqOfExists->AddRef();
 	CExpression *pexprScalarSubqExists = GPOS_NEW(mp) CExpression(
