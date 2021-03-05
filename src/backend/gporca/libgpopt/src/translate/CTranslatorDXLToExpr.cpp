@@ -2374,18 +2374,13 @@ CTranslatorDXLToExpr::PexprLogicalConstTableGet(const CDXLNode *pdxlnConstTable)
 //---------------------------------------------------------------------------
 CExpression *
 CTranslatorDXLToExpr::PexprScalarSubqueryQuantified(
-	Edxlopid edxlopid, ULongPtrArray *colids,
-	CDXLNode *pdxlnLogicalChild, CDXLNode *pdxlnScalarChild)
+		Edxlopid edxlopid, ULongPtrArray *colids,
+		CExpression *pexprLogicalChild, CExpression *pexprScalarChild)
 {
 	GPOS_ASSERT(EdxlopScalarSubqueryAny == edxlopid ||
 				EdxlopScalarSubqueryAll == edxlopid);
-	GPOS_ASSERT(nullptr != pdxlnLogicalChild);
-	GPOS_ASSERT(nullptr != pdxlnScalarChild);
-
-	// translate children
-
-	CExpression *pexprLogicalChild = Pexpr(pdxlnLogicalChild);
-	CExpression *pexprScalarChild = Pexpr(pdxlnScalarChild);
+	GPOS_ASSERT(nullptr != pexprLogicalChild);
+	GPOS_ASSERT(nullptr != pexprScalarChild);
 
 	// get colref for subquery colid
 	CColRefSet *pcrs = GPOS_NEW(m_mp) CColRefSet(m_mp);
@@ -2439,15 +2434,15 @@ CTranslatorDXLToExpr::PexprScalarSubqueryQuantified(
 		CDXLScalarSubqueryQuantified::Cast(pdxlnSubquery->GetOperator());
 	GPOS_ASSERT(nullptr != pdxlopSubqueryQuantified);
 
+	CExpression *pexprLogicalChild = Pexpr((*pdxlnSubquery)[CDXLScalarSubqueryQuantified::EdxlsqquantifiedIndexRelational]);
+	CExpression *pexprScalarChild = Pexpr((*pdxlnSubquery)[CDXLScalarSubqueryQuantified::EdxlsqquantifiedIndexScalar]);
+
 	return PexprScalarSubqueryQuantified(
 		dxl_op->GetDXLOperator(),
 		pdxlopSubqueryQuantified->GetColIds(),
-		(*pdxlnSubquery)
-			[CDXLScalarSubqueryQuantified::EdxlsqquantifiedIndexRelational],
-		(*pdxlnSubquery)
-			[CDXLScalarSubqueryQuantified::EdxlsqquantifiedIndexScalar]);
+		pexprLogicalChild,
+		pexprScalarChild);
 }
-
 
 //---------------------------------------------------------------------------
 //	@function:
@@ -2598,14 +2593,29 @@ CTranslatorDXLToExpr::PexprCollapseNot(const CDXLNode *pdxlnNotExpr)
 			return nullptr;
 		}
 
+		const CWStringConst *pstrInverseOp =
+				m_pmda->RetrieveScOp(pmdidInverseOp)->Mdname().GetMDName();
 		pmdidInverseOp->AddRef();
+
+		CExpression *pexprLogicalChild = Pexpr((*pdxlnNotChild)[CDXLScalarSubqueryQuantified::EdxlsqquantifiedIndexRelational]);
+		GPOS_ASSERT(pexprLogicalChild != nullptr);
+
+		CExpression *pexprScalarChild = Pexpr(pdxlnScalarChild);
+		GPOS_ASSERT(pexprScalarChild->Pop()->Eopid() == COperator::EopScalarCmp);
+
+		CExpression *pexprLeft = (*pexprScalarChild)[0];
+		CExpression *pexprRight = (*pexprScalarChild)[1];
+		pexprLeft->AddRef();
+		pexprRight->AddRef();
+		CExpression *pexprInverseScalarCmp =
+				CUtils::PexprScalarCmp(m_mp, pexprLeft, pexprRight, *pstrInverseOp, pmdidInverseOp);
+		pexprScalarChild->Release();
+
 		return PexprScalarSubqueryQuantified(
 			edxlopidNew,
 			pdxlopSubqueryQuantified->GetColIds(),
-			(*pdxlnNotChild)
-				[CDXLScalarSubqueryQuantified::EdxlsqquantifiedIndexRelational],
-			(*pdxlnNotChild)
-				[CDXLScalarSubqueryQuantified::EdxlsqquantifiedIndexScalar]);
+			pexprLogicalChild,
+			pexprInverseScalarCmp);
 	}
 
 	// collapsing NOT node failed
