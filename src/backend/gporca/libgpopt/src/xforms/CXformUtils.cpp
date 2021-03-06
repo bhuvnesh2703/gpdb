@@ -1060,6 +1060,16 @@ CXformUtils::SubqueryAllToAgg(
 		IMDType::EcmptG);
 	GPOS_ASSERT(pexprScalar->Pop()->Eopid() == COperator::EopScalarCmp);
 	CExpression *pexprScalarOuter = (*pexprScalar)[0];
+	if ((*pexprScalar)[1]->Pop()->Eopid() == COperator::EopScalarConst)
+	{
+		CColRefSet *pcrs = popSubquery->Pcrs();
+		const CColRef *pcrLeft = CScalarIdent::PopConvert(pexprScalarOuter->Pop())->Pcr();
+		if (pcrs->FMember(pcrLeft))
+		{
+			pexprScalarOuter = (*pexprScalar)[1];
+		}
+	}
+
 	pexprScalarOuter->AddRef();
 	CExpression *pexprIsOuterNull = CUtils::PexprIsNull(mp, pexprScalarOuter);
 
