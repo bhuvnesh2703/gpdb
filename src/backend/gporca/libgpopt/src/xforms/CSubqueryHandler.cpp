@@ -1427,9 +1427,6 @@ CSubqueryHandler::FRemoveAnySubquery(CExpression *pexprOuter,
 			"Constant subqueries must be unnested during preprocessing");
 #endif	// GPOS_DEBUG
 
-	CScalarSubqueryAny *pScalarSubqAny =
-		CScalarSubqueryAny::PopConvert(pexprSubquery->Pop());
-
 	if (m_fEnforceCorrelatedApply)
 	{
 		return FCreateCorrelatedApplyForExistOrQuant(
@@ -1461,9 +1458,11 @@ CSubqueryHandler::FRemoveAnySubquery(CExpression *pexprOuter,
 	{
 		CExpression *pexprNewSelect = PexprInnerSelect(
 			mp, colref, pexprResult, pexprPredicate, &fUseNotNullableInnerOpt);
+		CExpression *pexprScalarChild = (*pexprSubquery)[1];
+		CScalarCmp *popScalarCmp = CScalarCmp::PopConvert(pexprScalarChild->Pop());
 		CMDAccessor *md_accessor = COptCtxt::PoctxtFromTLS()->Pmda();
 		const IMDScalarOp *pmdOp =
-			md_accessor->RetrieveScOp(pScalarSubqAny->MdIdOp());
+			md_accessor->RetrieveScOp(popScalarCmp->MdIdOp());
 		// function attributes of the comparison operator itself
 		// TODO: Synthesize the function attibutes of general operators, like
 		//       CScalarSubqueryAny/All, CScalarCmp, CScalarOp by providing a

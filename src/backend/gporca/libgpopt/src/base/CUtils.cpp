@@ -2239,10 +2239,20 @@ CUtils::PexprAddProjection(CMemoryPool *mp, CExpression *pexpr,
 	for (ULONG ul = 0; ul < ulProjected; ul++)
 	{
 		CExpression *pexprProjected = (*pdrgpexprProjected)[ul];
-		GPOS_ASSERT(pexprProjected->Pop()->FScalar());
+
+		CScalar *popScalar = nullptr;
+		if (pexprProjected->Pop()->Eopid() == COperator::EopScalarSubqueryAny ||
+			pexprProjected->Pop()->Eopid() == COperator::EopScalarSubqueryAll)
+		{
+			CExpression *pexprScalar = (*pexprProjected)[1];
+			popScalar = CScalar::PopConvert(pexprScalar->Pop());
+		} else
+		{
+			GPOS_ASSERT(pexprProjected->Pop()->FScalar());
+			popScalar = CScalar::PopConvert(pexprProjected->Pop());
+		}
 
 		// generate a computed column with scalar expression type
-		CScalar *popScalar = CScalar::PopConvert(pexprProjected->Pop());
 		const IMDType *pmdtype =
 			md_accessor->RetrieveType(popScalar->MdidType());
 		CColRef *colref =
