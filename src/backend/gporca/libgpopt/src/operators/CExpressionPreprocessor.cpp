@@ -2417,6 +2417,16 @@ CExpressionPreprocessor::ConvertInToSimpleExists(CMemoryPool *mp,
 	CExpression *pexprScalar = (*pexpr)[1];
 	GPOS_ASSERT(pexprScalar->Pop()->Eopid() == COperator::EopScalarCmp);
 	CExpression *pexprLeft = (*pexprScalar)[0];
+	if ((*pexprScalar)[1]->Pop()->Eopid() == COperator::EopScalarConst)
+	{
+		CColRefSet *pcrs = CScalarSubqueryAny::PopConvert(pop)->Pcrs();
+		const CColRef *pcrLeft = CScalarIdent::PopConvert(pexprLeft->Pop())->Pcr();
+		if (pcrs->FMember(pcrLeft))
+		{
+			pexprLeft = (*pexprScalar)[1];
+		}
+	}
+
 	if (CUtils::FSubquery(pexprLeft->Pop()))
 	{
 		// don't convert if inner child is a subquery
