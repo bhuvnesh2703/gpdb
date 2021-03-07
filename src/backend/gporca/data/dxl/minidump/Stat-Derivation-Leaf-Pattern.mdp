@@ -26,6 +26,18 @@ AND
       <dxl:TraceFlags Value="102001,102002,102003,102120,102144,103001,103003,103014,103015,103027,103033,105000"/>
     </dxl:OptimizerConfig>
     <dxl:Metadata SystemIds="0.GPDB">
+      <dxl:GPDBScalarOp Mdid="0.664.1.0" Name="&lt;" ComparisonType="LT" ReturnsNullOnNullInput="true">
+        <dxl:LeftType Mdid="0.25.1.0"/>
+        <dxl:RightType Mdid="0.25.1.0"/>
+        <dxl:ResultType Mdid="0.16.1.0"/>
+        <dxl:OpFunc Mdid="0.740.1.0"/>
+        <dxl:Commutator Mdid="0.666.1.0"/>
+        <dxl:InverseOp Mdid="0.667.1.0"/>
+        <dxl:Opfamilies>
+          <dxl:Opfamily Mdid="0.1994.1.0"/>
+          <dxl:Opfamily Mdid="0.3035.1.0"/>
+        </dxl:Opfamilies>
+      </dxl:GPDBScalarOp>
       <dxl:Type Mdid="0.1034.1.0" Name="_aclitem" IsRedistributable="true" IsHashable="false" IsMergeJoinable="false" IsComposite="false" IsFixedLength="false" Length="-1" PassByValue="false">
         <dxl:EqualityOp Mdid="0.1070.1.0"/>
         <dxl:InequalityOp Mdid="0.1071.1.0"/>
@@ -773,8 +785,11 @@ AND
             <dxl:Ident ColId="19" ColName="oid" TypeMdid="0.26.1.0"/>
             <dxl:Ident ColId="44" ColName="oid" TypeMdid="0.26.1.0"/>
           </dxl:Comparison>
-          <dxl:SubqueryAny OperatorName="=" OperatorMdid="0.93.1.0" ColId="89">
-            <dxl:Ident ColId="1" ColName="rolname" TypeMdid="0.19.1.0"/>
+          <dxl:SubqueryAny ColId="89">
+            <dxl:Comparison ComparisonOperator="=" OperatorMdid="0.93.1.0">
+              <dxl:Ident ColId="1" ColName="rolname" TypeMdid="0.19.1.0"/>
+              <dxl:Ident ColId="89" ColName="role_name" TypeMdid="0.10689.1.0"/>
+	    </dxl:Comparison>  
             <dxl:LogicalProject>
               <dxl:ProjList>
                 <dxl:ProjElem ColId="89" Alias="role_name">

@@ -3747,7 +3747,17 @@ CTranslatorDXLToExpr::PexprScalarProjElem(const CDXLNode *pdxlnPrEl)
 	CDXLNode *child_dxlnode = (*pdxlnPrEl)[0];
 	CExpression *pexprChild = Pexpr(child_dxlnode);
 
-	CScalar *popScalar = CScalar::PopConvert(pexprChild->Pop());
+	CScalar *popScalar = nullptr;
+	if (pexprChild->Pop()->Eopid() == COperator::EopScalarSubqueryAny ||
+		pexprChild->Pop()->Eopid() == COperator::EopScalarSubqueryAll)
+	{
+		GPOS_ASSERT((*pexprChild)[1]->Pop()->Eopid() == COperator::EopScalarCmp);
+		popScalar = CScalar::PopConvert((*pexprChild)[1]->Pop());
+	}
+	else
+	{
+		popScalar = CScalar::PopConvert(pexprChild->Pop());
+	}
 
 	IMDId *mdid = popScalar->MdidType();
 	const IMDType *pmdtype = m_pmda->RetrieveType(mdid);
