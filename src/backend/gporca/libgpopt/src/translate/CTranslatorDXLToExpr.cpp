@@ -3755,7 +3755,7 @@ CTranslatorDXLToExpr::PexprScalarProjElem(const CDXLNode *pdxlnPrEl)
 		popScalar = CScalar::PopConvert((*pexprChild)[1]->Pop());
 	}
 	else
-	{
+	{u
 		popScalar = CScalar::PopConvert(pexprChild->Pop());
 	}
 
