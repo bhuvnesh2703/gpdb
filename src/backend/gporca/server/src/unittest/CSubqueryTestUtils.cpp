@@ -1543,8 +1543,8 @@ CSubqueryTestUtils::PexprProjectWithSubqueryQuantified(
 	CMDAccessor *md_accessor = COptCtxt::PoctxtFromTLS()->Pmda();
 
 	// generate a computed column
-	CScalarSubqueryQuantified *pop =
-		CScalarSubqueryQuantified::PopConvert(pexprSubqueryQuantified->Pop());
+	CExpression *pexprScalar = (*pexprSubqueryQuantified)[1];
+	CScalarCmp *pop = CScalarCmp::PopConvert(pexprScalar->Pop());
 	const IMDType *pmdtype = md_accessor->RetrieveType(pop->MdidType());
 	CColRef *pcrComputed = col_factory->PcrCreate(pmdtype, pop->TypeModifier());
 
