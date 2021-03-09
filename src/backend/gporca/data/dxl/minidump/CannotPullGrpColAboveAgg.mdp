@@ -3654,8 +3654,11 @@ The SQL along with the DDL are in TINC repo. In the aggregates directory under q
               </dxl:LogicalGroupBy>
             </dxl:LogicalProject>
           </dxl:UnionAll>
-          <dxl:SubqueryAny OperatorName="=" OperatorMdid="0.96.1.0" ColId="122">
-            <dxl:ConstValue TypeMdid="0.23.1.0" Value="10"/>
+          <dxl:SubqueryAny ColId="122">
+            <dxl:Comparison ComparisonOperator="=" OperatorMdid="0.96.1.0">
+              <dxl:ConstValue TypeMdid="0.23.1.0" Value="10"/>
+              <dxl:Ident ColId="122" ColName="?column?" TypeMdid="0.23.1.0"/>
+            </dxl:Comparison>
             <dxl:LogicalProject>
               <dxl:ProjList>
                 <dxl:ProjElem ColId="122" Alias="?column?">

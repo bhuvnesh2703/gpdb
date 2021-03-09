@@ -2847,7 +2847,16 @@ CTranslatorDXLToExpr::PexprScalarFunc(const CDXLNode *pdxlnFunc)
 		if (1 == length)
 		{
 			CExpression *pexprFirstChild = (*pdrgpexprArgs)[0];
-			COperator *popFirstChild = pexprFirstChild->Pop();
+			COperator *popFirstChild = nullptr;
+			if (pexprFirstChild->Pop()->Eopid() == COperator::EopScalarSubqueryAll ||
+				pexprFirstChild->Pop()->Eopid() == COperator::EopScalarSubqueryAny)
+			{
+				popFirstChild = (*pexprFirstChild)[1]->Pop();
+			}
+			else
+			{
+				popFirstChild = pexprFirstChild->Pop();
+			}
 			if (popFirstChild->FScalar())
 			{
 				pmdidInput = CScalar::PopConvert(popFirstChild)->MdidType();
@@ -3755,7 +3764,7 @@ CTranslatorDXLToExpr::PexprScalarProjElem(const CDXLNode *pdxlnPrEl)
 		popScalar = CScalar::PopConvert((*pexprChild)[1]->Pop());
 	}
 	else
-	{u
+	{
 		popScalar = CScalar::PopConvert(pexprChild->Pop());
 	}
 

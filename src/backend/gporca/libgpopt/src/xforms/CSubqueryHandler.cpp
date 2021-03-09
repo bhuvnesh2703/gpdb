@@ -1437,6 +1437,7 @@ CSubqueryHandler::FRemoveAnySubquery(CExpression *pexprOuter,
 	// get the logical child of subquery
 	CExpression *pexprInner = (*pexprSubquery)[0];
 	BOOL fOuterRefsUnderInner = pexprInner->HasOuterRefs();
+	GPOS_ASSERT(CScalarSubqueryAny::PopConvert(pexprSubquery->Pop())->Pcrs()->Size() == 1);
 	const CColRef *colref =
 		CScalarSubqueryAny::PopConvert(pexprSubquery->Pop())->Pcrs()->PcrFirst();
 	COperator::EOperatorId eopidSubq = pexprSubquery->Pop()->Eopid();
@@ -1817,11 +1818,12 @@ CSubqueryHandler::PexprScalarIf(CMemoryPool *mp, CColRef *pcrBool,
 		// we do this if the inner column is not nullable and if we use a well-known
 		// comparison operator
 		CExpression *pexprScalar = (*pexprSubquery)[1];
-		pexprScalar->AddRef();
+		CExpression *pexprOuterScalar = (*pexprScalar)[0];
+		pexprOuterScalar->AddRef();
 		mdid->AddRef();
 		result = GPOS_NEW(mp) CExpression(
 			mp, GPOS_NEW(mp) CScalarIf(mp, mdid),
-			CUtils::PexprIsNull(mp, pexprScalar),
+			CUtils::PexprIsNull(mp, pexprOuterScalar),
 			CUtils::PexprScalarConstBool(mp, false /*value*/, true /*is_null*/),
 			result);
 	}

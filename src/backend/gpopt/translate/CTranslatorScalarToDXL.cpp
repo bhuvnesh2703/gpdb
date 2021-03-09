@@ -1758,6 +1758,13 @@ CTranslatorScalarToDXL::CreateQuantifiedSubqueryFromSublink(
 		GPOS_RAISE(gpdxl::ExmaDXL, gpdxl::ExmiQuery2DXLUnsupportedFeature,
 				   GPOS_WSZ_LIT("Non-Scalar Subquery"));
 	}
+
+	if (m_subquery_output_col_dxlnode_array->Size() > 0)
+	{
+		m_subquery_output_col_dxlnode_array->Release();
+		m_subquery_output_col_dxlnode_array = GPOS_NEW(m_mp) CDXLNodeArray(m_mp);
+	}
+
 	CUtils::AddRefAppend(m_subquery_output_col_dxlnode_array, query_output_dxlnode_array);
 
 	ULongPtrArray *inner_colids_used_in_condition = GPOS_NEW(m_mp) ULongPtrArray(m_mp);
@@ -1768,6 +1775,12 @@ CTranslatorScalarToDXL::CreateQuantifiedSubqueryFromSublink(
 				dynamic_cast<CDXLScalarIdent *>(dxl_sc_ident->GetOperator());
 		const CDXLColRef *dxl_colref = scalar_ident->GetDXLColRef();
 		inner_colids_used_in_condition->Append(GPOS_NEW(m_mp) ULONG(dxl_colref->Id()));
+	}
+
+	if (1 != m_subquery_output_col_dxlnode_array->Size())
+	{
+		GPOS_RAISE(gpdxl::ExmaDXL, gpdxl::ExmiQuery2DXLUnsupportedFeature,
+				   GPOS_WSZ_LIT("Non-Scalar Subquery"));
 	}
 
 	CDXLNode *testexpr_dxlnode = TranslateScalarToDXL((Expr *) sublink->testexpr, var_colid_mapping);

@@ -243,8 +243,11 @@
           </dxl:ProjElem>
         </dxl:ProjList>
         <dxl:LogicalSelect>
-          <dxl:SubqueryAny OperatorName="&lt;=" OperatorMdid="0.523.1.0" ColId="2">
-            <dxl:ConstValue TypeMdid="0.23.1.0" Value="1"/>
+          <dxl:SubqueryAny ColId="2">
+            <dxl:Comparison ComparisonOperator="&lt;=" OperatorMdid="0.523.1.0">
+              <dxl:ConstValue TypeMdid="0.23.1.0" Value="1"/>
+              <dxl:Ident ColId="2" ColName="x" TypeMdid="0.23.1.0"/>
+            </dxl:Comparison>
             <dxl:LogicalGet>
               <dxl:TableDescriptor Mdid="0.509062.1.1" TableName="mrs_t1">
                 <dxl:Columns>

@@ -33,7 +33,10 @@ ULONG CSubqueryHandlerTest::m_ulSubqueryHandlerMinidumpTestCounter =
 const CHAR *rgszSubqueryHandlerMinidumpFileNames[] = {
 	"../data/dxl/minidump/SemiJoinWithWindowsFuncInSubquery.mdp",
 	"../data/dxl/minidump/CorrelatedSubqueryWithAggWindowFunc.mdp",
-	"../data/dxl/minidump/AllSubqueryWithSubqueryInScalar.mdp",
+	"../data/dxl/minidump/AllSubqueryWithSubqueryIn"
+ ""
+ ""
+ ".mdp",
 	"../data/dxl/minidump/AnySubqueryWithAllSubqueryInScalar.mdp",
 	"../data/dxl/minidump/AnySubqueryWithSubqueryInScalar.mdp"};
 
