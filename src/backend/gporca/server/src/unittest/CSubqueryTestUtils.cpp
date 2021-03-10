@@ -1040,21 +1040,32 @@ CSubqueryTestUtils::PexprSubqueryQuantified(
 
 	CColRefSet *pcrsU = GPOS_NEW(mp) CColRefSet(mp);
 	pcrsU->Include(pcrInner);
+
+	CExpression *pexprLeft = CUtils::PexprScalarIdent(mp, pcrOuter);
+	CExpression *pexprRight = CUtils::PexprScalarIdent(mp, pcrInner);
 	// return a quantified subquery expression
 	if (COperator::EopScalarSubqueryAny == op_id)
 	{
+		IMDId *mdid_op = GPOS_NEW(mp) CMDIdGPDB(GPDB_INT4_EQ_OP);
+		IMDType::ECmpType cmp_type = CUtils::ParseCmpType(mdid_op);
+		CExpression *pexprScalar = CUtils::PexprScalarCmp(mp, pexprLeft, pexprRight, cmp_type);
+		mdid_op->Release();
 		return GPOS_NEW(mp) CExpression(
 			mp,
 			GPOS_NEW(mp) CScalarSubqueryAny(
 				mp, pcrsU),
-			pexprSelect, CUtils::PexprScalarIdent(mp, pcrOuter));
+			pexprSelect, pexprScalar);
 	}
 
+	IMDId *mdid_op = GPOS_NEW(mp) CMDIdGPDB(GPDB_INT4_NEQ_OP);
+	IMDType::ECmpType cmp_type = CUtils::ParseCmpType(mdid_op);
+	CExpression *pexprScalar = CUtils::PexprScalarCmp(mp, pexprLeft, pexprRight, cmp_type);
+	mdid_op->Release();
 	return GPOS_NEW(mp) CExpression(
 		mp,
 		GPOS_NEW(mp) CScalarSubqueryAll(
 			mp, pcrsU),
-		pexprSelect, CUtils::PexprScalarIdent(mp, pcrOuter));
+		pexprSelect, pexprScalar);
 }
 
 
@@ -1785,13 +1796,20 @@ CSubqueryTestUtils::PexprSubqueryWithDisjunction(CMemoryPool *mp)
 		pcrs = pexprOuter->DeriveOutputColumns();
 		const CColRef *pcrOuter = pcrs->PcrAny();
 
+		CExpression *pexprLeft = CUtils::PexprScalarIdent(mp, pcrOuter);
+		CExpression *pexprRight = CUtils::PexprScalarIdent(mp, pcrInner);
+		IMDId *mdid_op = GPOS_NEW(mp) CMDIdGPDB(GPDB_INT4_EQ_OP);
+		IMDType::ECmpType cmp_type = CUtils::ParseCmpType(mdid_op);
+		CExpression *pexprScalar = CUtils::PexprScalarCmp(mp, pexprLeft, pexprRight, cmp_type);
+		mdid_op->Release();
+
 		CColRefSet *pcrsU = GPOS_NEW(mp) CColRefSet(mp);
 		pcrsU->Include(pcrInner);
 		CExpression *pexprSubquery = GPOS_NEW(mp) CExpression(
 			mp,
 			GPOS_NEW(mp) CScalarSubqueryAny(
 				mp, pcrsU),
-			pexprConstTableGet, CUtils::PexprScalarIdent(mp, pcrOuter));
+			pexprConstTableGet, pexprScalar);
 		pdrgpexpr->Append(pexprSubquery);
 	}
 
