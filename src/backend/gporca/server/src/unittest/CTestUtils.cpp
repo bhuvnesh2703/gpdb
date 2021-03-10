@@ -936,14 +936,22 @@ CTestUtils::PexprLogicalSubqueryWithConstTableGet(CMemoryPool *mp,
 	CExpression *pexprSubquery = nullptr;
 	CColRefSet *pcrsU = GPOS_NEW(mp) CColRefSet(mp);
 	pcrsU->Include(pcrInner);
+
+	CExpression *pexprLeft = CUtils::PexprScalarIdent(mp, pcrOuter);
+	CExpression *pexprRight = CUtils::PexprScalarIdent(mp, pcrInner);
+	IMDId *mdid_op = GPOS_NEW(mp) CMDIdGPDB(GPDB_INT4_EQ_OP);
+	IMDType::ECmpType cmp_type = CUtils::ParseCmpType(mdid_op);
+	CExpression *pexprScalar = CUtils::PexprScalarCmp(mp, pexprLeft, pexprRight, cmp_type);
+	mdid_op->Release();
 	if (COperator::EopScalarSubqueryAny == op_id)
 	{
+
 		// construct ANY subquery expression
 		pexprSubquery = GPOS_NEW(mp) CExpression(
 			mp,
 			GPOS_NEW(mp) CScalarSubqueryAny(
 				mp, pcrsU),
-			pexprConstTableGet, CUtils::PexprScalarIdent(mp, pcrOuter));
+			pexprConstTableGet, pexprScalar);
 	}
 	else
 	{
@@ -952,7 +960,7 @@ CTestUtils::PexprLogicalSubqueryWithConstTableGet(CMemoryPool *mp,
 			mp,
 			GPOS_NEW(mp) CScalarSubqueryAll(
 				mp, pcrsU),
-			pexprConstTableGet, CUtils::PexprScalarIdent(mp, pcrOuter));
+			pexprConstTableGet, pexprScalar);
 	}
 
 	return CUtils::PexprLogicalSelect(mp, pexprOuter, pexprSubquery);
@@ -3967,11 +3975,18 @@ CTestUtils::PexpSubqueryAll(CMemoryPool *mp, CExpression *pexprOuter)
 	CColRefSet *pcrsU = GPOS_NEW(mp) CColRefSet(mp);
 	pcrsU->Include(pcrInner);
 
+	CExpression *pexprLeft = CUtils::PexprScalarIdent(mp, pcrOuter);
+	CExpression *pexprRight = CUtils::PexprScalarIdent(mp, pcrInner);
+	IMDId *mdid_op = GPOS_NEW(mp) CMDIdGPDB(GPDB_INT4_EQ_OP);
+	IMDType::ECmpType cmp_type = CUtils::ParseCmpType(mdid_op);
+	CExpression *pexprScalar = CUtils::PexprScalarCmp(mp, pexprLeft, pexprRight, cmp_type);
+	mdid_op->Release();
+
 	return GPOS_NEW(mp) CExpression(
 		mp,
 		GPOS_NEW(mp) CScalarSubqueryAll(
 			mp, pcrsU),
-		pexprInner, CUtils::PexprScalarIdent(mp, pcrOuter));
+		pexprInner, pexprScalar);
 }
 
 
@@ -3997,13 +4012,20 @@ CTestUtils::PexpSubqueryAny(CMemoryPool *mp, CExpression *pexprOuter)
 	CColRefSet *pcrsInner = pexprInner->DeriveOutputColumns();
 	const CColRef *pcrInner = pcrsInner->PcrAny();
 
+	CExpression *pexprLeft = CUtils::PexprScalarIdent(mp, pcrOuter);
+	CExpression *pexprRight = CUtils::PexprScalarIdent(mp, pcrInner);
+	IMDId *mdid_op = GPOS_NEW(mp) CMDIdGPDB(GPDB_INT4_EQ_OP);
+	IMDType::ECmpType cmp_type = CUtils::ParseCmpType(mdid_op);
+	CExpression *pexprScalar = CUtils::PexprScalarCmp(mp, pexprLeft, pexprRight, cmp_type);
+	mdid_op->Release();
+
 	CColRefSet *pcrsU = GPOS_NEW(mp) CColRefSet(mp);
 	pcrsU->Include(pcrInner);
 	return GPOS_NEW(mp) CExpression(
 		mp,
 		GPOS_NEW(mp) CScalarSubqueryAny(
 			mp, pcrsU),
-		pexprInner, CUtils::PexprScalarIdent(mp, pcrOuter));
+		pexprInner, pexprScalar);
 }
 
 

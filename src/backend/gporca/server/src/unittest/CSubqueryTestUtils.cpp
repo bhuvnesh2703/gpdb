@@ -1507,6 +1507,12 @@ CSubqueryTestUtils::PexprSelectWithQuantifiedAggSubquery(
 
 	CColRef *pcrInner = pexprGb->DeriveOutputColumns()->PcrAny();
 	CColRef *pcrOuter = pexprOuter->DeriveOutputColumns()->PcrAny();
+	CExpression *pexprLeft = CUtils::PexprScalarIdent(mp, pcrOuter);
+	CExpression *pexprRight = CUtils::PexprScalarIdent(mp, pcrInner);
+	IMDId *mdid_op = GPOS_NEW(mp) CMDIdGPDB(GPDB_INT4_EQ_OP);
+	IMDType::ECmpType cmp_type = CUtils::ParseCmpType(mdid_op);
+	CExpression *pexprScalar = CUtils::PexprScalarCmp(mp, pexprLeft, pexprRight, cmp_type);
+	mdid_op->Release();
 	CExpression *pexprSubqueryQuantified = nullptr;
 	CColRefSet *pcrsU = GPOS_NEW(mp) CColRefSet(mp);
 	pcrsU->Include(pcrInner);
@@ -1516,14 +1522,14 @@ CSubqueryTestUtils::PexprSelectWithQuantifiedAggSubquery(
 			mp,
 			GPOS_NEW(mp) CScalarSubqueryAny(
 				mp, pcrsU),
-			pexprGb, CUtils::PexprScalarIdent(mp, pcrOuter));
+			pexprGb, pexprScalar);
 	}
 
 	pexprSubqueryQuantified = GPOS_NEW(mp) CExpression(
 		mp,
 		GPOS_NEW(mp) CScalarSubqueryAll(
 			mp, pcrsU),
-		pexprGb, CUtils::PexprScalarIdent(mp, pcrOuter));
+		pexprGb, pexprScalar);
 
 
 	return CUtils::PexprLogicalSelect(mp, pexprOuter, pexprSubqueryQuantified);
@@ -1737,6 +1743,13 @@ CSubqueryTestUtils::PexprSubqueryWithConstTableGet(CMemoryPool *mp,
 	CExpression *pexprSubquery = nullptr;
 	CColRefSet *pcrsU = GPOS_NEW(mp) CColRefSet(mp);
 	pcrsU->Include(pcrInner);
+
+	CExpression *pexprLeft = CUtils::PexprScalarIdent(mp, pcrOuter);
+	CExpression *pexprRight = CUtils::PexprScalarIdent(mp, pcrInner);
+	IMDId *mdid_op = GPOS_NEW(mp) CMDIdGPDB(GPDB_INT4_EQ_OP);
+	IMDType::ECmpType cmp_type = CUtils::ParseCmpType(mdid_op);
+	CExpression *pexprScalar = CUtils::PexprScalarCmp(mp, pexprLeft, pexprRight, cmp_type);
+	mdid_op->Release();
 	if (COperator::EopScalarSubqueryAny == op_id)
 	{
 		// construct ANY subquery expression
@@ -1744,7 +1757,7 @@ CSubqueryTestUtils::PexprSubqueryWithConstTableGet(CMemoryPool *mp,
 			mp,
 			GPOS_NEW(mp) CScalarSubqueryAny(
 				mp, pcrsU),
-			pexprConstTableGet, CUtils::PexprScalarIdent(mp, pcrOuter));
+			pexprConstTableGet, pexprScalar);
 	}
 	else
 	{
@@ -1753,7 +1766,7 @@ CSubqueryTestUtils::PexprSubqueryWithConstTableGet(CMemoryPool *mp,
 			mp,
 			GPOS_NEW(mp) CScalarSubqueryAll(
 				mp, pcrsU),
-			pexprConstTableGet, CUtils::PexprScalarIdent(mp, pcrOuter));
+			pexprConstTableGet, pexprScalar);
 	}
 
 	return CUtils::PexprLogicalSelect(mp, pexprOuter, pexprSubquery);
