@@ -3459,7 +3459,18 @@ CXformUtils::FHasAmbiguousType(CExpression *pexpr, CMDAccessor *md_accessor)
 	BOOL fAmbiguous = false;
 	if (pexpr->Pop()->FScalar())
 	{
-		CScalar *popScalar = CScalar::PopConvert(pexpr->Pop());
+		CScalar *popScalar = nullptr;
+		if (pexpr->Pop()->Eopid() == COperator::EopScalarSubqueryAny ||
+			pexpr->Pop()->Eopid() == COperator::EopScalarSubqueryAll)
+		{
+			popScalar = CScalar::PopConvert((*pexpr)[1]->Pop());
+		}
+		else
+		{
+			popScalar =
+				CScalar::PopConvert(pexpr->Pop());
+		}
+
 		switch (popScalar->Eopid())
 		{
 			case COperator::EopScalarAggFunc:
