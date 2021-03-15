@@ -2664,6 +2664,14 @@ CTranslatorDXLToExpr::PexprCollapseNot(const CDXLNode *pdxlnNotExpr)
 		// NOT followed by ANY/ALL<op> is translated as ALL/ANY<inverse_op>
 		CDXLScalarSubqueryQuantified *pdxlopSubqueryQuantified =
 			CDXLScalarSubqueryQuantified::Cast(pdxlnNotChild->GetOperator());
+		if (pdxlopSubqueryQuantified->GetColIds()->Size() > 1 && EdxlopScalarSubqueryAny == edxlopid)
+		{
+			// ban (a, b) NOT IN (c, d)
+			GPOS_RAISE(
+					gpopt::ExmaGPOPT, gpopt::ExmiUnsupportedPred,
+					GPOS_WSZ_LIT(
+							"with multiple columns in NOT IN clause"));
+		}
 		Edxlopid edxlopidNew = (EdxlopScalarSubqueryAny == edxlopid)
 								   ? EdxlopScalarSubqueryAll
 								   : EdxlopScalarSubqueryAny;

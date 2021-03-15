@@ -59,7 +59,7 @@ gpopt::EresExceptionInit(CMemoryPool *mp)
 
 		CMessage(CException(gpopt::ExmaGPOPT, gpopt::ExmiUnsupportedPred),
 				 CException::ExsevNotice,
-				 GPOS_WSZ_WSZLEN("Predicate %s not supported"),
+				 GPOS_WSZ_WSZLEN("Predicate %ls not supported"),
 				 1,	 // predicate type
 				 GPOS_WSZ_WSZLEN("Unsupported predicate")),
 
