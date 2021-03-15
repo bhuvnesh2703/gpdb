@@ -1775,6 +1775,13 @@ CTranslatorScalarToDXL::CreateQuantifiedSubqueryFromSublink(
 		colrefsIds->Append(GPOS_NEW(m_mp) ULONG(dxl_colref->Id()));
 	}
 
+	if (ALL_SUBLINK == sublink->subLinkType && 1 != query_output_dxlnode_array->Size())
+	{
+		// ban multiple column (a, b) =/<> ALL (c, d)
+		GPOS_RAISE(gpdxl::ExmaDXL, gpdxl::ExmiQuery2DXLUnsupportedFeature,
+				   GPOS_WSZ_LIT("Non-Scalar Subquery for ALL_SUBLINK"));
+	}
+
 	CDXLNode *testexpr_dxlnode =
 		TranslateScalarToDXL((Expr *) sublink->testexpr, var_colid_mapping,
 							 query_output_dxlnode_array);
