@@ -2468,8 +2468,6 @@ CTranslatorDXLToExpr::PexprScalarSubqueryQuantified(
 				EdxlopScalarSubqueryAll == edxlopid);
 	GPOS_ASSERT(nullptr != pexprLogicalChild);
 	GPOS_ASSERT(nullptr != pexprScalarChild);
-	// currently only scalar comparison is supported
-	GPOS_ASSERT(CUtils::FScalarCmp(pexprScalarChild));
 
 	// store the columns of the relational child used in comparison
 	// Ex: (a, b) IN (c, d) => store c and d

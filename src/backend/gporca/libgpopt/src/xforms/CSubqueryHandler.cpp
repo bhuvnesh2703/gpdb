@@ -1224,7 +1224,6 @@ CSubqueryHandler::FCreateCorrelatedApplyForQuantifiedSubquery(
 		CScalarSubqueryQuantified::PopConvert(pexprSubquery->Pop());
 	CColRefArray *subqueryColrefs = GPOS_NEW(mp) CColRefArray(mp);
 	CColRefSet *pcrsSubquery = popSubquery->Pcrs();
-	GPOS_ASSERT(pcrsSubquery->Size() == 1);
 	CColRefSetIter crsi(*pcrsSubquery);
 	while (crsi.Advance())
 	{

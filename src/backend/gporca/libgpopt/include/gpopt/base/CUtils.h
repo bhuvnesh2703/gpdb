@@ -270,7 +270,7 @@ public:
 
 	// generate a GbAgg with count(*) and sum(col) over the given expression
 	static CExpression *PexprCountStarAndSum(CMemoryPool *mp,
-											 const CColRef *colref,
+											 const CColRefSet *colrefset,
 											 CExpression *pexprLogical);
 
 	// generate a sum(col) expression

@@ -1765,12 +1765,6 @@ CTranslatorScalarToDXL::CreateQuantifiedSubqueryFromSublink(
 	CDXLNodeArray *cte_dxlnode_array = query_to_dxl_translator->GetCTEs();
 	CUtils::AddRefAppend(m_cte_producers, cte_dxlnode_array);
 
-	if (1 != query_output_dxlnode_array->Size())
-	{
-		GPOS_RAISE(gpdxl::ExmaDXL, gpdxl::ExmiQuery2DXLUnsupportedFeature,
-				   GPOS_WSZ_LIT("Non-Scalar Subquery"));
-	}
-
 	ULongPtrArray *colrefsIds = GPOS_NEW(m_mp) ULongPtrArray(m_mp);
 	for (ULONG i = 0; i < query_output_dxlnode_array->Size(); i++)
 	{
@@ -1780,8 +1774,6 @@ CTranslatorScalarToDXL::CreateQuantifiedSubqueryFromSublink(
 		const CDXLColRef *dxl_colref = scalar_ident->GetDXLColRef();
 		colrefsIds->Append(GPOS_NEW(m_mp) ULONG(dxl_colref->Id()));
 	}
-
-	GPOS_ASSERT(IsA(sublink->testexpr, OpExpr));
 
 	CDXLNode *testexpr_dxlnode =
 		TranslateScalarToDXL((Expr *) sublink->testexpr, var_colid_mapping,

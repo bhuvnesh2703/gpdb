@@ -1814,10 +1814,10 @@ CUtils::PexprCountStar(CMemoryPool *mp, CExpression *pexprLogical)
 
 // generate a GbAgg with count(*) and sum(col) over the given expression
 CExpression *
-CUtils::PexprCountStarAndSum(CMemoryPool *mp, const CColRef *colref,
+CUtils::PexprCountStarAndSum(CMemoryPool *mp, const CColRefSet *colrefset,
 							 CExpression *pexprLogical)
 {
-	GPOS_ASSERT(pexprLogical->DeriveOutputColumns()->FMember(colref));
+	GPOS_ASSERT(pexprLogical->DeriveOutputColumns()->ContainsAll(colrefset));
 
 	CColumnFactory *col_factory = COptCtxt::PoctxtFromTLS()->Pcf();
 	CMDAccessor *md_accessor = COptCtxt::PoctxtFromTLS()->Pmda();
@@ -1827,27 +1827,37 @@ CUtils::PexprCountStarAndSum(CMemoryPool *mp, const CColRef *colref,
 
 	// generate a computed column with count(*) type
 	CScalarAggFunc *popScalarAggFunc =
-		CScalarAggFunc::PopConvert(pexprCountStar->Pop());
+			CScalarAggFunc::PopConvert(pexprCountStar->Pop());
 	IMDId *mdid_type = popScalarAggFunc->MdidType();
 	INT type_modifier = popScalarAggFunc->TypeModifier();
 	const IMDType *pmdtype = md_accessor->RetrieveType(mdid_type);
 	CColRef *pcrComputed = col_factory->PcrCreate(pmdtype, type_modifier);
 	CExpression *pexprPrjElemCount =
-		PexprScalarProjectElement(mp, pcrComputed, pexprCountStar);
+			PexprScalarProjectElement(mp, pcrComputed, pexprCountStar);
 
-	// generate sum(col) expression
-	CExpression *pexprSum = PexprSum(mp, colref);
-	CScalarAggFunc *popScalarSumFunc =
-		CScalarAggFunc::PopConvert(pexprSum->Pop());
-	const IMDType *pmdtypeSum =
-		md_accessor->RetrieveType(popScalarSumFunc->MdidType());
-	CColRef *pcrSum =
-		col_factory->PcrCreate(pmdtypeSum, popScalarSumFunc->TypeModifier());
-	CExpression *pexprPrjElemSum =
-		PexprScalarProjectElement(mp, pcrSum, pexprSum);
+
+	// iterate over all the colrefs used in the in clause and generate sum(col) expression
+	CColRefSetIter crsi(*colrefset);
+	CExpressionArray *pexprCountAndSumProjections = GPOS_NEW(mp) CExpressionArray(mp);
+	pexprCountAndSumProjections->Append(pexprPrjElemCount);
+	while (crsi.Advance())
+	{
+		const CColRef *colref = crsi.Pcr();
+		CExpression *pexprSum = PexprSum(mp, colref);
+		CScalarAggFunc *popScalarSumFunc =
+				CScalarAggFunc::PopConvert(pexprSum->Pop());
+		const IMDType *pmdtypeSum =
+				md_accessor->RetrieveType(popScalarSumFunc->MdidType());
+		CColRef *pcrSum =
+				col_factory->PcrCreate(pmdtypeSum, popScalarSumFunc->TypeModifier());
+		CExpression *pexprPrjElemSum =
+				PexprScalarProjectElement(mp, pcrSum, pexprSum);
+		pexprCountAndSumProjections->Append(pexprPrjElemSum);
+	}
+
+	// create a project list with count(*), sum(col1)...sum(coln) projections
 	CExpression *pexprPrjList =
-		GPOS_NEW(mp) CExpression(mp, GPOS_NEW(mp) CScalarProjectList(mp),
-								 pexprPrjElemCount, pexprPrjElemSum);
+			GPOS_NEW(mp) CExpression(mp, GPOS_NEW(mp) CScalarProjectList(mp), pexprCountAndSumProjections);
 
 	// generate a Gb expression
 	CColRefArray *colref_array = GPOS_NEW(mp) CColRefArray(mp);
