@@ -255,6 +255,17 @@ public:
 
 	// translate a DXL datum into GPDB const expression
 	Expr *TranslateDXLDatumToScalar(CDXLDatum *datum_dxl);
+
+	Expr *TranslateDXLSubplanTestOpExpr(CDXLNode *opexpr_dxlnode,
+											CContextDXLToPlStmt *dxl_to_plstmt_ctxt,
+											CMappingColIdVar *colid_var,
+											List **param_ids);
+
+	Expr *TranslateDXLSubplanTestBoolopExpr(CDXLNode *opexpr_dxlnode,
+											CMappingColIdVar *colid_var,
+											List **param_ids,
+											BoolExprType expr_type);
+
 };
 }  // namespace gpdxl
 #endif	// !GPDXL_CTranslatorDXLToScalar_H

@@ -2906,7 +2906,15 @@ CPredicateUtils::ExprsContainsOnlyStrictComparisons(CExpressionArray *conjuncts)
 BOOL
 CPredicateUtils::FBuiltInComparisonAreVeryStrict(CMemoryPool *mp, CExpression *pexpr)
 {
-	CExpressionArray *pdrgpexpr = CPredicateUtils::PdrgpexprConjuncts(mp, pexpr);
+	CExpressionArray *pdrgpexpr = nullptr;
+	if (FAnd(pexpr))
+		pdrgpexpr = CPredicateUtils::PdrgpexprConjuncts(mp, pexpr);
+	if (FOr(pexpr))
+		pdrgpexpr = CPredicateUtils::PdrgpexprDisjuncts(mp, pexpr);
+	else
+	{
+		pdrgpexpr = CPredicateUtils::PdrgpexprConjuncts(mp, pexpr);
+	}
 
 	BOOL isVeryStrict = true;
 	for (ULONG i = 0; i < pdrgpexpr->Size(); i++)

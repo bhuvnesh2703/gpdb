@@ -25,12 +25,12 @@ extern "C" {
 }
 
 #include "gpos/base.h"
-
 #include "gpopt/base/COptCtxt.h"
 #include "gpopt/gpdbwrappers.h"
 #include "gpopt/mdcache/CMDAccessor.h"
 #include "gpopt/mdcache/CMDAccessorUtils.h"
 #include "gpopt/translate/CMappingColIdVarPlStmt.h"
+#include "gpopt/translate/CTranslatorDXLToExprUtils.h"
 #include "gpopt/translate/CTranslatorDXLToPlStmt.h"
 #include "gpopt/translate/CTranslatorDXLToScalar.h"
 #include "gpopt/translate/CTranslatorUtils.h"
@@ -886,49 +886,84 @@ CTranslatorDXLToScalar::TranslateDXLSubplanTestExprToScalar(
 														nullptr);
 	}
 
-	if (EdxlopScalarCmp != test_expr_node->GetOperator()->GetDXLOperator())
-	{
-		// test expression is expected to be a comparison
-		GPOS_RAISE(gpdxl::ExmaDXL, gpdxl::ExmiDXL2PlStmtConversion,
-				   GPOS_WSZ_LIT("Unexpected subplan test expression"));
-	}
-
-	GPOS_ASSERT(2 == test_expr_node->Arity());
 	GPOS_ASSERT(ANY_SUBLINK == slink || ALL_SUBLINK == slink);
 
-	CDXLNode *outer_child_node = (*test_expr_node)[0];
-	CDXLNode *inner_child_node = (*test_expr_node)[1];
 
-	if (EdxlopScalarIdent !=
-			inner_child_node->GetOperator()->GetDXLOperator() &&
-		!FDXLCastedId(inner_child_node))
+	if (EdxlopScalarCmp == test_expr_node->GetOperator()->GetDXLOperator())
+	{
+		GPOS_ASSERT(2 == test_expr_node->Arity());
+		return TranslateDXLSubplanTestOpExpr(test_expr_node, nullptr, colid_var, param_ids);
+	}
+	else if (CTranslatorDXLToExprUtils::FScalarBool(test_expr_node, Edxlor))
+	{
+		return TranslateDXLSubplanTestBoolopExpr(test_expr_node, colid_var, param_ids, OR_EXPR);
+	}
+	else if (CTranslatorDXLToExprUtils::FScalarBool(test_expr_node, Edxland))
+	{
+		return TranslateDXLSubplanTestBoolopExpr(test_expr_node, colid_var, param_ids, AND_EXPR);
+	}
+
+	GPOS_RAISE(gpdxl::ExmaDXL, gpdxl::ExmiDXL2PlStmtConversion,
+			   GPOS_WSZ_LIT("Unexpected subplan test expression"));
+
+	return nullptr;
+}
+
+Expr *
+CTranslatorDXLToScalar::TranslateDXLSubplanTestBoolopExpr(CDXLNode *test_expr_node,
+														  CMappingColIdVar *colid_var,
+														  List **param_ids,
+														  BoolExprType expr_type)
+{
+	CContextDXLToPlStmt *dxl_to_plstmt_ctxt =
+			(dynamic_cast<CMappingColIdVarPlStmt *>(colid_var))->GetDXLToPlStmtContext();
+
+	BoolExpr *scalar_bool_expr = MakeNode(BoolExpr);
+	scalar_bool_expr->boolop = expr_type;
+	for (ULONG ul = 0; ul < test_expr_node->Arity(); ul++)
+	{
+		Expr *opexpr = TranslateDXLSubplanTestOpExpr((*test_expr_node)[ul], dxl_to_plstmt_ctxt, colid_var, param_ids);
+		scalar_bool_expr->args = gpdb::LAppend(scalar_bool_expr->args, opexpr);
+	}
+
+	return (Expr *) scalar_bool_expr;
+}
+
+Expr *
+CTranslatorDXLToScalar::TranslateDXLSubplanTestOpExpr(CDXLNode *opexpr_dxlnode,
+														  CContextDXLToPlStmt *dxl_to_plstmt_ctxt,
+														  CMappingColIdVar *colid_var,
+														  List **param_ids)
+{
+	if (nullptr == dxl_to_plstmt_ctxt)
+		dxl_to_plstmt_ctxt = (dynamic_cast<CMappingColIdVarPlStmt *>(colid_var))->GetDXLToPlStmtContext();
+
+	CDXLNode *outer_child = (*opexpr_dxlnode)[0];
+	CDXLNode *inner_child = (*opexpr_dxlnode)[1];
+
+	if (EdxlopScalarIdent != inner_child->GetOperator()->GetDXLOperator() &&
+	!FDXLCastedId(inner_child))
 	{
 		// test expression is expected to be a comparison between an outer expression
 		// and a scalar identifier from subplan child
 		// ORCA currently only supports PARAMs on the inner side of the form id or cast(id)
 		// The outer side may be any non-param thing.
 		GPOS_RAISE(gpdxl::ExmaDXL, gpdxl::ExmiDXL2PlStmtConversion,
-				   GPOS_WSZ_LIT("Unsupported subplan test expression"));
+		   		GPOS_WSZ_LIT("Unsupported subplan test expression"));
 	}
 
-	// extract type of inner column
 	CDXLScalarComp *scalar_cmp_dxl =
-		CDXLScalarComp::Cast(test_expr_node->GetOperator());
-
+			CDXLScalarComp::Cast(opexpr_dxlnode->GetOperator());
 	// create an OpExpr for subplan test expression
 	OpExpr *op_expr = MakeNode(OpExpr);
 	op_expr->opno = CMDIdGPDB::CastMdid(scalar_cmp_dxl->MDId())->Oid();
-	const IMDScalarOp *md_scalar_op =
-		m_md_accessor->RetrieveScOp(scalar_cmp_dxl->MDId());
+	const IMDScalarOp *md_scalar_op = m_md_accessor->RetrieveScOp(scalar_cmp_dxl->MDId());
 	op_expr->opfuncid = CMDIdGPDB::CastMdid(md_scalar_op->FuncMdId())->Oid();
-	op_expr->opresulttype =
-		CMDIdGPDB::CastMdid(m_md_accessor->PtMDType<IMDTypeBool>()->MDId())
-			->Oid();
+	op_expr->opresulttype = CMDIdGPDB::CastMdid(m_md_accessor->PtMDType<IMDTypeBool>()->MDId())->Oid();
 	op_expr->opretset = false;
 
 	// translate outer expression (can be a deep scalar tree)
-	Expr *outer_arg_expr = TranslateDXLToScalar(outer_child_node, colid_var);
-
+	Expr *outer_arg_expr = TranslateDXLToScalar(outer_child, colid_var);
 	// add translated outer expression as first arg of OpExpr
 	List *args = NIL;
 	args = gpdb::LAppend(args, outer_arg_expr);
@@ -936,32 +971,21 @@ CTranslatorDXLToScalar::TranslateDXLSubplanTestExprToScalar(
 	// second arg must be an EXEC param which is replaced during query execution with subplan output
 	Param *param = MakeNode(Param);
 	param->paramkind = PARAM_EXEC;
-	CContextDXLToPlStmt *dxl_to_plstmt_ctxt =
-		(dynamic_cast<CMappingColIdVarPlStmt *>(colid_var))
-			->GetDXLToPlStmtContext();
-	CTranslatorDXLToScalar::STypeOidAndTypeModifier oidAndTypeModifier =
-		OidParamOidFromDXLIdentOrDXLCastIdent(inner_child_node);
-	param->paramid =
-		dxl_to_plstmt_ctxt->GetNextParamId(oidAndTypeModifier.oid_type);
+	CTranslatorDXLToScalar::STypeOidAndTypeModifier oidAndTypeModifier = OidParamOidFromDXLIdentOrDXLCastIdent(inner_child);
+	param->paramid = dxl_to_plstmt_ctxt->GetNextParamId(oidAndTypeModifier.oid_type);
 	param->paramtype = oidAndTypeModifier.oid_type;
 	param->paramtypmod = oidAndTypeModifier.type_modifier;
 
-	// test expression is used for non-scalar subplan,
-	// second arg of test expression must be an EXEC param referring to subplan output,
-	// we add this param to subplan param ids before translating other params
-
 	*param_ids = gpdb::LAppendInt(*param_ids, param->paramid);
 
-	if (EdxlopScalarIdent == inner_child_node->GetOperator()->GetDXLOperator())
+	if (EdxlopScalarIdent == inner_child->GetOperator()->GetDXLOperator())
 	{
 		args = gpdb::LAppend(args, param);
 	}
 	else  // we have a cast
 	{
-		CDXLScalarCast *scalar_cast =
-			CDXLScalarCast::Cast(inner_child_node->GetOperator());
-		Expr *pexprCastParam =
-			TranslateRelabelTypeOrFuncExprFromDXL(scalar_cast, (Expr *) param);
+		CDXLScalarCast *scalar_cast = CDXLScalarCast::Cast(inner_child->GetOperator());
+		Expr *pexprCastParam = TranslateRelabelTypeOrFuncExprFromDXL(scalar_cast, (Expr *) param);
 		args = gpdb::LAppend(args, pexprCastParam);
 	}
 	op_expr->args = args;

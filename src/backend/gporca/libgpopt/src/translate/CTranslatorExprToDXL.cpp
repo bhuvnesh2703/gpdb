@@ -3485,7 +3485,17 @@ CTranslatorExprToDXL::PdxlnQuantifiedSubplan(
 		pcrsUsed->Release();
 	}
 
-	CDXLNode *inner_dxlnode = PdxlnRestrictResult(pdxlnInnerChild, pcrInner);
+	CDXLNode *inner_dxlnode = nullptr;
+	if (COperator::EopPhysicalCorrelatedInLeftSemiNLJoin == op_id)
+	{
+		// support multi column clause
+		inner_dxlnode = pdxlnInnerChild;
+	}
+	else
+	{
+		inner_dxlnode = PdxlnRestrictResult(pdxlnInnerChild, pcrInner);
+	}
+
 	if (nullptr == inner_dxlnode)
 	{
 		GPOS_RAISE(
@@ -3509,6 +3519,7 @@ CTranslatorExprToDXL::PdxlnQuantifiedSubplan(
 	pdxlnSubPlan->AddChild(inner_dxlnode);
 
 	// add to hashmap
+	// TODO: Use CDXLColRefArray instead of colref as the key
 	BOOL fRes GPOS_ASSERTS_ONLY = m_phmcrdxln->Insert(
 		const_cast<CColRef *>((*pdrgpcrInner)[0]), pdxlnSubPlan);
 	GPOS_ASSERT(fRes);
