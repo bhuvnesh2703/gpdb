@@ -465,5 +465,11 @@ CColRefSet::FCovered(CColRefSetArray *pdrgpcrs, CColRefSet *pcrs)
 	return true;
 }
 
+void CColRefSet::DbgPrint()
+{
+	CMemoryPool *mp = COptCtxt::PoctxtFromTLS()->Pmp();
+	CAutoTrace at(mp);
+	this->OsPrint(at.Os());
+}
 
 // EOF
