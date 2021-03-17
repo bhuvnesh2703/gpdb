@@ -231,14 +231,25 @@ CExpressionPreprocessor::PexprSimplifyQuantifiedSubqueries(CMemoryPool *mp,
 			// quantified subquery with max card 1
 			CScalarSubqueryQuantified *popSubqQuantified =
 				CScalarSubqueryQuantified::PopConvert(pexpr->Pop());
+			if (popSubqQuantified->Pcrs()->Size() > 1)
+			{
+				// ban multi column IN clause with inner having max card 1
+				// it does not provide any benefit creating ScalarSubquery instead
+				// of ScalarSubqueryAny
+				GPOS_RAISE(
+						gpopt::ExmaGPOPT, gpopt::ExmiUnsupportedPred,
+						GPOS_WSZ_LIT(
+								"with multi column IN clause and inner side having max cardinality 1"));
+			}
+
 			const CColRef *colref = popSubqQuantified->Pcrs()->PcrFirst();
 			pexprInner->AddRef();
 			CExpression *pexprSubquery = GPOS_NEW(mp) CExpression(
-				mp,
-				GPOS_NEW(mp)
-					CScalarSubquery(mp, colref, false /*fGeneratedByExist*/,
-									true /*fGeneratedByQuantified*/),
-				pexprInner);
+					mp,
+					GPOS_NEW(mp)
+							CScalarSubquery(mp, colref, false /*fGeneratedByExist*/,
+											true /*fGeneratedByQuantified*/),
+					pexprInner);
 
 
 			CExpression *pexprScalarOuter = nullptr;
@@ -248,7 +259,7 @@ CExpressionPreprocessor::PexprSimplifyQuantifiedSubqueries(CMemoryPool *mp,
 												&pexprScalarInner, &mdid);
 			CMDAccessor *md_accessor = COptCtxt::PoctxtFromTLS()->Pmda();
 			const CWStringConst *str =
-				md_accessor->RetrieveScOp(mdid)->Mdname().GetMDName();
+					md_accessor->RetrieveScOp(mdid)->Mdname().GetMDName();
 			mdid->AddRef();
 			pexprScalarOuter->AddRef();
 
