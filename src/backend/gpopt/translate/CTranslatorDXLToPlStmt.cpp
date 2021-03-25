@@ -208,6 +208,7 @@ CTranslatorDXLToPlStmt::GetPlannedStmtFromDXL(const CDXLNode *dxlnode,
 	planned_stmt->rtable = m_dxl_to_plstmt_context->GetRTableEntriesList();
 	planned_stmt->subplans = m_dxl_to_plstmt_context->GetSubplanEntriesList();
 	planned_stmt->planTree = plan;
+	planned_stmt->rootResultRelations = ListMake1Int(1);;
 
 #if 0
 	// store partitioned table indexes in planned stmt
@@ -4075,7 +4076,8 @@ CTranslatorDXLToPlStmt::TranslateDXLDml(
 	Index index =
 		gpdb::ListLength(m_dxl_to_plstmt_context->GetRTableEntriesList()) + 1;
 
-	m_result_rel_list = gpdb::LAppendInt(m_result_rel_list, index);
+	if (!md_rel->IsPartitioned() || CMD_INSERT == m_cmd_type)
+		m_result_rel_list = gpdb::LAppendInt(m_result_rel_list, index);
 
 	CDXLTableDescr *table_descr = phy_dml_dxlop->GetDXLTableDescr();
 	RangeTblEntry *rte = TranslateDXLTblDescrToRangeTblEntry(
@@ -4094,6 +4096,14 @@ CTranslatorDXLToPlStmt::TranslateDXLDml(
 
 	Plan *child_plan = TranslateDXLOperatorToPlan(
 		child_dxlnode, &child_context, ctxt_translation_prev_siblings);
+
+	if (md_rel->IsPartitioned() && (CMD_DELETE == m_cmd_type || CMD_UPDATE == m_cmd_type))
+	{
+		for (ULONG ul = 1; ul < gpdb::ListLength(m_dxl_to_plstmt_context->GetRTableEntriesList()); ul++)
+		{
+			m_result_rel_list = gpdb::LAppendInt(m_result_rel_list, ul + 1);
+		}
+	}
 
 	CDXLTranslationContextArray *child_contexts =
 		GPOS_NEW(m_mp) CDXLTranslationContextArray(m_mp);
@@ -4153,8 +4163,8 @@ CTranslatorDXLToPlStmt::TranslateDXLDml(
 	dml->operation = m_cmd_type;
 	dml->canSetTag = true;	// FIXME
 	dml->nominalRelation = index;
-	dml->resultRelations = ListMake1Int(index);
-	dml->resultRelIndex = list_length(m_result_rel_list) - 1;
+	dml->resultRelations = m_result_rel_list;
+	dml->resultRelIndex = 0;
 	dml->rootRelation = md_rel->IsPartitioned() ? 1 : 0;
 	dml->plans = ListMake1(child_plan);
 
