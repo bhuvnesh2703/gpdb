@@ -484,6 +484,7 @@ typedef struct ResultRelInfo
 	 */
 	AttrNumber  ri_segid_attno;		/* gp_segment_id of old tuple */
 	AttrNumber	ri_action_attno;	/* is this an INSERT or DELETE ? */
+	AttrNumber  ri_tupleoid_attno;
 
 	/* list of RETURNING expressions */
 	List	   *ri_returningList;

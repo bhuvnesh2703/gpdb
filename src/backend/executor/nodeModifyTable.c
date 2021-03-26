@@ -759,6 +759,38 @@ ExecDelete(ModifyTableState *mtstate,
 			 tupleid->ip_posid,
 			 segid);
 
+
+	AttrNumber  tableoid_attno;
+	tableoid_attno = (mtstate->resultRelInfo + mtstate->mt_whichplan)->ri_tupleoid_attno;
+	bool		isNull;
+	Datum		datum;
+	Oid tableoid = InvalidOid;
+	if (AttributeNumberIsValid(tableoid_attno))
+	{
+		datum = ExecGetJunkAttribute(planSlot,
+									 tableoid_attno,
+									 &isNull);
+		/* shouldn't ever get a null result... */
+		if (isNull)
+			elog(ERROR, "tableoid is NULL");
+
+		tableoid = DatumGetObjectId(datum);
+	}
+
+	if (OidIsValid(tableoid))
+	{
+		ResultRelInfo *resultRelInfoTemp = estate->es_result_relations;
+		Relation resultRelation = heap_open(tableoid, RowExclusiveLock);
+		InitResultRelInfo(resultRelInfoTemp,
+						  resultRelation,
+						  1,
+						  NULL,
+						  estate->es_instrument);
+		ExecOpenIndices(resultRelInfoTemp, false);
+		resultRelInfo = resultRelInfoTemp;
+		estate->es_result_relation_info = resultRelInfo;
+	}
+
 	/*
 	 * get information on the (current) result relation
 	 */
@@ -2278,6 +2310,7 @@ ExecModifyTable(PlanState *pstate)
 	JunkFilter *junkfilter;
 	AttrNumber  action_attno;
 	AttrNumber  segid_attno;
+	AttrNumber  tableoid_attno;
 	TupleTableSlot *slot;
 	TupleTableSlot *planSlot;
 	ItemPointer tupleid;
@@ -2389,6 +2422,7 @@ ExecModifyTable(PlanState *pstate)
 				junkfilter = estate->es_result_relation_info->ri_junkFilter;
 				action_attno = estate->es_result_relation_info->ri_action_attno;
 				segid_attno = estate->es_result_relation_info->ri_segid_attno;
+				tableoid_attno = estate->es_result_relation_info->ri_tupleoid_attno;
 				EvalPlanQualSetPlan(&node->mt_epqstate, subplanstate->plan,
 									node->mt_arowmarks[node->mt_whichplan]);
 				/* Prepare to convert transition tuples from this child. */
@@ -3099,6 +3133,13 @@ ExecInitModifyTable(ModifyTable *node, EState *estate, int eflags)
 						resultRelInfo->ri_segid_attno = ExecFindJunkAttribute(j, "gp_segment_id");
 						if (!AttributeNumberIsValid(resultRelInfo->ri_segid_attno))
 							elog(ERROR, "could not find junk gp_segment_id column");
+
+						if (operation == CMD_DELETE)
+						{
+							resultRelInfo->ri_tupleoid_attno = ExecFindJunkAttribute(j, "tableoid");
+							if (!AttributeNumberIsValid(resultRelInfo->ri_tupleoid_attno))
+								elog(ERROR, "could not find junk gp_segment_id column");
+						}
 
 						if (operation == CMD_UPDATE && mtstate->mt_isSplitUpdates[i])
 						{
