@@ -87,7 +87,10 @@ public:
 	}
 
 	ULONG
-	GetTableOidColId() const;
+	GetTableOidColId() const
+	{
+		return m_tableoid_colid;
+	}
 
 	// deletion column ids
 	ULongPtrArray *

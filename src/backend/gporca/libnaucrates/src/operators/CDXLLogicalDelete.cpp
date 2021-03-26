@@ -147,11 +147,6 @@ CDXLLogicalDelete::AssertValid(const CDXLNode *node,
 	}
 }
 
-ULONG
-CDXLLogicalDelete::GetTableOidColId() const {
-	return m_tableoid_colid;
-}
-
 #endif	// GPOS_DEBUG
 
 
