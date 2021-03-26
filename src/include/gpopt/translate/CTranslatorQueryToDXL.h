@@ -383,6 +383,8 @@ private:
 	// table of a DML query
 	void GetCtidAndSegmentId(ULONG *ctid, ULONG *segment_id);
 
+	void GetTableOidId(ULONG *tableoidid);
+
 	// translate a grouping func expression
 	CDXLNode *TranslateGroupingFuncToDXL(
 		const Expr *expr, CBitSet *bitset,
