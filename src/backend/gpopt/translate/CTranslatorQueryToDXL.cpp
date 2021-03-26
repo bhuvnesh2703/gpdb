@@ -1146,6 +1146,18 @@ CTranslatorQueryToDXL::GetCtidAndSegmentId(ULONG *ctid, ULONG *segment_id)
 	mdid->Release();
 }
 
+void
+CTranslatorQueryToDXL::GetTableOidId(ULONG *tableoidid)
+{
+	// ctid column id
+	IMDId *mdid = CTranslatorUtils::GetSystemColType(
+			m_mp, TableOidAttributeNumber);
+	*tableoidid = CTranslatorUtils::GetColId(m_query_level, m_query->resultRelation,
+									   TableOidAttributeNumber, mdid,
+									   m_var_to_colid_map);
+	mdid->Release();
+}
+
 //---------------------------------------------------------------------------
 //	@function:
 //		CTranslatorQueryToDXL::TranslateDeleteQueryToDXL
@@ -1180,7 +1192,9 @@ CTranslatorQueryToDXL::TranslateDeleteQueryToDXL()
 
 	ULONG ctid_colid = 0;
 	ULONG segid_colid = 0;
+	ULONG tableoid_colid = 0;
 	GetCtidAndSegmentId(&ctid_colid, &segid_colid);
+	GetTableOidId(&tableoid_colid);
 
 	ULongPtrArray *delete_colid_array = GPOS_NEW(m_mp) ULongPtrArray(m_mp);
 
