@@ -759,37 +759,61 @@ ExecDelete(ModifyTableState *mtstate,
 			 tupleid->ip_posid,
 			 segid);
 
-	/*
-	 * get information on the (current) result relation
-	 */
-	// GPDB_12_MERGE_FIXME: How to do this in new partitioning implementation?
-	// Can we change the way ORCA deletion plans work?
-#if 0
-	if (estate->es_result_partitions && planGen == PLANGEN_OPTIMIZER)
+
+	AttrNumber tableoid_attno = estate->es_result_relation_info->ri_tableoid_attno;
+	if (AttributeNumberIsValid(tableoid_attno))
 	{
-		Assert(estate->es_result_partitions->part->parrelid);
+		bool isNull;
+		Datum datum = ExecGetJunkAttribute(planSlot,
+									 tableoid_attno,
+									 &isNull);
+		/* shouldn't ever get a null result... */
+		if (isNull)
+			elog(ERROR, "tableoid is NULL");
 
-#ifdef USE_ASSERT_CHECKING
-		Oid parent = estate->es_result_partitions->part->parrelid;
-#endif
+		Oid tableOid = DatumGetObjectId(datum);
+		if (!OidIsValid(tableOid))
+			elog(ERROR, "tableoid is invalid");
 
-		/* Obtain part for current tuple. */
-		resultRelInfo = slot_get_partition(planSlot, estate, true);
-		estate->es_result_relation_info = resultRelInfo;
-
-#ifdef USE_ASSERT_CHECKING
-		Oid part = RelationGetRelid(resultRelInfo->ri_RelationDesc);
-#endif
-
-		Assert(parent != part);
+		resultRelInfo = targetid_get_partition(tableOid, estate);
 	}
 	else
 	{
 		resultRelInfo = estate->es_result_relation_info;
 	}
-#else
-	resultRelInfo = estate->es_result_relation_info;
-#endif
+
+//	/*
+//	 * get information on the (current) result relation
+//	 */
+//	// GPDB_12_MERGE_FIXME: How to do this in new partitioning implementation?
+//	// Can we change the way ORCA deletion plans work?
+//#if 0
+//	if (estate->es_result_partitions && planGen == PLANGEN_OPTIMIZER)
+//	{
+//		Assert(estate->es_result_partitions->part->parrelid);
+//
+//#ifdef USE_ASSERT_CHECKING
+//		Oid parent = estate->es_result_partitions->part->parrelid;
+//#endif
+//
+//		/* Obtain part for current tuple. */
+//		resultRelInfo = slot_get_partition(planSlot, estate, true);
+//		estate->es_result_relation_info = resultRelInfo;
+//
+//#ifdef USE_ASSERT_CHECKING
+//		Oid part = RelationGetRelid(resultRelInfo->ri_RelationDesc);
+//#endif
+//
+//		Assert(parent != part);
+//	}
+//	else
+//	{
+//		resultRelInfo = estate->es_result_relation_info;
+//	}
+//#else
+//	resultRelInfo = estate->es_result_relation_info;
+//#endif
+
 	resultRelationDesc = resultRelInfo->ri_RelationDesc;
 
 	/* BEFORE ROW DELETE Triggers */
@@ -809,6 +833,7 @@ ExecDelete(ModifyTableState *mtstate,
 
 		if (!dodelete)			/* "do nothing" */
 			return NULL;
+
 	}
 
 	/* INSTEAD OF ROW DELETE Triggers */
@@ -928,11 +953,9 @@ ldelete:;
 				 *-------
 				 */
 				if (splitUpdate)
-				{
 					ereport(ERROR,
 							(errcode(ERRCODE_IN_FAILED_SQL_TRANSACTION ),
 							 errmsg("multiple updates to a row by the same query is not allowed")));
-				}
 				return NULL;
 
 			case TM_Ok:
@@ -974,7 +997,7 @@ ldelete:;
 												   inputslot);
 							if (TupIsNull(epqslot))
 								/* Tuple not passing quals anymore, exiting... */
-								return NULL;
+									return NULL;
 
 							/*
 							 * If requested, skip delete and pass back the
@@ -1006,6 +1029,7 @@ ldelete:;
 										(errcode(ERRCODE_TRIGGERED_DATA_CHANGE_VIOLATION),
 										 errmsg("tuple to be deleted was already modified by an operation triggered by the current command"),
 										 errhint("Consider using an AFTER trigger instead of a BEFORE trigger to propagate changes to other rows.")));
+
 							return NULL;
 
 						case TM_Deleted:
@@ -3099,6 +3123,13 @@ ExecInitModifyTable(ModifyTable *node, EState *estate, int eflags)
 						resultRelInfo->ri_segid_attno = ExecFindJunkAttribute(j, "gp_segment_id");
 						if (!AttributeNumberIsValid(resultRelInfo->ri_segid_attno))
 							elog(ERROR, "could not find junk gp_segment_id column");
+
+						if (operation == CMD_DELETE &&  estate->es_plannedstmt->planGen == PLANGEN_OPTIMIZER)
+						{
+							resultRelInfo->ri_tableoid_attno = ExecFindJunkAttribute(j, "tableoid");
+							if (!AttributeNumberIsValid(resultRelInfo->ri_tableoid_attno))
+								elog(ERROR, "could not find junk tableoid column");
+						}
 
 						if (operation == CMD_UPDATE && mtstate->mt_isSplitUpdates[i])
 						{

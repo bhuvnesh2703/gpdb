@@ -484,6 +484,7 @@ typedef struct ResultRelInfo
 	 */
 	AttrNumber  ri_segid_attno;		/* gp_segment_id of old tuple */
 	AttrNumber	ri_action_attno;	/* is this an INSERT or DELETE ? */
+	AttrNumber  ri_tableoid_attno;
 
 	/* list of RETURNING expressions */
 	List	   *ri_returningList;
@@ -508,6 +509,8 @@ typedef struct ResultRelInfo
 
 	/* Additional information specific to partition tuple routing */
 	struct PartitionRoutingInfo *ri_PartitionInfo;
+
+	HTAB	   *ri_partition_hash;
 
 	/* For use by copy.c when performing multi-inserts */
 	struct CopyMultiInsertBuffer *ri_CopyMultiInsertBuffer;

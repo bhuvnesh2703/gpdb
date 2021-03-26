@@ -241,6 +241,8 @@ extern Oid GetIntoRelOid(QueryDesc *queryDesc);
 
 extern Node *attrMapExpr(TupleConversionMap *map, Node *expr);
 
+extern ResultRelInfo *targetid_get_partition(Oid targetid, EState *estate);
+
 /*
  * functions in execProcnode.c
  */
@@ -656,7 +658,6 @@ extern GpExecIdentity getGpExecIdentity(QueryDesc *queryDesc,
 extern void mppExecutorFinishup(QueryDesc *queryDesc);
 extern void mppExecutorCleanup(QueryDesc *queryDesc);
 
-extern ResultRelInfo *targetid_get_partition(Oid targetid, EState *estate, bool openIndices);
 extern ResultRelInfo *slot_get_partition(TupleTableSlot *slot, EState *estate, bool openIndices);
 
 #endif							/* EXECUTOR_H  */

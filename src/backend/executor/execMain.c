@@ -2267,6 +2267,7 @@ InitResultRelInfo(ResultRelInfo *resultRelInfo,
 	resultRelInfo->ri_junkFilter = NULL;
 	resultRelInfo->ri_segid_attno = InvalidAttrNumber;
 	resultRelInfo->ri_action_attno = InvalidAttrNumber;
+	resultRelInfo->ri_tableoid_attno = InvalidAttrNumber;
 	resultRelInfo->ri_projectReturning = NULL;
 	resultRelInfo->ri_onConflictArbiterIndexes = NIL;
 	resultRelInfo->ri_onConflict = NULL;
@@ -4076,4 +4077,83 @@ AdjustReplicatedTableCounts(EState *estate)
 
 	if (containReplicatedTable)
 		estate->es_processed = estate->es_processed / numsegments;
+}
+
+typedef struct ResultPartHashEntry
+{
+	Oid			targetid; /* OID of part relation */
+	ResultRelInfo resultRelInfo;
+} ResultPartHashEntry;
+
+ResultRelInfo *
+targetid_get_partition(Oid targetid, EState *estate)
+{
+	ResultRelInfo *parentInfo = estate->es_result_relations;
+	ResultRelInfo *childInfo = estate->es_result_relations;
+	ResultPartHashEntry *entry;
+	bool		found;
+
+	if (parentInfo->ri_partition_hash == NULL)
+	{
+		HASHCTL ctl;
+
+		ctl.keysize = sizeof(Oid);
+		ctl.entrysize = sizeof(*entry);
+		ctl.hash = oid_hash;
+
+		parentInfo->ri_partition_hash =
+				hash_create("Partition Result Relation Hash",
+							10,
+							&ctl,
+							HASH_ELEM | HASH_FUNCTION);
+	}
+
+	entry = hash_search(parentInfo->ri_partition_hash,
+						&targetid,
+						HASH_ENTER,
+						&found);
+
+	childInfo = &entry->resultRelInfo;
+	if (found)
+	{
+		Assert(RelationGetRelid(childInfo->ri_RelationDesc) == targetid);
+	}
+	else
+	{
+		int			natts;
+		Relation	resultRelation;
+
+		natts = parentInfo->ri_RelationDesc->rd_att->natts; /* in base relation */
+
+		resultRelation = heap_open(targetid, RowExclusiveLock);
+		InitResultRelInfo(childInfo,
+						  resultRelation,
+						  1,
+						  NULL,
+						  estate->es_instrument);
+
+	}
+	return childInfo;
+}
+
+void
+CloseResultRelInfo(ResultRelInfo *resultRelInfo)
+{
+	/* Recurse into partitions */
+	/* Examine each hash table entry. */
+
+	if (resultRelInfo->ri_partition_hash)
+	{
+
+		HASH_SEQ_STATUS hash_seq_status;
+		ResultPartHashEntry *entry;
+
+		hash_freeze(resultRelInfo->ri_partition_hash);
+		hash_seq_init(&hash_seq_status, resultRelInfo->ri_partition_hash);
+		while ((entry = hash_seq_search(&hash_seq_status)) != NULL)
+		{
+			CloseResultRelInfo(&entry->resultRelInfo);
+		}
+		/* No need for hash_seq_term() since we iterated to end. */
+	}
 }
