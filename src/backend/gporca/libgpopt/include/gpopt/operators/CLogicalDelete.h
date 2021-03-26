@@ -43,6 +43,9 @@ private:
 	// segmentId column
 	CColRef *m_pcrSegmentId;
 
+	// segmentId column
+	CColRef *m_pcrTableoidId;
+
 public:
 	CLogicalDelete(const CLogicalDelete &) = delete;
 
@@ -50,9 +53,8 @@ public:
 	explicit CLogicalDelete(CMemoryPool *mp);
 
 	// ctor
-	CLogicalDelete(CMemoryPool *mp, CTableDescriptor *ptabdesc,
-				   CColRefArray *colref_array, CColRef *pcrCtid,
-				   CColRef *pcrSegmentId);
+	CLogicalDelete(CMemoryPool *mp, CTableDescriptor *ptabdesc, CColRefArray *colref_array, CColRef *pcrCtid,
+				   CColRef *pcrSegmentId, CColRef *pcrTableoidId);
 
 	// dtor
 	~CLogicalDelete() override;
@@ -91,6 +93,8 @@ public:
 	{
 		return m_pcrSegmentId;
 	}
+
+	CColRef *PcrTableoidId() const;
 
 	// return table's descriptor
 	CTableDescriptor *
