@@ -243,6 +243,8 @@ CLogicalDML::DeriveOutputColumns(CMemoryPool *mp,
 		GPOS_ASSERT(nullptr != m_pcrSegmentId);
 		pcrsOutput->Include(m_pcrCtid);
 		pcrsOutput->Include(m_pcrSegmentId);
+		if (EdmlDelete == m_edmlop)
+			pcrsOutput->Include(m_pcrTableOid);
 	}
 
 	pcrsOutput->Include(m_pcrAction);

@@ -86,10 +86,10 @@ CXformInsert2DML::Transform(CXformContext *pxfctxt, CXformResult *pxfres,
 
 	// create logical DML
 	CExpression *pexprAlt = CXformUtils::PexprLogicalDMLOverProject(
-		mp, pexprChild, CLogicalDML::EdmlInsert, ptabdesc, pdrgpcrSource,
-		nullptr,  //pcrCtid
-		nullptr	  //pcrSegmentId
-	);
+			mp, pexprChild, CLogicalDML::EdmlInsert, ptabdesc, pdrgpcrSource,
+			nullptr,  //pcrCtid
+			nullptr      //pcrSegmentId
+			, nullptr);
 
 	// add alternative to transformation result
 	pxfres->Add(pexprAlt);

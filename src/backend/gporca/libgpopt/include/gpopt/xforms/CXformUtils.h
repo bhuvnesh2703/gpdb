@@ -328,10 +328,10 @@ public:
 	static CExpression *PexprNullIndicator(CMemoryPool *mp, CExpression *pexpr);
 
 	// helper for creating a logical DML on top of a project
-	static CExpression *PexprLogicalDMLOverProject(
-		CMemoryPool *mp, CExpression *pexprChild,
-		CLogicalDML::EDMLOperator edmlop, CTableDescriptor *ptabdesc,
-		CColRefArray *colref_array, CColRef *pcrCtid, CColRef *pcrSegmentId);
+	static CExpression *
+	PexprLogicalDMLOverProject(CMemoryPool *mp, CExpression *pexprChild, CLogicalDML::EDMLOperator edmlop,
+							   CTableDescriptor *ptabdesc, CColRefArray *colref_array, CColRef *pcrCtid,
+							   CColRef *pcrSegmentId, CColRef *pcrTableoidId);
 
 	// check whether there are any BEFORE or AFTER triggers on the
 	// given table that match the given DML operation

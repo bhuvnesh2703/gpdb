@@ -4127,6 +4127,10 @@ CTranslatorDXLToPlStmt::TranslateDXLDml(
 		AddJunkTargetEntryForColId(&dml_target_list, &child_context,
 								   phy_dml_dxlop->GetSegmentIdColId(),
 								   "gp_segment_id");
+		if (m_cmd_type == CMD_DELETE)
+			AddJunkTargetEntryForColId(&dml_target_list, &child_context,
+								   	phy_dml_dxlop->OidColId(),
+								   	"tableoid");
 	}
 	if (m_cmd_type == CMD_UPDATE && phy_dml_dxlop->IsOidsPreserved())
 		AddJunkTargetEntryForColId(&dml_target_list, &child_context,
