@@ -1442,9 +1442,11 @@ CTranslatorDXLToExpr::PexprLogicalDelete(const CDXLNode *dxlnode)
 
 	ULONG ctid_colid = pdxlopDelete->GetCtIdColId();
 	ULONG segid_colid = pdxlopDelete->GetSegmentIdColId();
+	ULONG tableoid_colid = pdxlopDelete->GetTableOidColId();
 
 	CColRef *pcrCtid = LookupColRef(m_phmulcr, ctid_colid);
 	CColRef *pcrSegmentId = LookupColRef(m_phmulcr, segid_colid);
+	CColRef *pcrTableoidId = LookupColRef(m_phmulcr, tableoid_colid);
 
 	ULongPtrArray *pdrgpulCols = pdxlopDelete->GetDeletionColIdArray();
 	CColRefArray *colref_array =
@@ -1453,7 +1455,7 @@ CTranslatorDXLToExpr::PexprLogicalDelete(const CDXLNode *dxlnode)
 	return GPOS_NEW(m_mp) CExpression(
 		m_mp,
 		GPOS_NEW(m_mp)
-			CLogicalDelete(m_mp, ptabdesc, colref_array, pcrCtid, pcrSegmentId),
+				CLogicalDelete(m_mp, ptabdesc, colref_array, pcrCtid, pcrSegmentId, pcrTableoidId),
 		pexprChild);
 }
 
