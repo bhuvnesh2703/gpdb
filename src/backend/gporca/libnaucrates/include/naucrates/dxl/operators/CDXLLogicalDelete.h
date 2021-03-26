@@ -43,6 +43,9 @@ private:
 	// segmentId column id
 	ULONG m_segid_colid;
 
+	// tableoid column id
+	ULONG m_tableoid_colid;
+
 	// list of deletion column ids
 	ULongPtrArray *m_deletion_colid_array;
 
@@ -50,9 +53,8 @@ public:
 	CDXLLogicalDelete(const CDXLLogicalDelete &) = delete;
 
 	// ctor
-	CDXLLogicalDelete(CMemoryPool *mp, CDXLTableDescr *table_descr,
-					  ULONG ctid_colid, ULONG segid_colid,
-					  ULongPtrArray *delete_colid_array);
+	CDXLLogicalDelete(CMemoryPool *mp, CDXLTableDescr *table_descr, ULONG ctid_colid, ULONG segid_colid,
+					  ULONG tableoid_colid, ULongPtrArray *delete_colid_array);
 
 	// dtor
 	~CDXLLogicalDelete() override;
@@ -83,6 +85,9 @@ public:
 	{
 		return m_segid_colid;
 	}
+
+	ULONG
+	GetTableOidColId() const;
 
 	// deletion column ids
 	ULongPtrArray *
