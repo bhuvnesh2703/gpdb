@@ -84,14 +84,16 @@ CXformDelete2DML::Transform(CXformContext *pxfctxt, CXformResult *pxfres,
 
 	CColRef *pcrSegmentId = popDelete->PcrSegmentId();
 
+	CColRef *pcrTableoidId = popDelete->PcrTableoidId();
+
 	// child of delete operator
 	CExpression *pexprChild = (*pexpr)[0];
 	pexprChild->AddRef();
 
 	// create logical DML
 	CExpression *pexprAlt = CXformUtils::PexprLogicalDMLOverProject(
-		mp, pexprChild, CLogicalDML::EdmlDelete, ptabdesc, colref_array,
-		pcrCtid, pcrSegmentId);
+			mp, pexprChild, CLogicalDML::EdmlDelete, ptabdesc, colref_array,
+			pcrCtid, pcrSegmentId, pcrTableoidId);
 
 	// add alternative to transformation result
 	pxfres->Add(pexprAlt);

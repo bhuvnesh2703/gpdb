@@ -1318,12 +1318,9 @@ CXformUtils::PexprLogicalPartitionSelector(CMemoryPool *mp,
 //
 //---------------------------------------------------------------------------
 CExpression *
-CXformUtils::PexprLogicalDMLOverProject(CMemoryPool *mp,
-										CExpression *pexprChild,
-										CLogicalDML::EDMLOperator edmlop,
-										CTableDescriptor *ptabdesc,
-										CColRefArray *colref_array,
-										CColRef *pcrCtid, CColRef *pcrSegmentId)
+CXformUtils::PexprLogicalDMLOverProject(CMemoryPool *mp, CExpression *pexprChild, CLogicalDML::EDMLOperator edmlop,
+										CTableDescriptor *ptabdesc, CColRefArray *colref_array, CColRef *pcrCtid,
+										CColRef *pcrSegmentId, CColRef *pcrTableoidId)
 {
 	GPOS_ASSERT(CLogicalDML::EdmlInsert == edmlop ||
 				CLogicalDML::EdmlDelete == edmlop);
@@ -1359,6 +1356,10 @@ CXformUtils::PexprLogicalDMLOverProject(CMemoryPool *mp,
 	pcrAction = CUtils::PcrFromProjElem((*pexprPrL)[0]);
 	if (fGeneratePartOid) {
 		pcrOid = CUtils::PcrFromProjElem((*pexprPrL)[1]);
+	}
+	else
+	{
+		pcrOid = pcrTableoidId;
 	}
 
 	GPOS_ASSERT(nullptr != pcrAction);
