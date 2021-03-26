@@ -29,14 +29,13 @@ using namespace gpdxl;
 //		Ctor
 //
 //---------------------------------------------------------------------------
-CDXLLogicalDelete::CDXLLogicalDelete(CMemoryPool *mp,
-									 CDXLTableDescr *table_descr,
-									 ULONG ctid_colid, ULONG segid_colid,
-									 ULongPtrArray *delete_colid_array)
+CDXLLogicalDelete::CDXLLogicalDelete(CMemoryPool *mp, CDXLTableDescr *table_descr, ULONG ctid_colid, ULONG segid_colid,
+									 ULONG tableoid_colid, ULongPtrArray *delete_colid_array)
 	: CDXLLogical(mp),
 	  m_dxl_table_descr(table_descr),
 	  m_ctid_colid(ctid_colid),
 	  m_segid_colid(segid_colid),
+	  m_tableoid_colid(tableoid_colid),
 	  m_deletion_colid_array(delete_colid_array)
 {
 	GPOS_ASSERT(nullptr != table_descr);
@@ -112,6 +111,9 @@ CDXLLogicalDelete::SerializeToDXL(CXMLSerializer *xml_serializer,
 	xml_serializer->AddAttribute(
 		CDXLTokens::GetDXLTokenStr(EdxltokenGpSegmentIdColId), m_segid_colid);
 
+	xml_serializer->AddAttribute(
+			CDXLTokens::GetDXLTokenStr(EdxltokenGpTableOidColId), m_tableoid_colid);
+
 	m_dxl_table_descr->SerializeToDXL(xml_serializer);
 	node->SerializeChildrenToDXL(xml_serializer);
 
@@ -143,6 +145,11 @@ CDXLLogicalDelete::AssertValid(const CDXLNode *node,
 		child_dxlnode->GetOperator()->AssertValid(child_dxlnode,
 												  validate_children);
 	}
+}
+
+ULONG
+CDXLLogicalDelete::GetTableOidColId() const {
+	return m_tableoid_colid;
 }
 
 #endif	// GPOS_DEBUG
