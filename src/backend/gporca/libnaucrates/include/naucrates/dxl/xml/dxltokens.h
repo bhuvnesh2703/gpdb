@@ -355,6 +355,7 @@ enum Edxltoken
 	EdxltokenOidColId,
 	EdxltokenCtidColId,
 	EdxltokenGpSegmentIdColId,
+	EdxltokenGpTableOidColId,
 	EdxltokenTupleOidColId,
 	EdxltokenUpdatePreservesOids,
 	EdxltokenInputSorted,

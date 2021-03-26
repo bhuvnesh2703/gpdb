@@ -1214,7 +1214,7 @@ CTranslatorQueryToDXL::TranslateDeleteQueryToDXL()
 	}
 
 	CDXLLogicalDelete *delete_dxlop = GPOS_NEW(m_mp) CDXLLogicalDelete(
-		m_mp, table_descr, ctid_colid, segid_colid, delete_colid_array);
+			m_mp, table_descr, ctid_colid, segid_colid, tableoid_colid, delete_colid_array);
 
 	return GPOS_NEW(m_mp) CDXLNode(m_mp, delete_dxlop, query_dxlnode);
 }
