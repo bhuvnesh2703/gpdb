@@ -640,7 +640,6 @@ enum Edxltoken
 	EdxltokenCTEList,
 	EdxltokenLogicalCTEAnchor,
 	EdxltokenLogicalLimit,
-	EdxltokenLogicalOutput,
 	EdxltokenLogicalConstTable,
 	EdxltokenLogicalGrpBy,
 	EdxltokenLogicalSetOperation,
