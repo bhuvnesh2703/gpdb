@@ -2042,6 +2042,8 @@ fetchFromCurrentBlock(AppendOnlyFetchDesc aoFetchDesc,
 		aoFetchDesc->currentBlock.gotContents = true;
 	}
 
+	slot->tts_tableOid = aoFetchDesc->relation->rd_rel->oid;
+
 	return AppendOnlyExecutorReadBlock_FetchTuple(&aoFetchDesc->executorReadBlock,
 												  rowNum,
 												   /* nkeys */ 0,
