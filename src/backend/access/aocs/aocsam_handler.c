@@ -1784,6 +1784,7 @@ aoco_scan_bitmap_next_tuple(TableScanDesc scan,
 		if (aocs_fetch(aocoFetchDesc, &aoTid, slot))
 		{
 			/* OK to return this tuple */
+			slot->tts_tableOid = scan->rs_rd->rd_rel->oid;
 			ExecStoreVirtualTuple(slot);
 			pgstat_count_heap_fetch(aocsBitmapScan->rs_base.rs_rd);
 
