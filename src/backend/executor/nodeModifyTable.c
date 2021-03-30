@@ -2481,7 +2481,7 @@ ExecModifyTable(PlanState *pstate)
 				bool		isNull;
 
 				relkind = resultRelInfo->ri_RelationDesc->rd_rel->relkind;
-				if (relkind == RELKIND_RELATION || relkind == RELKIND_MATVIEW)
+				if (relkind == RELKIND_RELATION || relkind == RELKIND_MATVIEW || relkind == RELKIND_PARTITIONED_TABLE)
 				{
 					datum = ExecGetJunkAttribute(slot,
 												 junkfilter->jf_junkAttNo,
