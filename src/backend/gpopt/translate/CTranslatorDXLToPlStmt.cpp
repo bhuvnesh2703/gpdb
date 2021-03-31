@@ -4151,13 +4151,13 @@ CTranslatorDXLToPlStmt::TranslateDXLDml(
 	dml->nominalRelation = index;
 	dml->resultRelations = ListMake1Int(index);
 	dml->rootRelation = md_rel->IsPartitioned() ? index : 0;
-	dml->plans = ListMake1(child_plan);
+//	dml->plan = child_plan;
 
 	dml->fdwPrivLists = ListMake1(NIL);
 
 	// ORCA plans all updates as split updates
 	if (m_cmd_type == CMD_UPDATE)
-		dml->isSplitUpdates = ListMake1Int((int) true);
+		dml->isSplitUpdates = true;
 
 	plan->targetlist = NIL;
 	plan->plan_node_id = m_dxl_to_plstmt_context->GetNextPlanId();

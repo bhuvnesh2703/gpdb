@@ -389,14 +389,14 @@ shareinput_walker(SHAREINPUT_MUTATOR f, Node *node, PlannerInfo *root)
 			foreach(cell, app->appendplans)
 				shareinput_walker(f, (Node *) lfirst(cell), root);
 		}
-		else if (IsA(node, ModifyTable))
-		{
-			ListCell   *cell;
-			ModifyTable *mt = (ModifyTable *) node;
-
-			foreach(cell, mt->plans)
-				shareinput_walker(f, (Node *) lfirst(cell), root);
-		}
+//		else if (IsA(node, ModifyTable))
+//		{
+//			ListCell   *cell;
+//			ModifyTable *mt = (ModifyTable *) node;
+//
+////			foreach(cell, mt->plan)
+//			shareinput_walker(f, (Node *) mt->plan, root);
+//		}
 		else if (IsA(node, SubqueryScan))
 		{
 			SubqueryScan  *subqscan = (SubqueryScan *) node;

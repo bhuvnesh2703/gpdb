@@ -75,8 +75,8 @@ static void set_append_path_locus(PlannerInfo *root, Path *pathnode, RelOptInfo 
 					  List *pathkeys);
 static CdbPathLocus
 adjust_modifytable_subpaths(PlannerInfo *root, CmdType operation,
-							List *resultRelations, List *subpaths,
-							List *is_split_updates);
+							List *resultRelations, Path *subpath,
+							bool is_split_updates);
 
 /*****************************************************************************
  *		MISC. PATH UTILITIES
@@ -1632,7 +1632,7 @@ set_append_path_locus(PlannerInfo *root, Path *pathnode, RelOptInfo *rel,
 		{ CdbLocusType_OuterQuery, CdbLocusType_Replicated,     CdbLocusType_OuterQuery },
 		{ CdbLocusType_OuterQuery, CdbLocusType_SegmentGeneral, CdbLocusType_OuterQuery },
 		{ CdbLocusType_OuterQuery, CdbLocusType_General,        CdbLocusType_OuterQuery },
-		
+
 		/*
 		 * Similarly, if any of the children have 'entry' locus, bring all the subpaths
 		 * to the entry db.
@@ -2324,7 +2324,7 @@ create_unique_path(PlannerInfo *root, RelOptInfo *rel, Path *subpath,
  * The JOIN_DEDUP_SEMI plan will look something like this:
  *
  * postgres=# explain select * from s where exists (select 1 from r where s.a = r.b);
- *                                                   QUERY PLAN                                                   
+ *                                                   QUERY PLAN
  * ---------------------------------------------------------------------------------------------------------------
  *  Gather Motion 3:1  (slice1; segments: 3)  (cost=153.50..155.83 rows=100 width=8)
  *    ->  HashAggregate  (cost=153.50..153.83 rows=34 width=8)
@@ -5101,6 +5101,7 @@ create_lockrows_path(PlannerInfo *root, RelOptInfo *rel,
  *	  Creates a pathnode that represents performing INSERT/UPDATE/DELETE mods
  *
  * 'rel' is the parent relation associated with the result
+ * 'subpath' is a Path producing source data
  * 'operation' is the operation type
  * 'canSetTag' is true if we set the command tag/es_processed
  * 'nominalRelation' is the parent RT index for use of EXPLAIN
@@ -5108,8 +5109,8 @@ create_lockrows_path(PlannerInfo *root, RelOptInfo *rel,
  * 'partColsUpdated' is true if any partitioning columns are being updated,
  *		either from the target relation or a descendent partitioned table.
  * 'resultRelations' is an integer list of actual RT indexes of target rel(s)
- * 'subpaths' is a list of Path(s) producing source data (one per rel)
- * 'subroots' is a list of PlannerInfo structs (one per rel)
+ * 'updateColnosLists' is a list of UPDATE target column number lists
+ *		(one sublist per rel); or NIL if not an UPDATE
  * 'withCheckOptionLists' is a list of WCO lists (one per rel)
  * 'returningLists' is a list of RETURNING tlists (one per rel)
  * 'rowMarks' is a list of PlanRowMarks (non-locking only)
@@ -5118,27 +5119,27 @@ create_lockrows_path(PlannerInfo *root, RelOptInfo *rel,
  */
 ModifyTablePath *
 create_modifytable_path(PlannerInfo *root, RelOptInfo *rel,
+						Path *subpath,
 						CmdType operation, bool canSetTag,
 						Index nominalRelation, Index rootRelation,
 						bool partColsUpdated,
-						List *resultRelations, List *subpaths,
-						List *subroots,
+						List *resultRelations,
+						List *updateColnosLists,
 						List *withCheckOptionLists, List *returningLists,
-						List *is_split_updates,
+						bool is_split_update,
 						List *rowMarks, OnConflictExpr *onconflict,
 						int epqParam)
 {
 	ModifyTablePath *pathnode = makeNode(ModifyTablePath);
-	double		total_size;
-	ListCell   *lc;
 
-	Assert(list_length(resultRelations) == list_length(subpaths));
-	Assert(list_length(resultRelations) == list_length(subroots));
+	Assert(operation == CMD_UPDATE ?
+		   list_length(resultRelations) == list_length(updateColnosLists) :
+		   updateColnosLists == NIL);
 	Assert(withCheckOptionLists == NIL ||
 		   list_length(resultRelations) == list_length(withCheckOptionLists));
 	Assert(returningLists == NIL ||
 		   list_length(resultRelations) == list_length(returningLists));
-	Assert(list_length(resultRelations) == list_length(is_split_updates));
+//	Assert(list_length(resultRelations) == list_length(is_split_updates));
 
 	pathnode->path.pathtype = T_ModifyTable;
 	pathnode->path.parent = rel;
@@ -5156,15 +5157,15 @@ create_modifytable_path(PlannerInfo *root, RelOptInfo *rel,
 	 * ModifyTable path itself.
 	 */
 	if (Gp_role == GP_ROLE_DISPATCH)
-		pathnode->path.locus =
-			adjust_modifytable_subpaths(root, operation,
-										resultRelations, subpaths,
-										is_split_updates);
+//		pathnode->path.locus = subpath->locus;
+		pathnode->path.locus = adjust_modifytable_subpaths(root, operation,
+										resultRelations, subpath,
+										is_split_update);
 	else
 	{
 		/* don't allow split updates in utility mode. */
 		if (Gp_role == GP_ROLE_UTILITY && operation == CMD_UPDATE &&
-			list_member_int(is_split_updates, (int) true))
+			is_split_update)
 		{
 				ereport(ERROR,
 						(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
@@ -5175,7 +5176,7 @@ create_modifytable_path(PlannerInfo *root, RelOptInfo *rel,
 	}
 
 	/*
-	 * Compute cost & rowcount as sum of subpath costs & rowcounts.
+	 * Compute cost & rowcount as subpath cost & rowcount (if RETURNING)
 	 *
 	 * Currently, we don't charge anything extra for the actual table
 	 * modification work, nor for the WITH CHECK OPTIONS or RETURNING
@@ -5184,40 +5185,35 @@ create_modifytable_path(PlannerInfo *root, RelOptInfo *rel,
 	 * costs to change any higher-level planning choices.  But we might want
 	 * to make it look better sometime.
 	 */
-	pathnode->path.startup_cost = 0;
-	pathnode->path.total_cost = 0;
-	pathnode->path.rows = 0;
-	total_size = 0;
-	foreach(lc, subpaths)
+	pathnode->path.startup_cost = subpath->startup_cost;
+	pathnode->path.total_cost = subpath->total_cost;
+	if (returningLists != NIL)
 	{
-		Path	   *subpath = (Path *) lfirst(lc);
+		pathnode->path.rows = subpath->rows;
 
-		if (lc == list_head(subpaths))	/* first node? */
-			pathnode->path.startup_cost = subpath->startup_cost;
-		pathnode->path.total_cost += subpath->total_cost;
-		pathnode->path.rows += subpath->rows;
-		total_size += subpath->pathtarget->width * subpath->rows;
+		/*
+		 * Set width to match the subpath output.  XXX this is totally wrong:
+		 * we should return an average of the RETURNING tlist widths.  But
+		 * it's what happened historically, and improving it is a task for
+		 * another day.  (Again, it's mostly window dressing.)
+		 */
+		pathnode->path.pathtarget->width = subpath->pathtarget->width;
+	}
+	else
+	{
+		pathnode->path.rows = 0;
+		pathnode->path.pathtarget->width = 0;
 	}
 
-	/*
-	 * Set width to the average width of the subpath outputs.  XXX this is
-	 * totally wrong: we should report zero if no RETURNING, else an average
-	 * of the RETURNING tlist widths.  But it's what happened historically,
-	 * and improving it is a task for another day.
-	 */
-	if (pathnode->path.rows > 0)
-		total_size /= pathnode->path.rows;
-	pathnode->path.pathtarget->width = rint(total_size);
-
+	pathnode->subpath = subpath;
 	pathnode->operation = operation;
 	pathnode->canSetTag = canSetTag;
 	pathnode->nominalRelation = nominalRelation;
 	pathnode->rootRelation = rootRelation;
 	pathnode->partColsUpdated = partColsUpdated;
 	pathnode->resultRelations = resultRelations;
-	pathnode->is_split_updates = is_split_updates;
-	pathnode->subpaths = subpaths;
-	pathnode->subroots = subroots;
+	pathnode->is_split_update = is_split_update;
+	pathnode->updateColnosLists = updateColnosLists;
 	pathnode->withCheckOptionLists = withCheckOptionLists;
 	pathnode->returningLists = returningLists;
 	pathnode->rowMarks = rowMarks;
@@ -5239,8 +5235,8 @@ create_modifytable_path(PlannerInfo *root, RelOptInfo *rel,
  */
 static CdbPathLocus
 adjust_modifytable_subpaths(PlannerInfo *root, CmdType operation,
-							List *resultRelations, List *subpaths,
-							List *is_split_updates)
+							List *resultRelations, Path *subpath,
+							bool is_split_update)
 {
 	/*
 	 * The input plans must be distributed correctly.
@@ -5252,13 +5248,12 @@ adjust_modifytable_subpaths(PlannerInfo *root, CmdType operation,
 				all_subplans_replicated = true;
 	int			numsegments = -1;
 
-	if (operation == CMD_UPDATE)
-		lci = list_head(is_split_updates);
+//	if (operation == CMD_UPDATE)
+//		lci = list_head(is_split_updates);
 
-	forboth(lcr, resultRelations, lcp, subpaths)
+	foreach(lcr, resultRelations)
 	{
 		int			rti = lfirst_int(lcr);
-		Path	   *subpath = (Path *) lfirst(lcp);
 		RangeTblEntry *rte = rt_fetch(rti, root->parse->rtable);
 		GpPolicy   *targetPolicy;
 		GpPolicyType targetPolicyType;
@@ -5297,18 +5292,15 @@ adjust_modifytable_subpaths(PlannerInfo *root, CmdType operation,
 		}
 		else if (operation == CMD_UPDATE)
 		{
-			bool		is_split_update;
-
-			is_split_update = (bool) lfirst_int(lci);
 
 			if (is_split_update)
 				subpath = create_split_update_path(root, rti, targetPolicy, subpath);
 			else
 				subpath = create_motion_path_for_upddel(root, rti, targetPolicy, subpath);
 
-			lci = lnext(lci);
+//			lci = lnext(lci);
 		}
-		lfirst(lcp) = subpath;
+//		su = subpath;
 	}
 
 	/*

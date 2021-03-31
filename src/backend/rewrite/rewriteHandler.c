@@ -174,7 +174,7 @@ AcquireRewriteLocks(Query *parsetree,
 				 * CDB: The proper lock mode depends on whether the relation is
 				 * local or distributed, which is discovered by heap_open().
 				 * To handle this we make use of CdbOpenRelation().
-				 * 
+				 *
 				 * For update should hold ExclusiveLock, see the discussion on
 				 * https://groups.google.com/a/greenplum.org/d/msg/gpdb-dev/p-6_dNjnRMQ/OzTnb586AwAJ
 				 *
@@ -756,15 +756,17 @@ adjustJoinTreeList(Query *parsetree, bool removert, int rt_index)
  *
  * We must do items 1,2,3 before firing rewrite rules, else rewritten
  * references to NEW.foo will produce wrong or incomplete results.  Item 4
- * is not needed for rewriting, but will be needed by the planner, and we
+ * is not needed for rewriting, but it is helpful for the planner, and we
  * can do it essentially for free while handling the other items.
  *
- * Note that for an inheritable UPDATE, this processing is only done once,
- * using the parent relation as reference.  It must not do anything that
- * will not be correct when transposed to the child relation(s).  (Step 4
- * is incorrect by this light, since child relations might have different
- * column ordering, but the planner will fix things by re-sorting the tlist
- * for each child.)
+ * If values_rte is non-NULL (i.e., we are doing a multi-row INSERT using
+ * values from a VALUES RTE), we populate *unused_values_attrnos with the
+ * attribute numbers of any unused columns from the VALUES RTE.  This can
+ * happen for identity and generated columns whose targetlist entries are
+ * replaced with generated expressions (if INSERT ... OVERRIDING USER VALUE is
+ * used, or all the values to be inserted are DEFAULT).  This information is
+ * required by rewriteValuesRTE() to handle any DEFAULT items in the unused
+ * columns.  The caller must have initialized *unused_values_attrnos to NULL.
  */
 static List *
 rewriteTargetListIU(List *targetList,
@@ -1479,141 +1481,6 @@ rewriteValuesRTE(Query *parsetree, RangeTblEntry *rte, int rti,
 	return allReplaced;
 }
 
-
-/*
- * rewriteTargetListUD - rewrite UPDATE/DELETE targetlist as needed
- *
- * This function adds a "junk" TLE that is needed to allow the executor to
- * find the original row for the update or delete.  When the target relation
- * is a regular table, the junk TLE emits the ctid attribute of the original
- * row.  When the target relation is a foreign table, we let the FDW decide
- * what to add.
- *
- * We used to do this during RewriteQuery(), but now that inheritance trees
- * can contain a mix of regular and foreign tables, we must postpone it till
- * planning, after the inheritance tree has been expanded.  In that way we
- * can do the right thing for each child table.
- */
-void
-rewriteTargetListUD(Query *parsetree, RangeTblEntry *target_rte,
-					Relation target_relation)
-{
-	Var		   *var = NULL;
-	const char *attrname;
-	TargetEntry *tle;
-	Var 		*varSegid = NULL;
-
-	if (target_relation->rd_rel->relkind == RELKIND_RELATION ||
-		target_relation->rd_rel->relkind == RELKIND_MATVIEW ||
-		target_relation->rd_rel->relkind == RELKIND_PARTITIONED_TABLE)
-	{
-		/*
-		 * Emit CTID so that executor can find the row to update or delete.
-		 */
-		var = makeVar(parsetree->resultRelation,
-					  SelfItemPointerAttributeNumber,
-					  TIDOID,
-					  -1,
-					  InvalidOid,
-					  0);
-
-		attrname = "ctid";
-
-		/*
-		 * GPDB also needs gp_segment_id. ctid is only unique in the same
-		 * segment.
-		 */
-		{
-			Oid			reloid;
-			Oid			vartypeid;
-			int32		type_mod;
-			Oid			type_coll;
-
-			reloid = RelationGetRelid(target_relation);
-			get_atttypetypmodcoll(reloid, GpSegmentIdAttributeNumber, &vartypeid, &type_mod, &type_coll);
-			varSegid = makeVar(parsetree->resultRelation,
-							   GpSegmentIdAttributeNumber,
-							   vartypeid,
-							   type_mod,
-							   type_coll,
-							   0);
-		}
-	}
-	else if (target_relation->rd_rel->relkind == RELKIND_FOREIGN_TABLE)
-	{
-		/*
-		 * Let the foreign table's FDW add whatever junk TLEs it wants.
-		 */
-		FdwRoutine *fdwroutine;
-
-		fdwroutine = GetFdwRoutineForRelation(target_relation, false);
-
-		if (fdwroutine->AddForeignUpdateTargets != NULL)
-			fdwroutine->AddForeignUpdateTargets(parsetree, target_rte,
-												target_relation);
-
-		/*
-		 * If we have a row-level trigger corresponding to the operation, emit
-		 * a whole-row Var so that executor will have the "old" row to pass to
-		 * the trigger.  Alas, this misses system columns.
-		 */
-		if (target_relation->trigdesc &&
-			((parsetree->commandType == CMD_UPDATE &&
-			  (target_relation->trigdesc->trig_update_after_row ||
-			   target_relation->trigdesc->trig_update_before_row)) ||
-			 (parsetree->commandType == CMD_DELETE &&
-			  (target_relation->trigdesc->trig_delete_after_row ||
-			   target_relation->trigdesc->trig_delete_before_row))))
-		{
-			var = makeWholeRowVar(target_rte,
-								  parsetree->resultRelation,
-								  0,
-								  false);
-
-			attrname = "wholerow";
-
-			/*
-			 * GPDB also needs gp_segment_id. ctid is only unique in the same
-			 * segment.
-			 */
-			{
-				Oid			reloid;
-				Oid			vartypeid;
-				int32		type_mod;
-				Oid			type_coll;
-
-				reloid = RelationGetRelid(target_relation);
-				get_atttypetypmodcoll(reloid, GpSegmentIdAttributeNumber, &vartypeid, &type_mod, &type_coll);
-				varSegid = makeVar(parsetree->resultRelation,
-								   GpSegmentIdAttributeNumber,
-								   vartypeid,
-								   type_mod,
-								   type_coll,
-								   0);
-			}
-		}
-	}
-
-	if (var != NULL)
-	{
-		tle = makeTargetEntry((Expr *) var,
-							  list_length(parsetree->targetList) + 1,
-							  pstrdup(attrname),
-							  true);
-
-		parsetree->targetList = lappend(parsetree->targetList, tle);
-	}
-
-	if (varSegid)
-	{
-		tle = makeTargetEntry((Expr *) varSegid,
-							  list_length(parsetree->targetList) + 1,	/* resno */
-							  pstrdup("gp_segment_id"),	/* resname */
-							  true);					/* resjunk */
-
-		parsetree->targetList = lappend(parsetree->targetList, tle);
-	}
-}
 
 /*
  * Record in target_rte->extraUpdatedCols the indexes of any generated columns

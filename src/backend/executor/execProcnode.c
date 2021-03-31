@@ -1146,7 +1146,7 @@ planstate_walk_kids(PlanState *planstate,
 			{
 				ModifyTableState *mts = (ModifyTableState *) planstate;
 
-				v = planstate_walk_array(mts->mt_plans, mts->mt_nplans, walker, context, flags);
+				v = planstate_walk_array(outerPlanState(mts)->plan, mts->mt_nrels, walker, context, flags);
 				Assert(!planstate->lefttree && !planstate->righttree);
 				break;
 			}

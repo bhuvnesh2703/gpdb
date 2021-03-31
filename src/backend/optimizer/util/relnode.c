@@ -1001,8 +1001,6 @@ build_joinrel_tlist(PlannerInfo *root, RelOptInfo *joinrel,
 	foreach(vars, input_rel->reltarget->exprs)
 	{
 		Var		   *var = (Var *) lfirst(vars);
-		RelOptInfo *baserel;
-		int			ndx;
 
 		/*
 		 * Ignore PlaceHolderVars in the input tlists; we'll make our own
@@ -1020,8 +1018,24 @@ build_joinrel_tlist(PlannerInfo *root, RelOptInfo *joinrel,
 			elog(ERROR, "unexpected node type in rel targetlist: %d",
 				 (int) nodeTag(var));
 
-		/* Get the Var's original base rel */
-		baserel = find_base_rel(root, var->varno);
+		if (var->varno == ROWID_VAR)
+		{
+			/* UPDATE/DELETE row identity vars are always needed */
+			RowIdentityVarInfo *ridinfo = (RowIdentityVarInfo *)
+			list_nth(root->row_identity_vars, var->varattno - 1);
+
+			joinrel->reltarget->exprs = lappend(joinrel->reltarget->exprs,
+												var);
+			/* Vars have cost zero, so no need to adjust reltarget->cost */
+			joinrel->reltarget->width += ridinfo->rowidwidth;
+		}
+		else
+		{
+			RelOptInfo *baserel;
+			int			ndx;
+
+			/* Get the Var's original base rel */
+			baserel = find_base_rel(root, var->varno);
 
         /* System-defined attribute, whole row, or user-defined attribute */
         Assert(var->varattno >= baserel->min_attr &&
@@ -1034,7 +1048,7 @@ build_joinrel_tlist(PlannerInfo *root, RelOptInfo *joinrel,
 			/* Yup, add it to the output */
 			joinrel->reltarget->exprs = lappend(joinrel->reltarget->exprs, var);
 			/* Vars have cost zero, so no need to adjust reltarget->cost */
-			joinrel->reltarget->width += baserel->attr_widths[ndx];
+			joinrel->reltarget->width += baserel->attr_widths[ndx];}
 		}
 	}
 }

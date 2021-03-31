@@ -2169,11 +2169,14 @@ InitResultRelInfo(ResultRelInfo *resultRelInfo,
 		resultRelInfo->ri_FdwRoutine = NULL;
 
 	/* The following fields are set later if needed */
+	resultRelInfo->ri_RowIdAttNo = 0;
+	resultRelInfo->ri_projectNew = NULL;
+	resultRelInfo->ri_newTupleSlot = NULL;
+	resultRelInfo->ri_oldTupleSlot = NULL;
 	resultRelInfo->ri_FdwState = NULL;
 	resultRelInfo->ri_usesFdwDirectModify = false;
 	resultRelInfo->ri_ConstraintExprs = NULL;
 	resultRelInfo->ri_GeneratedExprs = NULL;
-	resultRelInfo->ri_junkFilter = NULL;
 	resultRelInfo->ri_segid_attno = InvalidAttrNumber;
 	resultRelInfo->ri_action_attno = InvalidAttrNumber;
 	resultRelInfo->ri_projectReturning = NULL;
@@ -3426,7 +3429,8 @@ EvalPlanQualInit(EPQState *epqstate, EState *parentestate,
 /*
  * EvalPlanQualSetPlan -- set or change subplan of an EPQState.
  *
- * We need this so that ModifyTable can deal with multiple subplans.
+ * We used to need this so that ModifyTable could deal with multiple subplans.
+ * It could now be refactored out of existence.
  */
 void
 EvalPlanQualSetPlan(EPQState *epqstate, Plan *subplan, List *auxrowmarks)
