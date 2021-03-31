@@ -2536,6 +2536,12 @@ ExecEndPlan(PlanState *planstate, EState *estate)
 			table_close(estate->es_relations[i], NoLock);
 	}
 
+	foreach(l, estate->es_marked_for_delete)
+	{
+		Relation rinfo = (Relation ) lfirst(l);
+		heap_close(rinfo, NoLock);
+	}
+
 	/* likewise close any trigger target relations */
 	ExecCleanUpTriggerState(estate);
 }
@@ -4131,6 +4137,8 @@ targetid_get_partition(Oid targetid, EState *estate)
 						  1,
 						  NULL,
 						  estate->es_instrument);
+		estate->es_marked_for_delete = lappend(estate->es_marked_for_delete, resultRelation);
+
 
 	}
 	return childInfo;
@@ -4141,7 +4149,6 @@ CloseResultRelInfo(ResultRelInfo *resultRelInfo)
 {
 	/* Recurse into partitions */
 	/* Examine each hash table entry. */
-
 	if (resultRelInfo->ri_partition_hash)
 	{
 
