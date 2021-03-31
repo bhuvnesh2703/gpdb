@@ -3768,14 +3768,15 @@ explain (costs off) update pp_arrpart set a = a where a = '{1}';
 (5 rows)
 
 explain (costs off) delete from pp_arrpart where a = '{1}';
-               QUERY PLAN               
-----------------------------------------
+                     QUERY PLAN                     
+----------------------------------------------------
  Delete on pp_arrpart
-   Delete on pp_arrpart1
-   ->  Seq Scan on pp_arrpart1
-         Filter: (a = '{1}'::integer[])
- Optimizer: Postgres query optimizer
-(5 rows)
+   ->  Result
+         ->  Append
+               ->  Seq Scan on pp_arrpart1
+                     Filter: (a = '{1}'::integer[])
+ Optimizer: Pivotal Optimizer (GPORCA)
+(6 rows)
 
 drop table pp_arrpart;
 -- array type hash partition key
@@ -3922,14 +3923,15 @@ explain (costs off) update pp_lp set value = 10 where a = 1;
 (5 rows)
 
 explain (costs off) delete from pp_lp where a = 1;
-        QUERY PLAN        
---------------------------
+              QUERY PLAN               
+---------------------------------------
  Delete on pp_lp
-   Delete on pp_lp1
-   ->  Seq Scan on pp_lp1
-         Filter: (a = 1)
- Optimizer: Postgres query optimizer
-(5 rows)
+   ->  Result
+         ->  Append
+               ->  Seq Scan on pp_lp1
+                     Filter: (a = 1)
+ Optimizer: Pivotal Optimizer (GPORCA)
+(6 rows)
 
 set enable_partition_pruning = off;
 set constraint_exclusion = 'partition'; -- this should not affect the result.
@@ -3957,17 +3959,15 @@ explain (costs off) update pp_lp set value = 10 where a = 1;
 (8 rows)
 
 explain (costs off) delete from pp_lp where a = 1;
-        QUERY PLAN        
---------------------------
+              QUERY PLAN               
+---------------------------------------
  Delete on pp_lp
-   Delete on pp_lp1
-   Delete on pp_lp2
-   ->  Seq Scan on pp_lp1
-         Filter: (a = 1)
-   ->  Seq Scan on pp_lp2
-         Filter: (a = 1)
- Optimizer: Postgres query optimizer
-(8 rows)
+   ->  Result
+         ->  Append
+               ->  Seq Scan on pp_lp1
+                     Filter: (a = 1)
+ Optimizer: Pivotal Optimizer (GPORCA)
+(6 rows)
 
 set constraint_exclusion = 'off'; -- this should not affect the result.
 explain (costs off) select * from pp_lp where a = 1;
@@ -3994,17 +3994,15 @@ explain (costs off) update pp_lp set value = 10 where a = 1;
 (8 rows)
 
 explain (costs off) delete from pp_lp where a = 1;
-        QUERY PLAN        
---------------------------
+              QUERY PLAN               
+---------------------------------------
  Delete on pp_lp
-   Delete on pp_lp1
-   Delete on pp_lp2
-   ->  Seq Scan on pp_lp1
-         Filter: (a = 1)
-   ->  Seq Scan on pp_lp2
-         Filter: (a = 1)
- Optimizer: Postgres query optimizer
-(8 rows)
+   ->  Result
+         ->  Append
+               ->  Seq Scan on pp_lp1
+                     Filter: (a = 1)
+ Optimizer: Pivotal Optimizer (GPORCA)
+(6 rows)
 
 drop table pp_lp;
 -- Ensure enable_partition_prune does not affect non-partitioned tables.

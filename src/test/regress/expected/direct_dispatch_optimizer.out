@@ -355,21 +355,18 @@ INFO:  Distributed transaction command 'Distributed Commit (one-phase)' to ALL c
 -- Known_opt_diff: MPP-21346
 delete from direct_dispatch_foo where id = (select max(id2) from direct_dispatch_bar where id1 = 5);
 INFO:  (slice 2) Dispatch command to ALL contents: 0 1 2
-INFO:  (slice 3) Dispatch command to ALL contents: 0 1 2
 INFO:  (slice 0) Dispatch command to ALL contents: 0 1 2
 INFO:  (slice 1) Dispatch command to SINGLE content
 INFO:  Distributed transaction command 'Distributed Commit (one-phase)' to ALL contents: 0 1 2
 -- Known_opt_diff: MPP-21346
 delete from direct_dispatch_foo where id * id = (select max(id2) from direct_dispatch_bar where id1 = 5) AND id = 3;
 INFO:  (slice 2) Dispatch command to ALL contents: 0 1 2
-INFO:  (slice 3) Dispatch command to ALL contents: 0 1 2
 INFO:  (slice 0) Dispatch command to ALL contents: 0 1 2
 INFO:  (slice 1) Dispatch command to SINGLE content
 INFO:  Distributed transaction command 'Distributed Commit (one-phase)' to ALL contents: 0 1 2
 -- Known_opt_diff: MPP-21346
 delete from direct_dispatch_foo where id * id = (select max(id2) from direct_dispatch_bar) AND id = 3;
 INFO:  (slice 2) Dispatch command to ALL contents: 0 1 2
-INFO:  (slice 3) Dispatch command to ALL contents: 0 1 2
 INFO:  (slice 0) Dispatch command to ALL contents: 0 1 2
 INFO:  (slice 1) Dispatch command to SINGLE content
 INFO:  Distributed transaction command 'Distributed Commit (one-phase)' to ALL contents: 0 1 2
