@@ -357,11 +357,24 @@ struct PlannerInfo
 	List	   *join_info_list; /* list of SpecialJoinInfos */
 
 	/*
+	 * all_result_relids is empty for SELECT, otherwise it contains at least
+	 * parse->resultRelation.  For UPDATE/DELETE across an inheritance or
+	 * partitioning tree, the result rel's child relids are added.  When using
+	 * multi-level partitioning, intermediate partitioned rels are included.
+	 * leaf_result_relids is similar except that only actual result tables,
+	 * not partitioned tables, are included in it.
+	 */
+	Relids		all_result_relids;	/* set of all result relids */
+	Relids		leaf_result_relids; /* set of all leaf relids */
+
+	/*
 	 * Note: for AppendRelInfos describing partitions of a partitioned table,
 	 * we guarantee that partitions that come earlier in the partitioned
 	 * table's PartitionDesc will appear earlier in append_rel_list.
 	 */
 	List	   *append_rel_list;	/* list of AppendRelInfos */
+
+	List	   *row_identity_vars;	/* list of RowIdentityVarInfos */
 
 	List	   *rowMarks;		/* list of PlanRowMarks */
 
@@ -392,14 +405,22 @@ struct PlannerInfo
 
 	/*
 	 * The fully-processed targetlist is kept here.  It differs from
-	 * parse->targetList in that (for INSERT and UPDATE) it's been reordered
-	 * to match the target table, and defaults have been filled in.  Also,
-	 * additional resjunk targets may be present.  preprocess_targetlist()
-	 * does most of this work, but note that more resjunk targets can get
-	 * added during appendrel expansion.  (Hence, upper_targets mustn't get
-	 * set up till after that.)
+	 * parse->targetList in that (for INSERT) it's been reordered to match the
+	 * target table, and defaults have been filled in.  Also, additional
+	 * resjunk targets may be present.  preprocess_targetlist() does most of
+	 * that work, but note that more resjunk targets can get added during
+	 * appendrel expansion.  (Hence, upper_targets mustn't get set up till
+	 * after that.)
 	 */
 	List	   *processed_tlist;
+
+	/*
+	 * For UPDATE, this list contains the target table's attribute numbers to
+	 * which the first N entries of processed_tlist are to be assigned.  (Any
+	 * additional entries in processed_tlist must be resjunk.)  DO NOT use the
+	 * resnos in processed_tlist to identify the UPDATE target columns.
+	 */
+	List	   *update_colnos;
 
 	/* Fields filled during create_plan() for use in setrefs.c */
 	AttrNumber *grouping_map;	/* for GroupingFunc fixup */
@@ -417,9 +438,6 @@ struct PlannerInfo
 	Index		qual_security_level;	/* minimum security_level for quals */
 	/* Note: qual_security_level is zero if there are no securityQuals */
 
-	InheritanceKind inhTargetKind;	/* indicates if the target relation is an
-									 * inheritance child or partition or a
-									 * partitioned table */
 	bool		hasJoinRTEs;	/* true if any RTEs are RTE_JOIN kind */
 	bool		hasLateralRTEs; /* true if any RTEs are marked LATERAL */
 	bool		hasHavingQual;	/* true if havingQual was non-null */
@@ -551,7 +569,7 @@ typedef struct PartitionSchemeData *PartitionScheme;
 /*
  * Fetch the Plan associated with a SubPlan node during planning.
  */
-static inline struct Plan *planner_subplan_get_plan(struct PlannerInfo *root, SubPlan *subplan) 
+static inline struct Plan *planner_subplan_get_plan(struct PlannerInfo *root, SubPlan *subplan)
 {
 	return (Plan *) list_nth(root->glob->subplans, subplan->plan_id - 1);
 }
@@ -567,7 +585,7 @@ static inline struct PlannerInfo *planner_subplan_get_root(struct PlannerInfo *r
 /*
  * Rewrite the Plan associated with a SubPlan node during planning.
  */
-static inline void planner_subplan_put_plan(struct PlannerInfo *root, SubPlan *subplan, Plan *plan) 
+static inline void planner_subplan_put_plan(struct PlannerInfo *root, SubPlan *subplan, Plan *plan)
 {
 	ListCell *cell = list_nth_cell(root->glob->subplans, subplan->plan_id-1);
 	cell->data.ptr_value = plan;
@@ -1381,8 +1399,8 @@ typedef struct Path
 	Relids		sameslice_relids;
 } Path;
 
-/* 
- * AppendOnlyPath is used for append-only table scans. 
+/*
+ * AppendOnlyPath is used for append-only table scans.
  */
 typedef struct AppendOnlyPath
 {
@@ -2162,21 +2180,21 @@ typedef struct SplitUpdatePath
  * ModifyTablePath represents performing INSERT/UPDATE/DELETE modifications
  *
  * We represent most things that will be in the ModifyTable plan node
- * literally, except we have child Path(s) not Plan(s).  But analysis of the
+ * literally, except we have a child Path not Plan.  But analysis of the
  * OnConflictExpr is deferred to createplan.c, as is collection of FDW data.
  */
 typedef struct ModifyTablePath
 {
 	Path		path;
+	Path	   *subpath;		/* Path producing source data */
 	CmdType		operation;		/* INSERT, UPDATE, or DELETE */
 	bool		canSetTag;		/* do we set the command tag/es_processed? */
 	Index		nominalRelation;	/* Parent RT index for use of EXPLAIN */
 	Index		rootRelation;	/* Root RT index, if target is partitioned */
-	bool		partColsUpdated;	/* some part key in hierarchy updated */
+	bool		partColsUpdated;	/* some part key in hierarchy updated? */
 	List	   *resultRelations;	/* integer list of RT indexes */
 	List	   *is_split_updates;
-	List	   *subpaths;		/* Path(s) producing source data */
-	List	   *subroots;		/* per-target-table PlannerInfos */
+	List	   *updateColnosLists;	/* per-target-table update_colnos lists */
 	List	   *withCheckOptionLists;	/* per-target-table WCO lists */
 	List	   *returningLists; /* per-target-table RETURNING tlists */
 	List	   *rowMarks;		/* PlanRowMarks (non-locking only) */
@@ -2638,6 +2656,34 @@ typedef struct AppendRelInfo
 } AppendRelInfo;
 
 /*
+ * Information about a row-identity "resjunk" column in UPDATE/DELETE.
+ *
+ * In partitioned UPDATE/DELETE it's important for child partitions to share
+ * row-identity columns whenever possible, so as not to chew up too many
+ * targetlist columns.  We use these structs to track which identity columns
+ * have been requested.  In the finished plan, each of these will give rise
+ * to one resjunk entry in the targetlist of the ModifyTable's subplan node.
+ *
+ * All the Vars stored in RowIdentityVarInfos must have varno ROWID_VAR, for
+ * convenience of detecting duplicate requests.  We'll replace that, in the
+ * final plan, with the varno of the generating rel.
+ *
+ * Outside this list, a Var with varno ROWID_VAR and varattno k is a reference
+ * to the k-th element of the row_identity_vars list (k counting from 1).
+ * We add such a reference to root->processed_tlist when creating the entry,
+ * and it propagates into the plan tree from there.
+ */
+typedef struct RowIdentityVarInfo
+{
+	NodeTag		type;
+
+	Var		   *rowidvar;		/* Var to be evaluated (but varno=ROWID_VAR) */
+	int32		rowidwidth;		/* estimated average width */
+	char	   *rowidname;		/* name of the resjunk column */
+	Relids		rowidrels;		/* RTE indexes of target rels using this */
+} RowIdentityVarInfo;
+
+/*
  * For each distinct placeholder expression generated during planning, we
  * store a PlaceHolderInfo node in the PlannerInfo node's placeholder_list.
  * This stores info that is needed centrally rather than in each copy of the
@@ -2765,8 +2811,8 @@ typedef struct PlannerParamItem
  * relation id to the segfile number that is should be inserting
  * into (in cases of inserting into a partitioned table the QD
  * assigns a segno for each possible partition child relation).
- * 
- * It is a node because it needs to get serialized as a part of 
+ *
+ * It is a node because it needs to get serialized as a part of
  * CopyStmt.
  */
 typedef struct SegfileMapNode

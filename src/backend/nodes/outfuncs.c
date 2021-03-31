@@ -566,7 +566,7 @@ _outModifyTable(StringInfo str, const ModifyTable *node)
 	WRITE_UINT_FIELD(rootRelation);
 	WRITE_BOOL_FIELD(partColsUpdated);
 	WRITE_NODE_FIELD(resultRelations);
-	WRITE_NODE_FIELD(plans);
+	WRITE_NODE_FIELD(updateColnosLists);
 	WRITE_NODE_FIELD(withCheckOptionLists);
 	WRITE_NODE_FIELD(returningLists);
 	WRITE_NODE_FIELD(fdwPrivLists);
@@ -2544,14 +2544,14 @@ _outModifyTablePath(StringInfo str, const ModifyTablePath *node)
 
 	_outPathInfo(str, (const Path *) node);
 
+	WRITE_NODE_FIELD(subpath);
 	WRITE_ENUM_FIELD(operation, CmdType);
 	WRITE_BOOL_FIELD(canSetTag);
 	WRITE_UINT_FIELD(nominalRelation);
 	WRITE_UINT_FIELD(rootRelation);
 	WRITE_BOOL_FIELD(partColsUpdated);
 	WRITE_NODE_FIELD(resultRelations);
-	WRITE_NODE_FIELD(subpaths);
-	WRITE_NODE_FIELD(subroots);
+	WRITE_NODE_FIELD(updateColnosLists);
 	WRITE_NODE_FIELD(withCheckOptionLists);
 	WRITE_NODE_FIELD(returningLists);
 	WRITE_NODE_FIELD(rowMarks);
@@ -2679,7 +2679,10 @@ _outPlannerInfo(StringInfo str, const PlannerInfo *node)
 	WRITE_NODE_FIELD(right_join_clauses);
 	WRITE_NODE_FIELD(full_join_clauses);
 	WRITE_NODE_FIELD(join_info_list);
+	WRITE_BITMAPSET_FIELD(all_result_relids);
+	WRITE_BITMAPSET_FIELD(leaf_result_relids);
 	WRITE_NODE_FIELD(append_rel_list);
+	WRITE_NODE_FIELD(row_identity_vars);
 	WRITE_NODE_FIELD(rowMarks);
 	WRITE_NODE_FIELD(placeholder_list);
 	WRITE_NODE_FIELD(fkey_list);
@@ -2689,12 +2692,12 @@ _outPlannerInfo(StringInfo str, const PlannerInfo *node)
 	WRITE_NODE_FIELD(distinct_pathkeys);
 	WRITE_NODE_FIELD(sort_pathkeys);
 	WRITE_NODE_FIELD(processed_tlist);
+	WRITE_NODE_FIELD(update_colnos);
 	WRITE_NODE_FIELD(minmax_aggs);
 	WRITE_FLOAT_FIELD(total_table_pages, "%.0f");
 	WRITE_FLOAT_FIELD(tuple_fraction, "%.4f");
 	WRITE_FLOAT_FIELD(limit_tuples, "%.0f");
 	WRITE_UINT_FIELD(qual_security_level);
-	WRITE_ENUM_FIELD(inhTargetKind, InheritanceKind);
 	WRITE_BOOL_FIELD(hasJoinRTEs);
 	WRITE_BOOL_FIELD(hasLateralRTEs);
 	WRITE_BOOL_FIELD(hasHavingQual);
@@ -3002,6 +3005,17 @@ _outSpecialJoinInfo(StringInfo str, const SpecialJoinInfo *node)
 	WRITE_BOOL_FIELD(semi_can_hash);
 	WRITE_NODE_FIELD(semi_operators);
 	WRITE_NODE_FIELD(semi_rhs_exprs);
+}
+
+static void
+_outRowIdentityVarInfo(StringInfo str, const RowIdentityVarInfo *node)
+{
+	WRITE_NODE_TYPE("ROWIDENTITYVARINFO");
+
+	WRITE_NODE_FIELD(rowidvar);
+	WRITE_INT_FIELD(rowidwidth);
+	WRITE_STRING_FIELD(rowidname);
+	WRITE_BITMAPSET_FIELD(rowidrels);
 }
 
 static void
@@ -5944,6 +5958,9 @@ outNode(StringInfo str, const void *obj)
 				break;
 			case T_AppendRelInfo:
 				_outAppendRelInfo(str, obj);
+				break;
+			case T_RowIdentityVarInfo:
+				_outRowIdentityVarInfo(str, obj);
 				break;
 			case T_PlaceHolderInfo:
 				_outPlaceHolderInfo(str, obj);

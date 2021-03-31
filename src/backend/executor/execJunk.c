@@ -63,8 +63,11 @@ ExecInitJunkFilter(List *targetList, TupleTableSlot *slot)
 	TupleDesc	cleanTupType;
 	int			cleanLength;
 	AttrNumber *cleanMap;
-	ListCell   *t;
-	AttrNumber	cleanResno;
+
+	/*
+	 * Compute the tuple descriptor for the cleaned tuple.
+	 */
+	cleanTupType = ExecCleanTypeFromTL(targetList);
 
 	/*
 	 * Compute the tuple descriptor for the cleaned tuple.
@@ -92,6 +95,9 @@ ExecInitJunkFilter(List *targetList, TupleTableSlot *slot)
 	cleanLength = cleanTupType->natts;
 	if (cleanLength > 0)
 	{
+		AttrNumber	cleanResno;
+		ListCell   *t;
+
 		cleanMap = (AttrNumber *) palloc(cleanLength * sizeof(AttrNumber));
 		cleanResno = 1;
 		foreach(t, targetList)
@@ -234,22 +240,6 @@ ExecFindJunkAttributeInTlist(List *targetlist, const char *attrName)
 	}
 
 	return InvalidAttrNumber;
-}
-
-/*
- * ExecGetJunkAttribute
- *
- * Given a junk filter's input tuple (slot) and a junk attribute's number
- * previously found by ExecFindJunkAttribute, extract & return the value and
- * isNull flag of the attribute.
- */
-Datum
-ExecGetJunkAttribute(TupleTableSlot *slot, AttrNumber attno,
-					 bool *isNull)
-{
-	Assert(attno > 0);
-
-	return slot_getattr(slot, attno, isNull);
 }
 
 /*

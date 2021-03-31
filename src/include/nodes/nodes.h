@@ -324,6 +324,7 @@ typedef enum NodeTag
 	T_PlaceHolderVar,
 	T_SpecialJoinInfo,
 	T_AppendRelInfo,
+	T_RowIdentityVarInfo,
 	T_PlaceHolderInfo,
 	T_MinMaxAggInfo,
 	T_SegfileMapNode,
