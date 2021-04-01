@@ -775,7 +775,7 @@ ExecDelete(ModifyTableState *mtstate,
 		if (!OidIsValid(tableOid))
 			elog(ERROR, "tableoid is invalid");
 
-		resultRelInfo = targetid_get_partition(tableOid, estate);
+		resultRelInfo = targetoid_get_partition(tableOid, estate);
 	}
 	else
 	{

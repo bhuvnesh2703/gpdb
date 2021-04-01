@@ -722,7 +722,6 @@ typedef struct EState
 
 	/* Should the executor skip past the alien plan nodes */
 	bool eliminateAliens;
-	List *es_marked_for_delete;
 } EState;
 
 struct PlanState;

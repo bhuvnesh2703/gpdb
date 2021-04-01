@@ -130,6 +130,7 @@ CTranslatorDXLToPlStmt::CTranslatorDXLToPlStmt(
 {
 	m_translator_dxl_to_scalar = GPOS_NEW(m_mp)
 		CTranslatorDXLToScalar(m_mp, m_md_accessor, m_num_of_segments);
+	m_child_result_rel_list = nullptr;
 }
 
 //---------------------------------------------------------------------------
@@ -219,7 +220,22 @@ CTranslatorDXLToPlStmt::GetPlannedStmtFromDXL(const CDXLNode *dxlnode,
 
 	planned_stmt->commandType = m_cmd_type;
 
-	planned_stmt->resultRelations = m_result_rel_list;
+
+	if (m_cmd_type == CMD_DELETE && dxlnode->GetOperator()->GetDXLOperator() == EdxlopPhysicalDML)
+	{
+		CDXLPhysicalDML *phy_dml_dxlop =
+				CDXLPhysicalDML::Cast(dxlnode->GetOperator());
+		IMDId *mdid_target_table = phy_dml_dxlop->GetDXLTableDescr()->MDId();
+		const IMDRelation *md_rel = m_md_accessor->RetrieveRel(mdid_target_table);
+		planned_stmt->rootResultRelations = md_rel->IsPartitioned()? m_child_result_rel_list: NIL;
+		planned_stmt->resultRelations = md_rel->IsPartitioned() ? m_child_result_rel_list: m_result_rel_list;
+	}
+	else
+	{
+		planned_stmt->resultRelations = m_result_rel_list;
+	}
+
+
 	// GPDB_92_MERGE_FIXME: we really *should* be handling intoClause
 	// but currently planner cheats (c.f. createas.c)
 	// shift the intoClause handling into planner and re-enable this
@@ -553,6 +569,12 @@ CTranslatorDXLToPlStmt::TranslateDXLTblScan(
 	GPOS_ASSERT(nullptr != rte);
 	rte->requiredPerms |= ACL_SELECT;
 	m_dxl_to_plstmt_context->AddRTE(rte);
+	if (rte->rellockmode == RowExclusiveLock && m_cmd_type == CMD_DELETE)
+	{
+		Index index = gpdb::ListLength(m_dxl_to_plstmt_context->GetRTableEntriesList());
+		if (index > 1)
+			m_child_result_rel_list = gpdb::LAppendInt(m_child_result_rel_list, index);
+	}
 
 	// a table scan node must have 2 children: projection list and filter
 	GPOS_ASSERT(2 == tbl_scan_dxlnode->Arity());
@@ -718,6 +740,12 @@ CTranslatorDXLToPlStmt::TranslateDXLIndexScan(
 	GPOS_ASSERT(nullptr != rte);
 	rte->requiredPerms |= ACL_SELECT;
 	m_dxl_to_plstmt_context->AddRTE(rte);
+	if (rte->rellockmode == RowExclusiveLock && m_cmd_type == CMD_DELETE)
+	{
+		Index index = gpdb::ListLength(m_dxl_to_plstmt_context->GetRTableEntriesList());
+		if (index > 1)
+			m_child_result_rel_list = gpdb::LAppendInt(m_child_result_rel_list, index);
+	}
 
 	IndexScan *index_scan = nullptr;
 	index_scan = MakeNode(IndexScan);
@@ -4081,8 +4109,7 @@ CTranslatorDXLToPlStmt::TranslateDXLDml(
 	RangeTblEntry *rte = TranslateDXLTblDescrToRangeTblEntry(
 		table_descr, index, &base_table_context);
 	GPOS_ASSERT(nullptr != rte);
-	// GPDB_12_MERGE_FIXME: Make this an parameter in TranslateDXLTblDescrToRangeTblEntry
-	rte->rellockmode = RowExclusiveLock;
+	rte->rellockmode = table_descr->LockMode();
 	rte->requiredPerms |= acl_mode;
 	m_dxl_to_plstmt_context->AddRTE(rte, true);
 
@@ -4157,8 +4184,8 @@ CTranslatorDXLToPlStmt::TranslateDXLDml(
 	dml->operation = m_cmd_type;
 	dml->canSetTag = true;	// FIXME
 	dml->nominalRelation = index;
-	dml->resultRelations = ListMake1Int(index);
-	dml->resultRelIndex = list_length(m_result_rel_list) - 1;
+	dml->resultRelations = md_rel->IsPartitioned() ? m_child_result_rel_list: ListMake1Int(index);
+	dml->resultRelIndex = index - 1 ;
 	dml->rootRelation = md_rel->IsPartitioned() ? 1 : 0;
 	dml->plans = ListMake1(child_plan);
 
@@ -4507,8 +4534,7 @@ CTranslatorDXLToPlStmt::TranslateDXLTblDescrToRangeTblEntry(
 	rte->relid = oid;
 	rte->checkAsUser = table_descr->GetExecuteAsUserId();
 	rte->requiredPerms |= ACL_NO_RIGHTS;
-	// GPDB_12_MERGE_FIXME: Make this an parameter
-	rte->rellockmode = AccessShareLock;
+	rte->rellockmode = table_descr->LockMode();
 
 	// save oid and range index in translation context
 	base_table_context->SetOID(oid);

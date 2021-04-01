@@ -2536,12 +2536,6 @@ ExecEndPlan(PlanState *planstate, EState *estate)
 			table_close(estate->es_relations[i], NoLock);
 	}
 
-	foreach(l, estate->es_marked_for_delete)
-	{
-		Relation rinfo = (Relation ) lfirst(l);
-		heap_close(rinfo, NoLock);
-	}
-
 	/* likewise close any trigger target relations */
 	ExecCleanUpTriggerState(estate);
 }
@@ -4092,14 +4086,14 @@ typedef struct ResultPartHashEntry
 } ResultPartHashEntry;
 
 ResultRelInfo *
-targetid_get_partition(Oid targetid, EState *estate)
+targetoid_get_partition(Oid targetid, EState *estate)
 {
-	ResultRelInfo *parentInfo = estate->es_result_relations;
-	ResultRelInfo *childInfo = estate->es_result_relations;
+	ResultRelInfo *rootPartitionInfo = estate->es_result_relations;
+	ResultRelInfo *childPartitionInfo = estate->es_result_relations;
 	ResultPartHashEntry *entry;
 	bool		found;
 
-	if (parentInfo->ri_partition_hash == NULL)
+	if (rootPartitionInfo->ri_partition_hash == NULL)
 	{
 		HASHCTL ctl;
 
@@ -4107,60 +4101,46 @@ targetid_get_partition(Oid targetid, EState *estate)
 		ctl.entrysize = sizeof(*entry);
 		ctl.hash = oid_hash;
 
-		parentInfo->ri_partition_hash =
+		rootPartitionInfo->ri_partition_hash =
 				hash_create("Partition Result Relation Hash",
 							10,
 							&ctl,
 							HASH_ELEM | HASH_FUNCTION);
 	}
 
-	entry = hash_search(parentInfo->ri_partition_hash,
+	entry = hash_search(rootPartitionInfo->ri_partition_hash,
 						&targetid,
 						HASH_ENTER,
 						&found);
 
-	childInfo = &entry->resultRelInfo;
+	childPartitionInfo = &entry->resultRelInfo;
 	if (found)
 	{
-		Assert(RelationGetRelid(childInfo->ri_RelationDesc) == targetid);
+		Assert(RelationGetRelid(childPartitionInfo->ri_RelationDesc) == targetid);
 	}
 	else
 	{
-		int			natts;
-		Relation	resultRelation;
+		Relation resultRelation = NULL;
+		int num_relations = estate->es_range_table_size;
+		for (int i = 0; i < num_relations; i++)
+		{
+			if (estate->es_relations[i])
+			{
+				if (estate->es_relations[i]->rd_id != targetid)
+					continue;
 
-		natts = parentInfo->ri_RelationDesc->rd_att->natts; /* in base relation */
-
-		resultRelation = heap_open(targetid, RowExclusiveLock);
-		InitResultRelInfo(childInfo,
+				resultRelation = estate->es_relations[i];
+				break;
+			}
+		}
+		Assert(resultRelation != NULL);
+		InitResultRelInfo(childPartitionInfo,
 						  resultRelation,
 						  1,
 						  NULL,
 						  estate->es_instrument);
-		estate->es_marked_for_delete = lappend(estate->es_marked_for_delete, resultRelation);
 
 
 	}
-	return childInfo;
-}
-
-void
-CloseResultRelInfo(ResultRelInfo *resultRelInfo)
-{
-	/* Recurse into partitions */
-	/* Examine each hash table entry. */
-	if (resultRelInfo->ri_partition_hash)
-	{
-
-		HASH_SEQ_STATUS hash_seq_status;
-		ResultPartHashEntry *entry;
-
-		hash_freeze(resultRelInfo->ri_partition_hash);
-		hash_seq_init(&hash_seq_status, resultRelInfo->ri_partition_hash);
-		while ((entry = hash_seq_search(&hash_seq_status)) != NULL)
-		{
-			CloseResultRelInfo(&entry->resultRelInfo);
-		}
-		/* No need for hash_seq_term() since we iterated to end. */
-	}
+	return childPartitionInfo;
 }

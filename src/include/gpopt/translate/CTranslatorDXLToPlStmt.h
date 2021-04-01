@@ -133,6 +133,8 @@ private:
 	// partition selector counter
 	ULONG m_partition_selector_counter;
 
+	List *m_child_result_rel_list;
+
 	// private copy ctor
 	CTranslatorDXLToPlStmt(const CTranslatorDXLToPlStmt &);
 
