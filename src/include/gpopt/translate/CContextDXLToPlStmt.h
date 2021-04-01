@@ -135,6 +135,8 @@ private:
 	// FXIME: this uses NEW/DELETE, should we use palloc/pfree/memory pool?
 	std::vector<List *> m_static_prune_results;
 
+	List *m_result_relations;
+
 public:
 	// ctor/dtor
 	CContextDXLToPlStmt(CMemoryPool *mp, CIdGenerator *plan_id_counter,
@@ -196,6 +198,7 @@ public:
 		return m_result_relation_index;
 	}
 
+	List *ResultRelations() const;
 
 	int *GetSubplanSliceIdArray();
 

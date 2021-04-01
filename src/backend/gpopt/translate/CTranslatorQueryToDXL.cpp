@@ -736,7 +736,7 @@ CTranslatorQueryToDXL::TranslateInsertQueryToDXL()
 		m_query->rtable, m_query->resultRelation - 1);
 
 	CDXLTableDescr *table_descr = CTranslatorUtils::GetTableDescr(
-		m_mp, m_md_accessor, m_context->m_colid_counter, rte,
+		m_mp, m_md_accessor, m_context->m_colid_counter, rte, false,
 		&m_context->m_has_distributed_tables);
 	const IMDRelation *md_rel = m_md_accessor->RetrieveRel(table_descr->MDId());
 
@@ -1183,7 +1183,7 @@ CTranslatorQueryToDXL::TranslateDeleteQueryToDXL()
 		m_query->rtable, m_query->resultRelation - 1);
 
 	CDXLTableDescr *table_descr = CTranslatorUtils::GetTableDescr(
-		m_mp, m_md_accessor, m_context->m_colid_counter, rte,
+		m_mp, m_md_accessor, m_context->m_colid_counter, rte, true,
 		&m_context->m_has_distributed_tables);
 	const IMDRelation *md_rel = m_md_accessor->RetrieveRel(table_descr->MDId());
 
@@ -1245,7 +1245,7 @@ CTranslatorQueryToDXL::TranslateUpdateQueryToDXL()
 		m_query->rtable, m_query->resultRelation - 1);
 
 	CDXLTableDescr *table_descr = CTranslatorUtils::GetTableDescr(
-		m_mp, m_md_accessor, m_context->m_colid_counter, rte,
+		m_mp, m_md_accessor, m_context->m_colid_counter, rte, false,
 		&m_context->m_has_distributed_tables);
 	const IMDRelation *md_rel = m_md_accessor->RetrieveRel(table_descr->MDId());
 
@@ -3152,7 +3152,7 @@ CTranslatorQueryToDXL::TranslateRTEToDXLLogicalGet(const RangeTblEntry *rte,
 
 	// construct table descriptor for the scan node from the range table entry
 	CDXLTableDescr *dxl_table_descr = CTranslatorUtils::GetTableDescr(
-		m_mp, m_md_accessor, m_context->m_colid_counter, rte,
+		m_mp, m_md_accessor, m_context->m_colid_counter, rte, rt_index == ULONG(m_query->resultRelation),
 		&m_context->m_has_distributed_tables);
 
 	CDXLLogicalGet *dxl_op = nullptr;

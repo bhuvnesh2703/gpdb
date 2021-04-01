@@ -50,14 +50,16 @@ private:
 	// lock mode from the parser
 	INT m_lockmode;
 
+	BOOL m_isResultRelation;
+
 	void SerializeMDId(CXMLSerializer *xml_serializer) const;
 
 public:
 	CDXLTableDescr(const CDXLTableDescr &) = delete;
 
 	// ctor/dtor
-	CDXLTableDescr(CMemoryPool *mp, IMDId *mdid, CMDName *mdname,
-				   ULONG ulExecuteAsUser, int lockmode);
+	CDXLTableDescr(CMemoryPool *mp, IMDId *mdid, CMDName *mdname, ULONG ulExecuteAsUser, int lockmode,
+				   BOOL isResultRelation);
 
 	~CDXLTableDescr() override;
 
@@ -80,6 +82,8 @@ public:
 
 	// lock mode
 	INT LockMode() const;
+
+	BOOL IsResultRelation() const;
 
 	// get the column descriptor at the given position
 	const CDXLColDescr *GetColumnDescrAt(ULONG idx) const;

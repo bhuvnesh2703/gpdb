@@ -88,15 +88,15 @@ private:
 	// lockmode from the parser
 	INT m_lockmode;
 
+	BOOL m_isResultRelation;
+
 public:
 	CTableDescriptor(const CTableDescriptor &) = delete;
 
 	// ctor
-	CTableDescriptor(CMemoryPool *, IMDId *mdid, const CName &,
-					 BOOL convert_hash_to_random,
-					 IMDRelation::Ereldistrpolicy rel_distr_policy,
-					 IMDRelation::Erelstoragetype erelstoragetype,
-					 ULONG ulExecuteAsUser, INT lockmode);
+	CTableDescriptor(CMemoryPool *, IMDId *mdid, const CName &, BOOL convert_hash_to_random,
+					 IMDRelation::Ereldistrpolicy rel_distr_policy, IMDRelation::Erelstoragetype erelstoragetype,
+					 ULONG ulExecuteAsUser, INT lockmode, BOOL isResultRelation);
 
 	// dtor
 	~CTableDescriptor() override;
@@ -143,6 +143,8 @@ public:
 	{
 		return m_lockmode;
 	}
+
+	BOOL IsResultRelation() const;
 
 	// return the position of a particular attribute (identified by attno)
 	ULONG GetAttributePosition(INT attno) const;

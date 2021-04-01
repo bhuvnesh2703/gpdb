@@ -126,11 +126,11 @@ CTranslatorDXLToPlStmt::CTranslatorDXLToPlStmt(
 	  m_is_tgt_tbl_distributed(false),
 	  m_result_rel_list(nullptr),
 	  m_num_of_segments(num_of_segments),
-	  m_partition_selector_counter(0)
+	  m_partition_selector_counter(0),
+	  m_root_result_relations(NIL)
 {
 	m_translator_dxl_to_scalar = GPOS_NEW(m_mp)
 		CTranslatorDXLToScalar(m_mp, m_md_accessor, m_num_of_segments);
-	m_child_result_rel_list = nullptr;
 }
 
 //---------------------------------------------------------------------------
@@ -234,6 +234,9 @@ CTranslatorDXLToPlStmt::GetPlannedStmtFromDXL(const CDXLNode *dxlnode,
 	{
 		planned_stmt->resultRelations = m_result_rel_list;
 	}
+
+	planned_stmt->resultRelations = m_dxl_to_plstmt_context->ResultRelations();
+	planned_stmt->rootResultRelations = md_rel->IsPartitioned()? m_child_result_rel_list: NIL;
 
 
 	// GPDB_92_MERGE_FIXME: we really *should* be handling intoClause
@@ -528,7 +531,14 @@ CTranslatorDXLToPlStmt::SetParamIds(Plan *plan)
 	plan->allParam = bitmapset;
 }
 
-
+void
+CTranslatorDXLToPlStmt::AddRTE(RangeTblEntry *rte, BOOL is_result_relation)
+{
+	if (m_cmd_type == CMD_DELETE)
+		m_dxl_to_plstmt_context->AddRTE(rte, is_result_relation);
+	else
+		m_dxl_to_plstmt_context->AddRTE(rte);
+}
 //---------------------------------------------------------------------------
 //	@function:
 //		CTranslatorDXLToPlStmt::TranslateDXLTblScan
@@ -568,13 +578,7 @@ CTranslatorDXLToPlStmt::TranslateDXLTblScan(
 		dxl_table_descr, index, &base_table_context);
 	GPOS_ASSERT(nullptr != rte);
 	rte->requiredPerms |= ACL_SELECT;
-	m_dxl_to_plstmt_context->AddRTE(rte);
-	if (rte->rellockmode == RowExclusiveLock && m_cmd_type == CMD_DELETE)
-	{
-		Index index = gpdb::ListLength(m_dxl_to_plstmt_context->GetRTableEntriesList());
-		if (index > 1)
-			m_child_result_rel_list = gpdb::LAppendInt(m_child_result_rel_list, index);
-	}
+	AddRTE(rte, dxl_table_descr->IsResultRelation());
 
 	// a table scan node must have 2 children: projection list and filter
 	GPOS_ASSERT(2 == tbl_scan_dxlnode->Arity());
@@ -739,13 +743,7 @@ CTranslatorDXLToPlStmt::TranslateDXLIndexScan(
 		&base_table_context);
 	GPOS_ASSERT(nullptr != rte);
 	rte->requiredPerms |= ACL_SELECT;
-	m_dxl_to_plstmt_context->AddRTE(rte);
-	if (rte->rellockmode == RowExclusiveLock && m_cmd_type == CMD_DELETE)
-	{
-		Index index = gpdb::ListLength(m_dxl_to_plstmt_context->GetRTableEntriesList());
-		if (index > 1)
-			m_child_result_rel_list = gpdb::LAppendInt(m_child_result_rel_list, index);
-	}
+	AddRTE(rte, dxl_table_descr->IsResultRelation());
 
 	IndexScan *index_scan = nullptr;
 	index_scan = MakeNode(IndexScan);
@@ -885,7 +883,7 @@ CTranslatorDXLToPlStmt::TranslateDXLIndexOnlyScan(
 		&base_table_context);
 	GPOS_ASSERT(nullptr != rte);
 	rte->requiredPerms |= ACL_SELECT;
-	m_dxl_to_plstmt_context->AddRTE(rte);
+	AddRTE(rte, table_desc->IsResultRelation());
 
 	IndexOnlyScan *index_scan = MakeNode(IndexOnlyScan);
 	index_scan->scan.scanrelid = index;
@@ -4111,7 +4109,10 @@ CTranslatorDXLToPlStmt::TranslateDXLDml(
 	GPOS_ASSERT(nullptr != rte);
 	rte->rellockmode = table_descr->LockMode();
 	rte->requiredPerms |= acl_mode;
-	m_dxl_to_plstmt_context->AddRTE(rte, true);
+	BOOL isResultRelation = false;
+	if (!md_rel->IsPartitioned())
+		isResultRelation = true;
+	m_dxl_to_plstmt_context->AddRTE(rte, isResultRelation);
 
 	CDXLNode *project_list_dxlnode = (*dml_dxlnode)[0];
 	CDXLNode *child_dxlnode = (*dml_dxlnode)[1];
@@ -4184,10 +4185,11 @@ CTranslatorDXLToPlStmt::TranslateDXLDml(
 	dml->operation = m_cmd_type;
 	dml->canSetTag = true;	// FIXME
 	dml->nominalRelation = index;
-	dml->resultRelations = md_rel->IsPartitioned() ? m_child_result_rel_list: ListMake1Int(index);
+	dml->resultRelations = m_dxl_to_plstmt_context->ResultRelations();
 	dml->resultRelIndex = index - 1 ;
 	dml->rootRelation = md_rel->IsPartitioned() ? 1 : 0;
 	dml->plans = ListMake1(child_plan);
+	dml->rootResultRelIndex = md_rel->IsPartitioned() ? index - 1: -1;
 
 	dml->fdwPrivLists = ListMake1(NIL);
 
@@ -5542,7 +5544,7 @@ CTranslatorDXLToPlStmt::TranslateDXLBitmapTblScan(
 	GPOS_ASSERT(nullptr != rte);
 	rte->requiredPerms |= ACL_SELECT;
 
-	m_dxl_to_plstmt_context->AddRTE(rte);
+	m_dxl_to_plstmt_context->AddRTE(rte, table_descr->IsResultRelation());
 
 	BitmapHeapScan *bitmap_tbl_scan;
 

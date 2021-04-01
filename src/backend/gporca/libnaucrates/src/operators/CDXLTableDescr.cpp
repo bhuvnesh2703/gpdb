@@ -30,13 +30,14 @@ using namespace gpdxl;
 //		Ctor
 //
 //---------------------------------------------------------------------------
-CDXLTableDescr::CDXLTableDescr(CMemoryPool *mp, IMDId *mdid, CMDName *mdname,
-							   ULONG ulExecuteAsUser, int lockmode)
+CDXLTableDescr::CDXLTableDescr(CMemoryPool *mp, IMDId *mdid, CMDName *mdname, ULONG ulExecuteAsUser, int lockmode,
+							   BOOL isResultRelation)
 	: m_mdid(mdid),
 	  m_mdname(mdname),
 	  m_dxl_column_descr_array(nullptr),
 	  m_execute_as_user_id(ulExecuteAsUser),
-	  m_lockmode(lockmode)
+	  m_lockmode(lockmode),
+	  m_isResultRelation(isResultRelation)
 {
 	GPOS_ASSERT(nullptr != m_mdname);
 	m_dxl_column_descr_array = GPOS_NEW(mp) CDXLColDescrArray(mp);
@@ -121,6 +122,12 @@ INT
 CDXLTableDescr::LockMode() const
 {
 	return m_lockmode;
+}
+
+BOOL
+CDXLTableDescr::IsResultRelation() const
+{
+	return m_isResultRelation;
 }
 
 //---------------------------------------------------------------------------
@@ -216,6 +223,12 @@ CDXLTableDescr::SerializeToDXL(CXMLSerializer *xml_serializer) const
 	{
 		xml_serializer->AddAttribute(
 			CDXLTokens::GetDXLTokenStr(EdxltokenLockMode), LockMode());
+	}
+
+	if (IsResultRelation())
+	{
+		xml_serializer->AddAttribute(
+				CDXLTokens::GetDXLTokenStr(EdxltokenIsResultRelation), IsResultRelation());
 	}
 
 	// serialize columns

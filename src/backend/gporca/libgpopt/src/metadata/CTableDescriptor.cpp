@@ -34,11 +34,10 @@ FORCE_GENERATE_DBGSTR(CTableDescriptor);
 //		Ctor
 //
 //---------------------------------------------------------------------------
-CTableDescriptor::CTableDescriptor(
-	CMemoryPool *mp, IMDId *mdid, const CName &name,
-	BOOL convert_hash_to_random, IMDRelation::Ereldistrpolicy rel_distr_policy,
-	IMDRelation::Erelstoragetype erelstoragetype, ULONG ulExecuteAsUser,
-	INT lockmode)
+CTableDescriptor::CTableDescriptor(CMemoryPool *mp, IMDId *mdid, const CName &name, BOOL convert_hash_to_random,
+								   IMDRelation::Ereldistrpolicy rel_distr_policy,
+								   IMDRelation::Erelstoragetype erelstoragetype,
+								   ULONG ulExecuteAsUser, INT lockmode, BOOL isResultRelation)
 	: m_mp(mp),
 	  m_mdid(mdid),
 	  m_name(mp, name),
@@ -51,7 +50,8 @@ CTableDescriptor::CTableDescriptor(
 	  m_pdrgpulPart(nullptr),
 	  m_pdrgpbsKeys(nullptr),
 	  m_execute_as_user_id(ulExecuteAsUser),
-	  m_lockmode(lockmode)
+	  m_lockmode(lockmode),
+	  m_isResultRelation(isResultRelation)
 {
 	GPOS_ASSERT(nullptr != mp);
 	GPOS_ASSERT(mdid->IsValid());
@@ -102,6 +102,12 @@ CTableDescriptor::ColumnCount() const
 	GPOS_ASSERT(nullptr != m_pdrgpcoldesc);
 
 	return m_pdrgpcoldesc->Size();
+}
+
+BOOL
+CTableDescriptor::IsResultRelation() const
+{
+	return m_isResultRelation;
 }
 
 //---------------------------------------------------------------------------

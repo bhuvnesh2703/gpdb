@@ -221,6 +221,7 @@ CContextDXLToPlStmt::AddRTE(RangeTblEntry *rte, BOOL is_result_relation)
 					"Only one result relation supported");
 		rte->inFromCl = false;
 		m_result_relation_index = gpdb::ListLength(m_rtable_entries_list);
+		m_result_relations = gpdb::LAppendInt(m_result_relations, m_result_relation_index);
 	}
 }
 
@@ -531,6 +532,13 @@ CContextDXLToPlStmt::SetStaticPruneResult(ULONG scanId,
 {
 	m_static_prune_results.resize(scanId);
 	m_static_prune_results[scanId - 1] = static_prune_result;
+}
+
+
+List *
+CContextDXLToPlStmt::ResultRelations() const
+{
+	return m_result_relations;
 }
 
 // EOF

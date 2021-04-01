@@ -217,12 +217,12 @@ CTestUtils::PtabdescPlainWithColNameFormat(
 		md_accessor->PtMDType<IMDTypeInt4>(CTestUtils::m_sysidDefault);
 	CWStringDynamic *str_name = GPOS_NEW(mp) CWStringDynamic(mp);
 	CTableDescriptor *ptabdesc = GPOS_NEW(mp) CTableDescriptor(
-		mp, mdid, nameTable,
-		false,	// convert_hash_to_random
-		IMDRelation::EreldistrRandom, IMDRelation::ErelstorageHeap,
-		0,	// ulExecuteAsUser
-		-1	// lockmode
-	);
+			mp, mdid, nameTable,
+			false,    // convert_hash_to_random
+			IMDRelation::EreldistrRandom, IMDRelation::ErelstorageHeap,
+			0,    // ulExecuteAsUser
+			-1    // lockmode
+			, false);
 
 	for (ULONG i = 0; i < num_cols; i++)
 	{

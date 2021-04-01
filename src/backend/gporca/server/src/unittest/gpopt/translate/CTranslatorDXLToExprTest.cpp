@@ -249,11 +249,11 @@ public:
 		const BOOL convert_hash_to_random = false;
 		const ULONG ulExecuteAsUser = 0;
 		m_ptabdesc = GPOS_NEW(mp) CTableDescriptor(
-			mp, mdid, CName(&strTableName), convert_hash_to_random,
-			CMDRelationGPDB::EreldistrMasterOnly,
-			CMDRelationGPDB::ErelstorageHeap, ulExecuteAsUser,
-			-1 /* lockmode */);
-	}
+				mp, mdid, CName(&strTableName), convert_hash_to_random,
+				CMDRelationGPDB::EreldistrMasterOnly,
+				CMDRelationGPDB::ErelstorageHeap, ulExecuteAsUser,
+				-1 /* lockmode */, false);
+	}CTableDescriptor.cpp:40
 
 	void
 	AddIntColumn(CWStringConst strColumnName, int attno, BOOL is_nullable)
