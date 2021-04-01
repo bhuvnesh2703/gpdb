@@ -4110,7 +4110,7 @@ CTranslatorDXLToPlStmt::TranslateDXLDml(
 	rte->rellockmode = table_descr->LockMode();
 	rte->requiredPerms |= acl_mode;
 	BOOL isResultRelation = false;
-	if (!md_rel->IsPartitioned())
+	if (!md_rel->IsPartitioned() || m_cmd_type != CMD_DELETE)
 		isResultRelation = true;
 	m_dxl_to_plstmt_context->AddRTE(rte, isResultRelation);
 
