@@ -3771,6 +3771,7 @@ explain (costs off) delete from pp_arrpart where a = '{1}';
                      QUERY PLAN                     
 ----------------------------------------------------
  Delete on pp_arrpart
+   Delete on pp_arrpart1
    ->  Result
          ->  Append
                ->  Seq Scan on pp_arrpart1
@@ -3926,6 +3927,7 @@ explain (costs off) delete from pp_lp where a = 1;
               QUERY PLAN               
 ---------------------------------------
  Delete on pp_lp
+   Delete on pp_lp1
    ->  Result
          ->  Append
                ->  Seq Scan on pp_lp1
@@ -3962,6 +3964,7 @@ explain (costs off) delete from pp_lp where a = 1;
               QUERY PLAN               
 ---------------------------------------
  Delete on pp_lp
+   Delete on pp_lp1
    ->  Result
          ->  Append
                ->  Seq Scan on pp_lp1
@@ -3997,6 +4000,7 @@ explain (costs off) delete from pp_lp where a = 1;
               QUERY PLAN               
 ---------------------------------------
  Delete on pp_lp
+   Delete on pp_lp1
    ->  Result
          ->  Append
                ->  Seq Scan on pp_lp1
