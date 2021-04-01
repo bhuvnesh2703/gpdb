@@ -58,7 +58,8 @@ CContextDXLToPlStmt::CContextDXLToPlStmt(
 	  m_slices_list(nullptr),
 	  m_result_relation_index(0),
 	  m_into_clause(nullptr),
-	  m_distribution_policy(nullptr)
+	  m_distribution_policy(nullptr),
+	  m_result_relations(NIL)
 {
 	m_cte_consumer_info = GPOS_NEW(m_mp) HMUlCTEConsumerInfo(m_mp);
 	m_num_partition_selectors_array = GPOS_NEW(m_mp) ULongPtrArray(m_mp);
@@ -217,8 +218,8 @@ CContextDXLToPlStmt::AddRTE(RangeTblEntry *rte, BOOL is_result_relation)
 
 	if (is_result_relation)
 	{
-		GPOS_ASSERT(0 == m_result_relation_index &&
-					"Only one result relation supported");
+//		GPOS_ASSERT(0 == m_result_relation_index &&
+//					"Only one result relation supported");
 		rte->inFromCl = false;
 		m_result_relation_index = gpdb::ListLength(m_rtable_entries_list);
 		m_result_relations = gpdb::LAppendInt(m_result_relations, m_result_relation_index);

@@ -221,22 +221,22 @@ CTranslatorDXLToPlStmt::GetPlannedStmtFromDXL(const CDXLNode *dxlnode,
 	planned_stmt->commandType = m_cmd_type;
 
 
-	if (m_cmd_type == CMD_DELETE && dxlnode->GetOperator()->GetDXLOperator() == EdxlopPhysicalDML)
-	{
-		CDXLPhysicalDML *phy_dml_dxlop =
-				CDXLPhysicalDML::Cast(dxlnode->GetOperator());
-		IMDId *mdid_target_table = phy_dml_dxlop->GetDXLTableDescr()->MDId();
-		const IMDRelation *md_rel = m_md_accessor->RetrieveRel(mdid_target_table);
-		planned_stmt->rootResultRelations = md_rel->IsPartitioned()? m_child_result_rel_list: NIL;
-		planned_stmt->resultRelations = md_rel->IsPartitioned() ? m_child_result_rel_list: m_result_rel_list;
-	}
-	else
-	{
-		planned_stmt->resultRelations = m_result_rel_list;
-	}
+//	if (m_cmd_type == CMD_DELETE && dxlnode->GetOperator()->GetDXLOperator() == EdxlopPhysicalDML)
+//	{
+//		CDXLPhysicalDML *phy_dml_dxlop =
+//				CDXLPhysicalDML::Cast(dxlnode->GetOperator());
+//		IMDId *mdid_target_table = phy_dml_dxlop->GetDXLTableDescr()->MDId();
+//		const IMDRelation *md_rel = m_md_accessor->RetrieveRel(mdid_target_table);
+//		planned_stmt->rootResultRelations = md_rel->IsPartitioned()? m_child_result_rel_list: NIL;
+//		planned_stmt->resultRelations = md_rel->IsPartitioned() ? m_child_result_rel_list: m_result_rel_list;
+//	}
+//	else
+//	{
+//		planned_stmt->resultRelations = m_result_rel_list;
+//	}
 
 	planned_stmt->resultRelations = m_dxl_to_plstmt_context->ResultRelations();
-	planned_stmt->rootResultRelations = md_rel->IsPartitioned()? m_child_result_rel_list: NIL;
+	planned_stmt->rootResultRelations = m_root_result_relations;
 
 
 	// GPDB_92_MERGE_FIXME: we really *should* be handling intoClause
@@ -4181,6 +4181,8 @@ CTranslatorDXLToPlStmt::TranslateDXLDml(
 	SetParamIds(result_plan);
 
 	child_plan = (Plan *) result;
+
+	m_root_result_relations = md_rel->IsPartitioned() ? ListMake1Int(index) : 0;
 
 	dml->operation = m_cmd_type;
 	dml->canSetTag = true;	// FIXME
