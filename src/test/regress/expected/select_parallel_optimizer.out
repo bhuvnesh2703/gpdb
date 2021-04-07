@@ -180,7 +180,7 @@ explain (costs off)
                      ->  Seq Scan on part_pa_test_p2 pa2_2
                SubPlan 1
                  ->  Result
-                       Filter: (pa1_1.a = pa2.a)
+                       Filter: (pa1.a = pa2.a)
                        ->  Materialize
                              ->  Broadcast Motion 3:3  (slice2; segments: 3)
                                    ->  Append

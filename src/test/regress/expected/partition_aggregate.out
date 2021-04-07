@@ -1337,7 +1337,6 @@ SET parallel_setup_cost TO 0;
 -- PARTITION KEY, thus we will have a partial aggregation for them.
 EXPLAIN (COSTS OFF)
 SELECT a, sum(b), count(*) FROM pagg_tab_ml GROUP BY a HAVING avg(b) < 3 ORDER BY 1, 2, 3;
-<<<<<<< HEAD
                                       QUERY PLAN                                       
 ---------------------------------------------------------------------------------------
  Gather Motion 3:1  (slice1; segments: 3)
@@ -1361,57 +1360,20 @@ SELECT a, sum(b), count(*) FROM pagg_tab_ml GROUP BY a HAVING avg(b) < 3 ORDER B
                                  ->  Partial HashAggregate
                                        Group Key: pagg_tab_ml_3.a
                                        ->  Seq Scan on pagg_tab_ml_p2_s2 pagg_tab_ml_3
-                                 ->  Partial HashAggregate
-                                       Group Key: pagg_tab_ml_4.a
-                                       ->  Seq Scan on pagg_tab_ml_p3_s2 pagg_tab_ml_4
- Optimizer: Postgres query optimizer
-(34 rows)
-=======
-                                           QUERY PLAN                                           
-------------------------------------------------------------------------------------------------
- Sort
-   Sort Key: pagg_tab_ml.a, (sum(pagg_tab_ml.b)), (count(*))
-   ->  Append
-         ->  Finalize GroupAggregate
-               Group Key: pagg_tab_ml.a
-               Filter: (avg(pagg_tab_ml.b) < '3'::numeric)
-               ->  Gather Merge
-                     Workers Planned: 2
-                     ->  Sort
-                           Sort Key: pagg_tab_ml.a
-                           ->  Partial HashAggregate
-                                 Group Key: pagg_tab_ml.a
-                                 ->  Parallel Seq Scan on pagg_tab_ml_p1 pagg_tab_ml
-         ->  Finalize GroupAggregate
-               Group Key: pagg_tab_ml_2.a
-               Filter: (avg(pagg_tab_ml_2.b) < '3'::numeric)
-               ->  Gather Merge
-                     Workers Planned: 2
-                     ->  Sort
-                           Sort Key: pagg_tab_ml_2.a
-                           ->  Parallel Append
-                                 ->  Partial HashAggregate
-                                       Group Key: pagg_tab_ml_2.a
-                                       ->  Parallel Seq Scan on pagg_tab_ml_p2_s1 pagg_tab_ml_2
-                                 ->  Partial HashAggregate
-                                       Group Key: pagg_tab_ml_3.a
-                                       ->  Parallel Seq Scan on pagg_tab_ml_p2_s2 pagg_tab_ml_3
-         ->  Finalize GroupAggregate
-               Group Key: pagg_tab_ml_5.a
-               Filter: (avg(pagg_tab_ml_5.b) < '3'::numeric)
-               ->  Gather Merge
-                     Workers Planned: 2
+               ->  Finalize GroupAggregate
+                     Group Key: pagg_tab_ml_5.a
+                     Filter: (avg(pagg_tab_ml_5.b) < '3'::numeric)
                      ->  Sort
                            Sort Key: pagg_tab_ml_5.a
-                           ->  Parallel Append
+                           ->  Append
                                  ->  Partial HashAggregate
                                        Group Key: pagg_tab_ml_5.a
                                        ->  Seq Scan on pagg_tab_ml_p3_s1 pagg_tab_ml_5
                                  ->  Partial HashAggregate
                                        Group Key: pagg_tab_ml_6.a
                                        ->  Seq Scan on pagg_tab_ml_p3_s2 pagg_tab_ml_6
-(41 rows)
->>>>>>> 6ef77cf46e8... Further adjust EXPLAIN's choices of table alias names.
+ Optimizer: Postgres query optimizer
+(34 rows)
 
 SELECT a, sum(b), count(*) FROM pagg_tab_ml GROUP BY a HAVING avg(b) < 3 ORDER BY 1, 2, 3;
  a  | sum  | count 
