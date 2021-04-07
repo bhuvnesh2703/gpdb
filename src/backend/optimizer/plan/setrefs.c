@@ -390,8 +390,6 @@ set_plan_references(PlannerInfo *root, Plan *plan)
 
 	/*
 	 * Adjust RT indexes of AppendRelInfos and add to final appendrels list.
-	 * We assume the AppendRelInfos were built during planning and don't need
-	 * to be copied.
 	 */
 	foreach(lc, root->append_rel_list)
 	{
