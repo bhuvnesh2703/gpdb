@@ -397,17 +397,20 @@ set_plan_references(PlannerInfo *root, Plan *plan)
 	{
 		AppendRelInfo *appinfo = lfirst_node(AppendRelInfo, lc);
 
+		AppendRelInfo *newappinfo = (AppendRelInfo *) palloc(sizeof(AppendRelInfo));
+		memcpy(newappinfo, appinfo, sizeof(AppendRelInfo));
+
 		/* adjust RT indexes */
-		appinfo->parent_relid += rtoffset;
-		appinfo->child_relid += rtoffset;
+		newappinfo->parent_relid += rtoffset;
+		newappinfo->child_relid += rtoffset;
 
 		/*
 		 * Rather than adjust the translated_vars entries, just drop 'em.
 		 * Neither the executor nor EXPLAIN currently need that data.
 		 */
-		appinfo->translated_vars = NIL;
+		newappinfo->translated_vars = NIL;
 
-		glob->appendRelations = lappend(glob->appendRelations, appinfo);
+		glob->appendRelations = lappend(glob->appendRelations, newappinfo);
 	}
 
 	/* Now fix the Plan tree */
