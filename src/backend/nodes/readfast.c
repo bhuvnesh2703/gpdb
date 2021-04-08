@@ -2549,9 +2549,6 @@ readNodeBinary(void)
 			case T_RowIdExpr:
 				return_value = _readRowIdExpr();
 				break;
-			case T_AppendRelInfo:
-				return_value = _readAppendRelInfo();
-				break;
 			default:
 				return_value = NULL; /* keep the compiler silent */
 				elog(ERROR, "could not deserialize unrecognized node type: %d",
