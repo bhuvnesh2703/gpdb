@@ -3550,23 +3550,6 @@ _readRestrictInfo(void)
 	READ_DONE();
 }
 
-static AppendRelInfo *
-_readAppendRelInfo(void)
-{
-	READ_LOCALS(AppendRelInfo);
-
-	READ_UINT_FIELD(parent_relid);
-	READ_UINT_FIELD(child_relid);
-	READ_OID_FIELD(parent_reltype);
-	READ_OID_FIELD(child_reltype);
-	READ_NODE_FIELD(translated_vars);
-	READ_INT_FIELD(num_child_cols);
-	READ_ATTRNUMBER_ARRAY(parent_colnos, local_node->num_child_cols);
-	READ_OID_FIELD(parent_reloid);
-
-	READ_DONE();
-}
-
 #ifndef COMPILING_BINARY_FUNCS
 /*
  * _readExtensibleNode
@@ -4836,8 +4819,6 @@ parseNodeString(void)
 		return_value = _readGpPartitionListSpec();
 	else if (MATCHX("COLUMNREFERENCESTORAGEDIRECTIVE"))
 		return_value = _readColumnReferenceStorageDirective();
-	else if (MATCHX("APPENDRELINFO"))
-		return_value = _readAppendRelInfo();
 	else
 	{
         ereport(ERROR,
