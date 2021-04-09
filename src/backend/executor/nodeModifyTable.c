@@ -2507,8 +2507,7 @@ ExecModifyTable(PlanState *pstate)
 				}
 				else if (DML_INSERT == action)
 				{
-					//FIXMEBC: What should be do here?
-					slot = ExecSplitUpdate_Insert(node, slot, planSlot,
+					slot = ExecSplitUpdate_Insert(node, resultRelInfo, slot, planSlot,
 												  estate, node->canSetTag);
 				}
 				else /* DML_DELETE */
