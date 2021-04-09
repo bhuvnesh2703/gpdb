@@ -1721,7 +1721,7 @@ ExecSplitUpdate_Insert(ModifyTableState *mtstate,
 	}
 	else
 	{
-		slot = ExecInsert(mtstate, slot, planSlot,
+		slot = ExecInsert(mtstate, resultRelInfo, slot, planSlot,
 						  estate, mtstate->canSetTag,
 						  true /* splitUpdate */);
 	}

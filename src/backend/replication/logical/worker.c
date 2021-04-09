@@ -598,13 +598,13 @@ apply_handle_insert(StringInfo s)
 	slot_fill_defaults(rel, estate, remoteslot);
 	MemoryContextSwitchTo(oldctx);
 
-	ExecOpenIndices(estate->es_result_relation_info, false);
+	ExecOpenIndices(resultRelInfo, false);
 
 	/* Do the insert. */
-	ExecSimpleRelationInsert(estate, remoteslot);
+	ExecSimpleRelationInsert(resultRelInfo, estate, remoteslot);
 
 	/* Cleanup. */
-	ExecCloseIndices(estate->es_result_relation_info);
+	ExecCloseIndices(resultRelInfo);
 	PopActiveSnapshot();
 
 	/* Handle queued AFTER triggers. */
@@ -706,7 +706,7 @@ apply_handle_update(StringInfo s)
 	EvalPlanQualInit(&epqstate, estate, NULL, NIL, -1);
 
 	PushActiveSnapshot(GetTransactionSnapshot());
-	ExecOpenIndices(estate->es_result_relation_info, false);
+	ExecOpenIndices(resultRelInfo, false);
 
 	/* Build the search tuple. */
 	oldctx = MemoryContextSwitchTo(GetPerTupleMemoryContext(estate));
@@ -748,7 +748,7 @@ apply_handle_update(StringInfo s)
 		EvalPlanQualSetSlot(&epqstate, remoteslot);
 
 		/* Do the actual update. */
-		ExecSimpleRelationUpdate(relinfo, estate, &epqstate, localslot,
+		ExecSimpleRelationUpdate(resultRelInfo, estate, &epqstate, localslot,
 								 remoteslot);
 	}
 	else
@@ -765,7 +765,7 @@ apply_handle_update(StringInfo s)
 	}
 
 	/* Cleanup. */
-	ExecCloseIndices(estate->es_result_relation_info);
+	ExecCloseIndices(resultRelInfo);
 	PopActiveSnapshot();
 
 	/* Handle queued AFTER triggers. */
@@ -829,7 +829,7 @@ apply_handle_delete(StringInfo s)
 	InitResultRelInfo(resultRelInfo, rel->localrel, 1, NULL, 0);
 
 	PushActiveSnapshot(GetTransactionSnapshot());
-	ExecOpenIndices(estate->es_result_relation_info, false);
+	ExecOpenIndices(resultRelInfo, false);
 
 	/* Find the tuple using the replica identity index. */
 	oldctx = MemoryContextSwitchTo(GetPerTupleMemoryContext(estate));
@@ -869,7 +869,7 @@ apply_handle_delete(StringInfo s)
 	}
 
 	/* Cleanup. */
-	ExecCloseIndices(estate->es_result_relation_info);
+	ExecCloseIndices(resultRelInfo);
 	PopActiveSnapshot();
 
 	/* Handle queued AFTER triggers. */
