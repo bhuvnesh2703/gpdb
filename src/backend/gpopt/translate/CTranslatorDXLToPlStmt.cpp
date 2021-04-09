@@ -4150,7 +4150,6 @@ CTranslatorDXLToPlStmt::TranslateDXLDml(
 	dml->canSetTag = true;	// FIXME
 	dml->nominalRelation = index;
 	dml->resultRelations = ListMake1Int(index);
-	dml->resultRelIndex = list_length(m_result_rel_list) - 1;
 	dml->plans = ListMake1(child_plan);
 
 	dml->fdwPrivLists = ListMake1(NIL);
