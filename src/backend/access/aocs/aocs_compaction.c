@@ -192,7 +192,7 @@ AOCSMoveTuple(TupleTableSlot *slot,
 	/* insert index' tuples if needed */
 	if (resultRelInfo->ri_NumIndices > 0)
 	{
-		ExecInsertIndexTuples(resultRelInfo, slot, estate, false, false, NIL);
+		ExecInsertIndexTuples(resultRelInfo, slot, estate, false, false, false, NIL);
 		ResetPerTupleExprContext(estate);
 	}
 
