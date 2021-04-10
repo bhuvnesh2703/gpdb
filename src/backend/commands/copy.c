@@ -3564,8 +3564,8 @@ CopyMultiInsertBufferFlush(CopyMultiInsertInfo *miinfo,
 			cstate->cur_lineno = buffer->linenos[i];
 			recheckIndexes =
 				ExecInsertIndexTuples(resultRelInfo,
-									  buffer->slots[i], estate, false, NULL,
-									  NIL);
+									  buffer->slots[i], estate, false, false,
+									  NULL, NIL);
 			ExecARInsertTriggers(estate, resultRelInfo,
 								 slots[i], recheckIndexes,
 								 cstate->transition_capture);
@@ -3940,6 +3940,7 @@ CopyFrom(CopyState cstate)
 	mtstate->ps.state = estate;
 	mtstate->operation = CMD_INSERT;
 	mtstate->resultRelInfo = resultRelInfo;
+	mtstate->rootResultRelInfo = resultRelInfo;
 
 	if (resultRelInfo->ri_FdwRoutine != NULL &&
 		resultRelInfo->ri_FdwRoutine->BeginForeignInsert != NULL)
@@ -4596,6 +4597,7 @@ CopyFrom(CopyState cstate)
 							recheckIndexes = ExecInsertIndexTuples(resultRelInfo,
 																   myslot,
 																   estate,
+																   false,
 																   false,
 																   NULL,
 																   NIL);

@@ -643,7 +643,7 @@ apply_handle_insert(StringInfo s)
 
 	/* For a partitioned table, insert the tuple into a partition. */
 	if (rel->localrel->rd_rel->relkind == RELKIND_PARTITIONED_TABLE)
-		apply_handle_tuple_routing(estate->es_result_relation_info, estate,
+		apply_handle_tuple_routing(resultRelInfo, estate,
 								   remoteslot, NULL, rel, CMD_INSERT);
 	else
 		apply_handle_insert_internal(resultRelInfo, estate,
@@ -782,7 +782,7 @@ apply_handle_update(StringInfo s)
 
 	/* For a partitioned table, apply update to correct partition. */
 	if (rel->localrel->rd_rel->relkind == RELKIND_PARTITIONED_TABLE)
-		apply_handle_tuple_routing(estate->es_result_relation_info, estate,
+		apply_handle_tuple_routing(resultRelInfo, estate,
 								   remoteslot, &newtup, rel, CMD_UPDATE);
 	else
 		apply_handle_update_internal(resultRelInfo, estate,
@@ -910,7 +910,7 @@ apply_handle_delete(StringInfo s)
 
 	/* For a partitioned table, apply delete to correct partition. */
 	if (rel->localrel->rd_rel->relkind == RELKIND_PARTITIONED_TABLE)
-		apply_handle_tuple_routing(estate->es_result_relation_info, estate,
+		apply_handle_tuple_routing(resultRelInfo, estate,
 								   remoteslot, NULL, rel, CMD_DELETE);
 	else
 		apply_handle_delete_internal(resultRelInfo, estate,
@@ -1060,7 +1060,6 @@ apply_handle_tuple_routing(ResultRelInfo *relinfo,
 	}
 	MemoryContextSwitchTo(oldctx);
 
-	estate->es_result_relation_info = partrelinfo;
 	switch (operation)
 	{
 		case CMD_INSERT:
@@ -1141,7 +1140,7 @@ apply_handle_tuple_routing(ResultRelInfo *relinfo,
 					ExecOpenIndices(partrelinfo, false);
 
 					EvalPlanQualSetSlot(&epqstate, remoteslot_part);
-					ExecSimpleRelationUpdate(estate, &epqstate, localslot,
+					ExecSimpleRelationUpdate(partrelinfo, estate, &epqstate, localslot,
 											 remoteslot_part);
 					ExecCloseIndices(partrelinfo);
 					EvalPlanQualEnd(&epqstate);
@@ -1183,7 +1182,6 @@ apply_handle_tuple_routing(ResultRelInfo *relinfo,
 					Assert(partrelinfo_new != partrelinfo);
 
 					/* DELETE old tuple found in the old partition. */
-					estate->es_result_relation_info = partrelinfo;
 					apply_handle_delete_internal(partrelinfo, estate,
 												 localslot,
 												 &relmapentry->remoterel);
@@ -1215,7 +1213,6 @@ apply_handle_tuple_routing(ResultRelInfo *relinfo,
 						slot_getallattrs(remoteslot);
 					}
 					MemoryContextSwitchTo(oldctx);
-					estate->es_result_relation_info = partrelinfo_new;
 					apply_handle_insert_internal(partrelinfo_new, estate,
 												 remoteslot_part);
 				}
