@@ -650,7 +650,7 @@ apply_handle_insert_internal(ResultRelInfo *relinfo,
 	ExecOpenIndices(relinfo, false);
 
 	/* Do the insert. */
-	ExecSimpleRelationInsert(estate, remoteslot);
+	ExecSimpleRelationInsert(relinfo, estate, remoteslot);
 
 	/* Cleanup. */
 	ExecCloseIndices(relinfo);
@@ -830,7 +830,7 @@ apply_handle_update_internal(ResultRelInfo *relinfo,
 		EvalPlanQualSetSlot(&epqstate, remoteslot);
 
 		/* Do the actual update. */
-		ExecSimpleRelationUpdate(resultRelInfo, estate, &epqstate, localslot,
+		ExecSimpleRelationUpdate(relinfo, estate, &epqstate, localslot,
 								 remoteslot);
 	}
 	else
@@ -901,7 +901,7 @@ apply_handle_delete(StringInfo s)
 	MemoryContextSwitchTo(oldctx);
 
 	Assert(rel->localrel->rd_rel->relkind == RELKIND_RELATION);
-	apply_handle_delete_internal(apply_handle_delete, estate,
+	apply_handle_delete_internal(resultRelInfo, estate,
 								 remoteslot, &rel->remoterel);
 
 	PopActiveSnapshot();
@@ -956,7 +956,7 @@ apply_handle_delete_internal(ResultRelInfo *relinfo, EState *estate,
 		EvalPlanQualSetSlot(&epqstate, localslot);
 
 		/* Do the actual delete. */
-		ExecSimpleRelationDelete(resultRelInfo, estate, &epqstate, localslot);
+		ExecSimpleRelationDelete(relinfo, estate, &epqstate, localslot);
 	}
 	else
 	{
