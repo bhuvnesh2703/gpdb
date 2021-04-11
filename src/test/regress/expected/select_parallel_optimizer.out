@@ -18,18 +18,18 @@ set max_parallel_workers_per_gather=4;
 -- Parallel Append with partial-subplans
 explain (costs off)
   select round(avg(aa)), sum(aa) from a_star;
-                   QUERY PLAN                   
-------------------------------------------------
+                     QUERY PLAN                      
+-----------------------------------------------------
  Finalize Aggregate
    ->  Gather Motion 3:1  (slice1; segments: 3)
          ->  Partial Aggregate
                ->  Append
                      ->  Seq Scan on a_star
-                     ->  Seq Scan on b_star
-                     ->  Seq Scan on c_star
-                     ->  Seq Scan on d_star
-                     ->  Seq Scan on e_star
-                     ->  Seq Scan on f_star
+                     ->  Seq Scan on b_star a_star_1
+                     ->  Seq Scan on c_star a_star_2
+                     ->  Seq Scan on d_star a_star_3
+                     ->  Seq Scan on e_star a_star_4
+                     ->  Seq Scan on f_star a_star_5
  Optimizer: Postgres query optimizer
 (11 rows)
 
@@ -44,18 +44,18 @@ alter table c_star set (parallel_workers = 0);
 alter table d_star set (parallel_workers = 0);
 explain (costs off)
   select round(avg(aa)), sum(aa) from a_star;
-                   QUERY PLAN                   
-------------------------------------------------
+                     QUERY PLAN                      
+-----------------------------------------------------
  Finalize Aggregate
    ->  Gather Motion 3:1  (slice1; segments: 3)
          ->  Partial Aggregate
                ->  Append
                      ->  Seq Scan on a_star
-                     ->  Seq Scan on b_star
-                     ->  Seq Scan on c_star
-                     ->  Seq Scan on d_star
-                     ->  Seq Scan on e_star
-                     ->  Seq Scan on f_star
+                     ->  Seq Scan on b_star a_star_1
+                     ->  Seq Scan on c_star a_star_2
+                     ->  Seq Scan on d_star a_star_3
+                     ->  Seq Scan on e_star a_star_4
+                     ->  Seq Scan on f_star a_star_5
  Optimizer: Postgres query optimizer
 (11 rows)
 
@@ -72,18 +72,18 @@ alter table e_star set (parallel_workers = 0);
 alter table f_star set (parallel_workers = 0);
 explain (costs off)
   select round(avg(aa)), sum(aa) from a_star;
-                   QUERY PLAN                   
-------------------------------------------------
+                     QUERY PLAN                      
+-----------------------------------------------------
  Finalize Aggregate
    ->  Gather Motion 3:1  (slice1; segments: 3)
          ->  Partial Aggregate
                ->  Append
                      ->  Seq Scan on a_star
-                     ->  Seq Scan on b_star
-                     ->  Seq Scan on c_star
-                     ->  Seq Scan on d_star
-                     ->  Seq Scan on e_star
-                     ->  Seq Scan on f_star
+                     ->  Seq Scan on b_star a_star_1
+                     ->  Seq Scan on c_star a_star_2
+                     ->  Seq Scan on d_star a_star_3
+                     ->  Seq Scan on e_star a_star_4
+                     ->  Seq Scan on f_star a_star_5
  Optimizer: Postgres query optimizer
 (11 rows)
 
@@ -137,11 +137,11 @@ explain (costs off)
          ->  Partial Aggregate
                ->  Append
                      ->  Seq Scan on a_star
-                     ->  Seq Scan on b_star
-                     ->  Seq Scan on c_star
-                     ->  Seq Scan on d_star
-                     ->  Seq Scan on e_star
-                     ->  Seq Scan on f_star
+                     ->  Seq Scan on b_star a_star_1
+                     ->  Seq Scan on c_star a_star_2
+                     ->  Seq Scan on d_star a_star_3
+                     ->  Seq Scan on e_star a_star_4
+                     ->  Seq Scan on f_star a_star_5
  Optimizer: Postgres query optimizer
 (11 rows)
 
@@ -240,8 +240,8 @@ alter table tenk1 set (parallel_workers = 4);
 explain (verbose, costs off)
 select sp_parallel_restricted(unique1) from tenk1
   where stringu1 = 'GRAAAA' order by 1;
-                                             QUERY PLAN                                             
-----------------------------------------------------------------------------------------------------
+                                              QUERY PLAN                                              
+------------------------------------------------------------------------------------------------------
  Gather Motion 3:1  (slice1; segments: 3)
    Output: (sp_parallel_restricted(unique1))
    Merge Key: (sp_parallel_restricted(unique1))
@@ -251,8 +251,8 @@ select sp_parallel_restricted(unique1) from tenk1
          ->  Seq Scan on public.tenk1
                Output: sp_parallel_restricted(unique1)
                Filter: (tenk1.stringu1 = 'GRAAAA'::name)
- Optimizer: Pivotal Optimizer (GPORCA) version 3.83.0
- Settings: optimizer=on, parallel_setup_cost=0, parallel_tuple_cost=0
+ Optimizer: Postgres query optimizer
+ Settings: min_parallel_table_scan_size=0, optimizer=on, parallel_setup_cost=0, parallel_tuple_cost=0
 (11 rows)
 
 -- start_ignore

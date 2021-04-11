@@ -542,7 +542,7 @@ QUERY PLAN
           "Gang Type": "primary reader",
           "Parallel Aware": false,
           "Relation Name": "jsonexplaintest_1_prt_2",
-          "Alias": "jsonexplaintest_1_prt_2",
+          "Alias": "jsonexplaintest",
           "Filter": "(i = 2)"
         }
       ]
