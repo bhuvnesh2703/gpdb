@@ -8322,12 +8322,12 @@ DETAIL:  Feature not supported: Heterogeneous partition storage types
    ->  Sort  (cost=5137.70..5269.70 rows=52800 width=94)
          Sort Key: t.timest, t.user_id
          ->  Append  (cost=0.00..996.00 rows=52800 width=94)
-               ->  Seq Scan on t_1_prt_part201203 t  (cost=0.00..122.00 rows=8800 width=94)
-               ->  Seq Scan on t_1_prt_part201204 t_1  (cost=0.00..122.00 rows=8800 width=94)
-               ->  Seq Scan on t_1_prt_part201205 t_2  (cost=0.00..122.00 rows=8800 width=94)
-               ->  Seq Scan on t_1_prt_part201206 t_3  (cost=0.00..122.00 rows=8800 width=94)
-               ->  Seq Scan on t_1_prt_part201207 t_4  (cost=0.00..122.00 rows=8800 width=94)
-               ->  Seq Scan on t_1_prt_part201208 t_5  (cost=0.00..122.00 rows=8800 width=94)
+               ->  Seq Scan on t_1_prt_part201203 t_1  (cost=0.00..122.00 rows=8800 width=94)
+               ->  Seq Scan on t_1_prt_part201204 t_2  (cost=0.00..122.00 rows=8800 width=94)
+               ->  Seq Scan on t_1_prt_part201205 t_3  (cost=0.00..122.00 rows=8800 width=94)
+               ->  Seq Scan on t_1_prt_part201206 t_4  (cost=0.00..122.00 rows=8800 width=94)
+               ->  Seq Scan on t_1_prt_part201207 t_5  (cost=0.00..122.00 rows=8800 width=94)
+               ->  Seq Scan on t_1_prt_part201208 t_6  (cost=0.00..122.00 rows=8800 width=94)
  Optimizer: Postgres query optimizer
 (12 rows)
 
@@ -10053,17 +10053,17 @@ DETAIL:  Feature not supported: Heterogeneous partition storage types
 --------------------------------------------------------------------------------------------------
  Gather Motion 1:1  (slice1; segments: 1)  (cost=0.00..6.85 rows=22 width=10)
    ->  Append  (cost=0.00..6.55 rows=7 width=10)
-         ->  Seq Scan on bm_dyn_test_1_prt_part0 bm_dyn_test  (cost=0.00..1.10 rows=1 width=10)
+         ->  Seq Scan on bm_dyn_test_1_prt_part0 bm_dyn_test_1  (cost=0.00..1.10 rows=1 width=10)
                Filter: ((i = 2) AND (t = '2'::text))
-         ->  Seq Scan on bm_dyn_test_1_prt_part1 bm_dyn_test_1  (cost=0.00..1.10 rows=1 width=10)
+         ->  Seq Scan on bm_dyn_test_1_prt_part1 bm_dyn_test_2  (cost=0.00..1.10 rows=1 width=10)
                Filter: ((i = 2) AND (t = '2'::text))
-         ->  Seq Scan on bm_dyn_test_1_prt_part2 bm_dyn_test_2  (cost=0.00..1.10 rows=2 width=10)
+         ->  Seq Scan on bm_dyn_test_1_prt_part2 bm_dyn_test_3  (cost=0.00..1.10 rows=2 width=10)
                Filter: ((i = 2) AND (t = '2'::text))
-         ->  Seq Scan on bm_dyn_test_1_prt_part3 bm_dyn_test_3  (cost=0.00..1.10 rows=1 width=10)
+         ->  Seq Scan on bm_dyn_test_1_prt_part3 bm_dyn_test_4  (cost=0.00..1.10 rows=1 width=10)
                Filter: ((i = 2) AND (t = '2'::text))
-         ->  Seq Scan on bm_dyn_test_1_prt_part4 bm_dyn_test_4  (cost=0.00..1.10 rows=1 width=10)
+         ->  Seq Scan on bm_dyn_test_1_prt_part4 bm_dyn_test_5  (cost=0.00..1.10 rows=1 width=10)
                Filter: ((i = 2) AND (t = '2'::text))
-         ->  Seq Scan on bm_dyn_test_1_prt_part5 bm_dyn_test_5  (cost=0.00..1.01 rows=1 width=10)
+         ->  Seq Scan on bm_dyn_test_1_prt_part5 bm_dyn_test_6  (cost=0.00..1.01 rows=1 width=10)
                Filter: ((i = 2) AND (t = '2'::text))
  Optimizer: Postgres query optimizer
 (15 rows)
@@ -10111,17 +10111,17 @@ DETAIL:  Feature not supported: Heterogeneous partition storage types
 ------------------------------------------------------------------------------------------------------------------
  Gather Motion 1:1  (slice1; segments: 1)  (cost=0.00..6.85 rows=22 width=10)
    ->  Append  (cost=0.00..6.55 rows=7 width=10)
-         ->  Seq Scan on bm_dyn_test_onepart_1_prt_part0 bm_dyn_test_onepart  (cost=0.00..1.10 rows=1 width=10)
+         ->  Seq Scan on bm_dyn_test_onepart_1_prt_part0 bm_dyn_test_onepart_1  (cost=0.00..1.10 rows=1 width=10)
                Filter: ((i = 2) AND (t = '2'::text))
-         ->  Seq Scan on bm_dyn_test_onepart_1_prt_part1 bm_dyn_test_onepart_1  (cost=0.00..1.10 rows=1 width=10)
+         ->  Seq Scan on bm_dyn_test_onepart_1_prt_part1 bm_dyn_test_onepart_2  (cost=0.00..1.10 rows=1 width=10)
                Filter: ((i = 2) AND (t = '2'::text))
-         ->  Seq Scan on bm_dyn_test_onepart_1_prt_part2 bm_dyn_test_onepart_2  (cost=0.00..1.10 rows=2 width=10)
+         ->  Seq Scan on bm_dyn_test_onepart_1_prt_part2 bm_dyn_test_onepart_3  (cost=0.00..1.10 rows=2 width=10)
                Filter: ((i = 2) AND (t = '2'::text))
-         ->  Seq Scan on bm_dyn_test_onepart_1_prt_part3 bm_dyn_test_onepart_3  (cost=0.00..1.10 rows=1 width=10)
+         ->  Seq Scan on bm_dyn_test_onepart_1_prt_part3 bm_dyn_test_onepart_4  (cost=0.00..1.10 rows=1 width=10)
                Filter: ((i = 2) AND (t = '2'::text))
-         ->  Seq Scan on bm_dyn_test_onepart_1_prt_part4 bm_dyn_test_onepart_4  (cost=0.00..1.10 rows=1 width=10)
+         ->  Seq Scan on bm_dyn_test_onepart_1_prt_part4 bm_dyn_test_onepart_5  (cost=0.00..1.10 rows=1 width=10)
                Filter: ((i = 2) AND (t = '2'::text))
-         ->  Seq Scan on bm_dyn_test_onepart_1_prt_part5 bm_dyn_test_onepart_5  (cost=0.00..1.01 rows=1 width=10)
+         ->  Seq Scan on bm_dyn_test_onepart_1_prt_part5 bm_dyn_test_onepart_6  (cost=0.00..1.01 rows=1 width=10)
                Filter: ((i = 2) AND (t = '2'::text))
  Optimizer: Postgres query optimizer
 (15 rows)
@@ -10170,13 +10170,13 @@ DETAIL:  Feature not supported: Multi-level partitioned tables
 ------------------------------------------------------------------------------------------------------------------------------------------------------
  Gather Motion 3:1  (slice1; segments: 3)  (cost=0.00..5.13 rows=59 width=18)
    ->  Append  (cost=0.00..4.34 rows=20 width=18)
-         ->  Seq Scan on bm_dyn_test_multilvl_part_1_prt_2_2_prt_1_3_prt_usa bm_dyn_test_multilvl_part  (cost=0.00..1.01 rows=1 width=44)
+         ->  Seq Scan on bm_dyn_test_multilvl_part_1_prt_2_2_prt_1_3_prt_usa bm_dyn_test_multilvl_part_1  (cost=0.00..1.01 rows=1 width=44)
                Filter: (year = 2019)
-         ->  Seq Scan on bm_dyn_test_multilvl_part_1_prt_2_2_prt_1_3_prt_other_regions bm_dyn_test_multilvl_part_1  (cost=0.00..1.01 rows=1 width=44)
+         ->  Seq Scan on bm_dyn_test_multilvl_part_1_prt_2_2_prt_1_3_prt_other_regions bm_dyn_test_multilvl_part_2  (cost=0.00..1.01 rows=1 width=44)
                Filter: (year = 2019)
-         ->  Seq Scan on bm_dyn_test_multilvl_part_1_prt_2_2_prt_2_3_prt_usa bm_dyn_test_multilvl_part_2  (cost=0.00..1.21 rows=17 width=16)
+         ->  Seq Scan on bm_dyn_test_multilvl_part_1_prt_2_2_prt_2_3_prt_usa bm_dyn_test_multilvl_part_3  (cost=0.00..1.21 rows=17 width=16)
                Filter: (year = 2019)
-         ->  Seq Scan on bm_dyn_test_multilvl_part_1_prt_2_2_prt_2_3_prt_other_regions bm_dyn_test_multilvl_part_3  (cost=0.00..1.01 rows=1 width=44)
+         ->  Seq Scan on bm_dyn_test_multilvl_part_1_prt_2_2_prt_2_3_prt_other_regions bm_dyn_test_multilvl_part_4  (cost=0.00..1.01 rows=1 width=44)
                Filter: (year = 2019)
  Optimizer: Postgres query optimizer
 (11 rows)
@@ -10474,8 +10474,8 @@ DETAIL:  No plan has been computed for required properties
                                  ->  Redistribute Motion 3:3  (slice3; segments: 3)  (cost=0.00..544.00 rows=13600 width=98)
                                        Hash Key: tq.sym
                                        ->  Append  (cost=0.00..272.00 rows=13600 width=98)
-                                             ->  Seq Scan on my_tq_agg_opt_part_1_prt_p1 tq  (cost=0.00..102.00 rows=6800 width=98)
-                                             ->  Seq Scan on my_tq_agg_opt_part_1_prt_p2 tq_1  (cost=0.00..102.00 rows=6800 width=98)
+                                             ->  Seq Scan on my_tq_agg_opt_part_1_prt_p1 tq_1  (cost=0.00..102.00 rows=6800 width=98)
+                                             ->  Seq Scan on my_tq_agg_opt_part_1_prt_p2 tq_2  (cost=0.00..102.00 rows=6800 width=98)
                                  ->  Hash  (cost=108.67..108.67 rows=7467 width=108)
                                        ->  Seq Scan on my_tt_agg_opt tt  (cost=0.00..108.67 rows=7467 width=108)
  Optimizer: Postgres query optimizer
@@ -13476,8 +13476,8 @@ DETAIL:  Feature not supported: Partitioned table with heterogeneous storage typ
    ->  Hash Join
          Hash Cond: (f.a = d.a)
          ->  Append
-               ->  Seq Scan on tpart_ao_btree_1_prt_1 f
-               ->  Seq Scan on tpart_ao_btree_1_prt_2 f_1
+               ->  Seq Scan on tpart_ao_btree_1_prt_1 f_1
+               ->  Seq Scan on tpart_ao_btree_1_prt_2 f_2
          ->  Hash
                ->  Seq Scan on tpart_dim d
                      Filter: (b = 1)
@@ -13634,15 +13634,15 @@ DETAIL:  Feature not supported: Partitioned table with heterogeneous storage typ
                            ->  Hash
                                  ->  Broadcast Motion 3:3  (slice3; segments: 3)
                                        ->  Append
-                                             ->  Seq Scan on asset_records_1_prt_1 asset_records
+                                             ->  Seq Scan on asset_records_1_prt_1 asset_records_1
                                                    Filter: (active AND (((asset_type)::text = 'xx'::text) OR ((asset_type)::text = 'yy'::text)) AND (upper((COALESCE(vendor, 'none'::character varying))::text) <> 'some_vendor'::text))
-                                             ->  Seq Scan on asset_records_1_prt_2 asset_records_1
+                                             ->  Seq Scan on asset_records_1_prt_2 asset_records_2
                                                    Filter: (active AND (((asset_type)::text = 'xx'::text) OR ((asset_type)::text = 'yy'::text)) AND (upper((COALESCE(vendor, 'none'::character varying))::text) <> 'some_vendor'::text))
-                                             ->  Seq Scan on asset_records_1_prt_3 asset_records_2
+                                             ->  Seq Scan on asset_records_1_prt_3 asset_records_3
                                                    Filter: (active AND (((asset_type)::text = 'xx'::text) OR ((asset_type)::text = 'yy'::text)) AND (upper((COALESCE(vendor, 'none'::character varying))::text) <> 'some_vendor'::text))
-                                             ->  Seq Scan on asset_records_1_prt_4 asset_records_3
+                                             ->  Seq Scan on asset_records_1_prt_4 asset_records_4
                                                    Filter: (active AND (((asset_type)::text = 'xx'::text) OR ((asset_type)::text = 'yy'::text)) AND (upper((COALESCE(vendor, 'none'::character varying))::text) <> 'some_vendor'::text))
-                                             ->  Seq Scan on asset_records_1_prt_5 asset_records_4
+                                             ->  Seq Scan on asset_records_1_prt_5 asset_records_5
                                                    Filter: (active AND (((asset_type)::text = 'xx'::text) OR ((asset_type)::text = 'yy'::text)) AND (upper((COALESCE(vendor, 'none'::character varying))::text) <> 'some_vendor'::text))
  Optimizer: Postgres query optimizer
 (25 rows)
@@ -13857,8 +13857,8 @@ DETAIL:  Feature not supported: Partitioned table with heterogeneous storage typ
          Join Filter: ((stg_xdr_crce_cdr.sessioncreationtimestamp >= d.start_dtm) AND (stg_xdr_crce_cdr.sessioncreationtimestamp < d.end_dtm))
          ->  Append
                Partition Selectors: $0
-               ->  Seq Scan on stg_xdr_crce_cdr_1_prt_1 stg_xdr_crce_cdr
-               ->  Seq Scan on stg_xdr_crce_cdr_1_prt_2 stg_xdr_crce_cdr_1
+               ->  Seq Scan on stg_xdr_crce_cdr_1_prt_1 stg_xdr_crce_cdr_1
+               ->  Seq Scan on stg_xdr_crce_cdr_1_prt_2 stg_xdr_crce_cdr_2
          ->  Hash
                ->  Partition Selector (selector id: $0)
                      ->  Broadcast Motion 3:3  (slice2; segments: 3)
@@ -13943,11 +13943,11 @@ DETAIL:  Feature not supported: Partitioned table with heterogeneous storage typ
                ->  Redistribute Motion 3:3  (slice2; segments: 3)
                      Hash Key: (to_char(order_lineitems.order_datetime, 'YYYY-Q'::text)), order_lineitems.item_shipment_status_code
                      ->  Append
-                           ->  Seq Scan on order_lineitems_1_prt_4 order_lineitems
+                           ->  Seq Scan on order_lineitems_1_prt_4 order_lineitems_1
                                  Filter: ((order_datetime >= 'Thu Apr 01 00:00:00 2010'::timestamp without time zone) AND (order_datetime <= '06-30-2010'::date))
-                           ->  Seq Scan on order_lineitems_1_prt_5 order_lineitems_1
+                           ->  Seq Scan on order_lineitems_1_prt_5 order_lineitems_2
                                  Filter: ((order_datetime >= 'Thu Apr 01 00:00:00 2010'::timestamp without time zone) AND (order_datetime <= '06-30-2010'::date))
-                           ->  Seq Scan on order_lineitems_1_prt_6 order_lineitems_2
+                           ->  Seq Scan on order_lineitems_1_prt_6 order_lineitems_3
                                  Filter: ((order_datetime >= 'Thu Apr 01 00:00:00 2010'::timestamp without time zone) AND (order_datetime <= '06-30-2010'::date))
  Optimizer: Postgres query optimizer
 (16 rows)

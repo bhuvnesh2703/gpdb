@@ -115,6 +115,7 @@ _copyPlannedStmt(const PlannedStmt *from)
 	COPY_NODE_FIELD(rtable);
 	COPY_NODE_FIELD(resultRelations);
 	COPY_NODE_FIELD(rootResultRelations);
+	COPY_NODE_FIELD(appendRelations);
 	COPY_NODE_FIELD(subplans);
 	COPY_POINTER_FIELD(subplan_sliceIds, list_length(from->subplans) * sizeof(int));
 	COPY_BITMAPSET_FIELD(rewindPlanIDs);
@@ -369,6 +370,7 @@ _copyAppend(const Append *from)
 	/*
 	 * copy remainder of node
 	 */
+	COPY_BITMAPSET_FIELD(apprelids);
 	COPY_NODE_FIELD(appendplans);
 	COPY_SCALAR_FIELD(first_partial_plan);
 	COPY_NODE_FIELD(part_prune_info);
@@ -403,6 +405,7 @@ _copyMergeAppend(const MergeAppend *from)
 	/*
 	 * copy remainder of node
 	 */
+	COPY_BITMAPSET_FIELD(apprelids);
 	COPY_NODE_FIELD(mergeplans);
 	COPY_SCALAR_FIELD(numCols);
 	COPY_POINTER_FIELD(sortColIdx, from->numCols * sizeof(AttrNumber));
