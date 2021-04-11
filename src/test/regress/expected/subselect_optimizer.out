@@ -309,7 +309,7 @@ select * from int4_tbl o where not exists
      ->  Result
            ->  Limit
                  ->  Result
-                       Filter: (int4_tbl_1.f1 = int4_tbl.f1)
+                       Filter: (int4_tbl_1.f1 = int4_tbl_1.f1)
                        ->  Materialize
                              ->  Gather Motion 3:1  (slice2; segments: 3)
                                    ->  Seq Scan on int4_tbl int4_tbl_1
