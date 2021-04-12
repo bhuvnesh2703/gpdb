@@ -1434,7 +1434,7 @@ lreplace:;
 			/* Tuple routing starts from the root table. */
 			Assert(mtstate->rootResultRelInfo != NULL);
 			ret_slot = ExecInsert(mtstate, mtstate->rootResultRelInfo, slot,
-								  planSlot, estate, canSetTag);
+								  planSlot, estate, canSetTag, true);
 
 			/* Clear the INSERT's tuple and restore the saved map. */
 			if (mtstate->mt_transition_capture)
@@ -1654,12 +1654,12 @@ lreplace:;
  */
 static TupleTableSlot *
 ExecSplitUpdate_Insert(ModifyTableState *mtstate,
+					   ResultRelInfo *resultRelInfo,
 					   TupleTableSlot *slot,
 					   TupleTableSlot *planSlot,
 					   EState *estate,
 					   bool canSetTag)
 {
-	ResultRelInfo *resultRelInfo;
 	Relation	resultRelationDesc;
 	bool		partition_constraint_failed;
 	TupleConversionMap *saved_tcs_map = NULL;
@@ -1670,7 +1670,6 @@ ExecSplitUpdate_Insert(ModifyTableState *mtstate,
 	/*
 	 * get information on the (current) result relation
 	 */
-	resultRelInfo = estate->es_result_relation_info;
 	resultRelationDesc = resultRelInfo->ri_RelationDesc;
 
 	/* ensure slot is independent, consider e.g. EPQ */
@@ -1739,15 +1738,11 @@ ExecSplitUpdate_Insert(ModifyTableState *mtstate,
 		 * into the root.
 		 */
 		Assert(mtstate->rootResultRelInfo != NULL);
-		slot = ExecPrepareTupleRouting(mtstate, estate, proute,
-									   mtstate->rootResultRelInfo, slot);
 
-		slot = ExecInsert(mtstate, slot, planSlot,
+		slot = ExecInsert(mtstate, mtstate->rootResultRelInfo, slot, planSlot,
 						  estate, mtstate->canSetTag,
 						  true /* splitUpdate */);
 
-		/* Revert ExecPrepareTupleRouting's node change. */
-		estate->es_result_relation_info = resultRelInfo;
 		if (mtstate->mt_transition_capture)
 		{
 			mtstate->mt_transition_capture->tcs_original_insert_tuple = NULL;
@@ -1756,7 +1751,7 @@ ExecSplitUpdate_Insert(ModifyTableState *mtstate,
 	}
 	else
 	{
-		slot = ExecInsert(mtstate, slot, planSlot,
+		slot = ExecInsert(mtstate, resultRelInfo, slot, planSlot,
 						  estate, mtstate->canSetTag,
 						  true /* splitUpdate */);
 	}
@@ -2566,15 +2561,6 @@ ExecModifyTable(PlanState *pstate)
 				elog(ERROR, "unknown operation");
 				break;
 		}
-
-		/*
-		 * If the target is a partitioned table, ExecInsert / ExecUpdate /
-		 * ExecDelete might have changed es_result_relation_info to point to
-		 * a partition, instead of the top-level table. Reset it. (It would
-		 * be more tidy if those functions cleaned up after themselves, but
-		 * it's more robust to do it here just once.)
-		 */
-		estate->es_result_relation_info = resultRelInfo;
 
 		/*
 		 * If we got a RETURNING result, return it to caller.  We'll continue

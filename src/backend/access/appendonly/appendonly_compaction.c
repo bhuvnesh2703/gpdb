@@ -300,7 +300,8 @@ AppendOnlyMoveTuple(TupleTableSlot *slot,
 	/* insert index' tuples if needed */
 	if (resultRelInfo->ri_NumIndices > 0)
 	{
-		ExecInsertIndexTuples(slot,
+		ExecInsertIndexTuples(resultRelInfo,
+							  slot,
 							  estate,
 							  false, /* noDupError */
 							  NULL, /* specConflict */
@@ -425,7 +426,6 @@ AppendOnlySegmentFileFullCompaction(Relation aorel,
 	resultRelInfo->ri_TrigDesc = NULL;	/* we don't fire triggers */
 	ExecOpenIndices(resultRelInfo, false);
 	estate->es_result_relations = NULL;
-	estate->es_result_relation_info = resultRelInfo;
 
 	/*
 	 * Go through all visible tuples and move them to a new segfile.
