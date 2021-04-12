@@ -15,8 +15,7 @@
 #define REWRITEMANIP_H
 
 #include "nodes/parsenodes.h"
-
-struct AttrMap;					/* avoid including attmap.h here */
+#include "access/attmap.h"
 
 
 typedef struct replace_rte_variables_context replace_rte_variables_context;
