@@ -1703,7 +1703,7 @@ ExecSplitUpdate_Insert(ModifyTableState *mtstate,
 	 * row.  So skip the WCO checks if the partition constraint fails.
 	 */
 	partition_constraint_failed =
-		resultRelInfo->ri_PartitionCheck &&
+		resultRelationDesc->rd_rel->relispartition &&
 		!ExecPartitionCheck(resultRelInfo, slot, estate, false);
 
 	if (!partition_constraint_failed &&
