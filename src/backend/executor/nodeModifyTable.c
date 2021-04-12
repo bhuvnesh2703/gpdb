@@ -1433,7 +1433,7 @@ lreplace:;
 			/* Tuple routing starts from the root table. */
 			Assert(mtstate->rootResultRelInfo != NULL);
 			ret_slot = ExecInsert(mtstate, mtstate->rootResultRelInfo, slot,
-								  planSlot, estate, canSetTag, true);
+								  planSlot, estate, canSetTag, false);
 
 			/* Clear the INSERT's tuple and restore the saved map. */
 			if (mtstate->mt_transition_capture)
