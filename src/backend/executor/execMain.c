@@ -3906,7 +3906,7 @@ attrMap(TupleConversionMap *map, AttrNumber anum)
 static void
 AdjustReplicatedTableCounts(EState *estate)
 {
-	int i;
+	ListCell *l;
 	ResultRelInfo *resultRelInfo;
 	bool containReplicatedTable = false;
 	int			numsegments =  1;
@@ -3914,10 +3914,14 @@ AdjustReplicatedTableCounts(EState *estate)
 	if (Gp_role != GP_ROLE_DISPATCH)
 		return;
 
+	enum CmdType commandType = estate->es_plannedstmt->commandType;
+	if (commandType != CMD_DELETE && commandType != CMD_INSERT && commandType != CMD_UPDATE)
+		return;
+
 	/* check if result_relations contain replicated table*/
-	for (i = 0; i < estate->es_num_result_relations; i++)
+	foreach(l, estate->es_opened_result_relations)
 	{
-		resultRelInfo = estate->es_result_relations + i;
+		resultRelInfo = lfirst(l);
 
 		if (!resultRelInfo->ri_RelationDesc->rd_cdbpolicy)
 			continue;
