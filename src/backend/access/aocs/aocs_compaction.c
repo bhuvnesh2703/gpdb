@@ -178,7 +178,6 @@ AOCSMoveTuple(TupleTableSlot *slot,
 	Assert(resultRelInfo);
 	Assert(slot);
 	Assert(estate);
-
 	oldAoTupleId = (AOTupleId *) &slot->tts_tid;
 	/* Extract all the values of the tuple */
 	slot_getallattrs(slot);
@@ -192,7 +191,7 @@ AOCSMoveTuple(TupleTableSlot *slot,
 	/* insert index' tuples if needed */
 	if (resultRelInfo->ri_NumIndices > 0)
 	{
-		ExecInsertIndexTuples(slot, estate, false, false, NIL);
+		ExecInsertIndexTuples(resultRelInfo, slot, estate, false, false, NIL);
 		ResetPerTupleExprContext(estate);
 	}
 
@@ -267,7 +266,6 @@ AOCSSegmentFileFullCompaction(Relation aorel,
 	resultRelInfo->ri_TrigDesc = NULL;	/* we don't fire triggers */
 	ExecOpenIndices(resultRelInfo, false);
 	estate->es_result_relations = NULL;
-	estate->es_result_relation_info = resultRelInfo;
 
 	while (aocs_getnext(scanDesc, ForwardScanDirection, slot))
 	{
