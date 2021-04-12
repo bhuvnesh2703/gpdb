@@ -4005,52 +4005,11 @@ attrMap(TupleConversionMap *map, AttrNumber anum)
 	{
 		for (int i = 0; i < map->outdesc->natts; i++)
 		{
-			if (map->attrMap[i] == anum)
+			if (map->attrMap->attnums[i] == anum)
 				return i + 1;
 		}
 	}
 	return 0;
-}
-
-/* For attrMapExpr below.
- *
- * Mutate Var nodes in an expression using the given attribute map.
- * Insist the Var nodes have varno == 1 and the that the mapping
- * yields a live attribute number (non-zero).
- */
-static Node *apply_attrmap_mutator(Node *node, TupleConversionMap *map)
-{
-	if ( node == NULL )
-		return NULL;
-	
-	if (IsA(node, Var) )
-	{
-		Var		   *var = (Var *) node;
-		AttrNumber anum;
-
-		Assert(var->varno == 1); /* in CHECK constraints */
-		anum = attrMap(map, var->varattno);
-
-		if (anum == 0)
-		{
-			/* Should never happen, but best caught early. */
-			elog(ERROR, "attribute map discrepancy");
-		}
-		else if (anum != var->varattno)
-		{
-			var = copyObject(var);
-			var->varattno = anum;
-		}
-		return (Node *) var;
-	}
-	return expression_tree_mutator(node, apply_attrmap_mutator, (void *) map);
-}
-
-/* Apply attrMap over the Var nodes in an expression. */
-Node *
-attrMapExpr(TupleConversionMap *map, Node *expr)
-{
-	return apply_attrmap_mutator(expr, map);
 }
 
 /*
