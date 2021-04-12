@@ -3690,7 +3690,7 @@ EvalPlanQualStart(EPQState *epqstate, EState *parentestate, Plan *planTree)
 	 * ResultRelInfos needed by subplans are initialized from scratch when the
 	 * subplans themselves are initialized.
 	 */
-	rcestate->es_result_relations = NULL;
+	estate->es_result_relations = NULL;
 	/* es_result_relation_info must NOT be copied */
 	/* es_trig_target_relations must NOT be copied */
 	estate->es_top_eflags = parentestate->es_top_eflags;
