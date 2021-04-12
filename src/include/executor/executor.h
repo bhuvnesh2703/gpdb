@@ -239,8 +239,6 @@ extern void EvalPlanQualEnd(EPQState *epqstate);
 
 extern Oid GetIntoRelOid(QueryDesc *queryDesc);
 
-extern Node *attrMapExpr(TupleConversionMap *map, Node *expr);
-
 /*
  * functions in execProcnode.c
  */
