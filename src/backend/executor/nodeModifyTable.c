@@ -2407,8 +2407,8 @@ ExecModifyTable(PlanState *pstate)
 			node->mt_whichplan++;
 			if (node->mt_whichplan < node->mt_nplans)
 			{
-				estate->es_result_relation_info = estate->es_result_relations + node->mt_whichplan;
-				resultRelInfo = estate->es_result_relation_info;
+				resultRelInfo++;
+				estate->es_result_relation_info = resultRelInfo;
 				subplanstate = node->mt_plans[node->mt_whichplan];
 				junkfilter = estate->es_result_relation_info->ri_junkFilter;
 				action_attno = estate->es_result_relation_info->ri_action_attno;
