@@ -1200,6 +1200,8 @@ ExecCrossPartitionUpdate(ModifyTableState *mtstate,
 	*inserted_tuple = NULL;
 	*retry_slot = NULL;
 
+	Assert(!splitUpdate);
+
 	/*
 	 * Disallow an INSERT ON CONFLICT DO UPDATE that causes the original row
 	 * to migrate to a different partition.  Maybe this can be implemented
