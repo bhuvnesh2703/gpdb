@@ -1100,7 +1100,6 @@ DELETE 10
 1: select * from show_locks_lockmodes;
  locktype | mode            | granted | relation                            
 ----------+-----------------+---------+-------------------------------------
- relation | AccessShareLock | t       | t_lockmods_part_tbl_upd_del         
  relation | ExclusiveLock   | t       | t_lockmods_part_tbl_upd_del_1_prt_1 
 (2 rows)
 1: ROLLBACK;
@@ -2167,7 +2166,7 @@ DELETE 10
  locktype | mode             | granted | relation                            
 ----------+------------------+---------+-------------------------------------
  relation | RowExclusiveLock | t       | t_lockmods_part_tbl_upd_del_1_prt_1 
-(1 rows)
+(1 row)
 1: ROLLBACK;
 ROLLBACK
 1q: ... <quitting>
