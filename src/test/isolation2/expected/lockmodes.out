@@ -1098,9 +1098,9 @@ BEGIN
 DELETE 10
 -- since the delete operation is on leaf part, there will be a lock on QD
 1: select * from show_locks_lockmodes;
- locktype | mode          | granted | relation
+ locktype | mode          | granted | relation                            
 ----------+---------------+---------+-------------------------------------
- relation | ExclusiveLock | t       | t_lockmods_part_tbl_upd_del_1_prt_1
+ relation | ExclusiveLock | t       | t_lockmods_part_tbl_upd_del_1_prt_1 
 (1 row)
 1: ROLLBACK;
 ROLLBACK
