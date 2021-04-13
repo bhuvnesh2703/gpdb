@@ -1186,7 +1186,9 @@ ExecCrossPartitionUpdate(ModifyTableState *mtstate,
 						 TupleTableSlot *slot, TupleTableSlot *planSlot,
 						 EPQState *epqstate, bool canSetTag,
 						 TupleTableSlot **retry_slot,
-						 TupleTableSlot **inserted_tuple)
+						 TupleTableSlot **inserted_tuple,
+						 bool splitUpdate,
+						 int32 segid)
 {
 	EState	   *estate = mtstate->ps.state;
 	PartitionTupleRouting *proute = mtstate->mt_partition_tuple_routing;
@@ -1222,11 +1224,12 @@ ExecCrossPartitionUpdate(ModifyTableState *mtstate,
 	 * Row movement, part 1.  Delete the tuple, but skip RETURNING processing.
 	 * We want to return rows from INSERT.
 	 */
-	ExecDelete(mtstate, resultRelInfo, tupleid, oldtuple, planSlot,
+	ExecDelete(mtstate, resultRelInfo, tupleid, segid, oldtuple, planSlot,
 			   epqstate, estate,
 			   false,			/* processReturning */
 			   false,			/* canSetTag */
 			   true,			/* changingPart */
+			   splitUpdate, 	/* spliltUpdate */
 			   &tuple_deleted, &epqslot);
 
 	/*
@@ -1291,7 +1294,7 @@ ExecCrossPartitionUpdate(ModifyTableState *mtstate,
 	/* Tuple routing starts from the root table. */
 	Assert(mtstate->rootResultRelInfo != NULL);
 	*inserted_tuple = ExecInsert(mtstate, mtstate->rootResultRelInfo, slot,
-								 planSlot, estate, canSetTag);
+								 planSlot, estate, canSetTag, splitUpdate);
 
 	/* Clear the INSERT's tuple and restore the saved map. */
 	if (mtstate->mt_transition_capture)
@@ -1486,7 +1489,7 @@ lreplace:;
 			retry = !ExecCrossPartitionUpdate(mtstate, resultRelInfo, tupleid,
 											  oldtuple, slot, planSlot,
 											  epqstate, canSetTag,
-											  &retry_slot, &inserted_tuple, false);
+											  &retry_slot, &inserted_tuple, false, segid);
 			if (retry)
 			{
 				slot = retry_slot;
