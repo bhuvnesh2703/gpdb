@@ -1695,9 +1695,7 @@ ExecSplitUpdate_Insert(ModifyTableState *mtstate,
 {
 	Relation	resultRelationDesc;
 	bool		partition_constraint_failed;
-	TupleConversionMap *saved_tcs_map = NULL;
 	PartitionTupleRouting *proute = mtstate->mt_partition_tuple_routing;
-	int			map_index;
 	TupleConversionMap *tupconv_map;
 
 	/*
@@ -1730,16 +1728,6 @@ ExecSplitUpdate_Insert(ModifyTableState *mtstate,
 							 resultRelInfo, slot, estate);
 	}
 
-	/*
-	 * Updates set the transition capture map only when a new subplan
-	 * is chosen.  But for inserts, it is set for each row. So after
-	 * INSERT, we need to revert back to the map created for UPDATE;
-	 * otherwise the next UPDATE will incorrectly use the one created
-	 * for INSERT.  So first save the one created for UPDATE.
-	 */
-	if (mtstate->mt_transition_capture)
-		saved_tcs_map = mtstate->mt_transition_capture->tcs_map;
-
 	if (partition_constraint_failed)
 	{
 		/*
@@ -1758,9 +1746,7 @@ ExecSplitUpdate_Insert(ModifyTableState *mtstate,
 		 * retrieve the one for this resultRel, we need to know the
 		 * position of the resultRel in mtstate->resultRelInfo[].
 		 */
-		map_index = resultRelInfo - mtstate->resultRelInfo;
-		Assert(map_index >= 0 && map_index < mtstate->mt_nplans);
-		tupconv_map = tupconv_map_for_subplan(mtstate, map_index);
+		tupconv_map = resultRelInfo->ri_ChildToRootMap;
 		if (tupconv_map != NULL)
 			slot = execute_attr_map_slot(tupconv_map->attrMap,
 										 slot,
@@ -1779,7 +1765,6 @@ ExecSplitUpdate_Insert(ModifyTableState *mtstate,
 		if (mtstate->mt_transition_capture)
 		{
 			mtstate->mt_transition_capture->tcs_original_insert_tuple = NULL;
-			mtstate->mt_transition_capture->tcs_map = saved_tcs_map;
 		}
 	}
 	else
