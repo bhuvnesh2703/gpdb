@@ -5773,8 +5773,9 @@ ATAocsWriteSegFileNewColumns(
 					{
 						ereport(ERROR,
 								(errcode(ERRCODE_NOT_NULL_VIOLATION),
-								 errmsg("column \"%s\" contains null values",
-										NameStr(attr->attname))));
+								 errmsg("column \"%s\" of relation \"%s\" contains null values",
+										NameStr(attr->attname),
+										RelationGetRelationName(idesc->rel))));
 					}
 				}
 				foreach (l, tab->constraints)
