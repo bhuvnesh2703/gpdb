@@ -2786,14 +2786,13 @@ transformCurrentOfExpr(ParseState *pstate, CurrentOfExpr *cexpr)
 	Assert(pstate->p_target_nsitem != NULL);
 	cexpr->cvarno = pstate->p_target_nsitem->p_rtindex;
 
-	cexpr->target_relid = pstate->p_target_rangetblentry->relid;
+	cexpr->target_relid = pstate->p_target_nsitem->p_rte->relid;
 	/*
 	 * The target RTE must be simply updatable. If not, we error out
 	 * early here to avoid having to deal with error cases later:
 	 * rewriting/planning against views, for example.
 	 */
-	Assert(pstate->p_target_rangetblentry != NULL);
-	(void) isSimplyUpdatableRelation(pstate->p_target_rangetblentry->relid, false);
+	(void) isSimplyUpdatableRelation(pstate->p_target_nsitem->p_rte->relid, false);
 
 	/*
 	 * Check to see if the cursor name matches a parameter of type REFCURSOR.
