@@ -819,8 +819,12 @@ mutate_targetlist(List *tlist)
 static int
 add_notin_subquery_rte(Query *parse, Query *subselect)
 {
-	RangeTblEntry *subq_rte;
+	ParseNamespaceItem *nsitem;
 	int			subq_indx;
+	ParseState *pstate;
+
+	/* Create a dummy ParseState for addRangeTableEntryForSubquery */
+	pstate = make_parsestate(NULL);
 
 	/*
 	 * Create a RTE entry in the parent query for the subquery.
@@ -828,16 +832,16 @@ add_notin_subquery_rte(Query *parse, Query *subselect)
 	 * refer to other RTEs in the parent query.
 	 */
 	subselect->targetList = mutate_targetlist(subselect->targetList);
-	subq_rte = addRangeTableEntryForSubquery(NULL,	/* pstate */
+	nsitem = addRangeTableEntryForSubquery(pstate,
 											 subselect,
 											 makeAlias("NotIn_SUBQUERY", NIL),
 											 false, /* not lateral */
 											 false /* inFromClause */ );
-	parse->rtable = lappend(parse->rtable, subq_rte);
+	parse->rtable = lappend(parse->rtable, nsitem->p_rte);
 
 	/* assume new rte is at end */
 	subq_indx = list_length(parse->rtable);
-	Assert(subq_rte == rt_fetch(subq_indx, parse->rtable));
+	Assert(nsitem->p_rte == rt_fetch(subq_indx, parse->rtable));
 
 	return subq_indx;
 }
@@ -848,8 +852,9 @@ add_notin_subquery_rte(Query *parse, Query *subselect)
 static int
 add_expr_subquery_rte(Query *parse, Query *subselect)
 {
-	RangeTblEntry *subq_rte;
+	ParseNamespaceItem *nsitem;
 	int			subq_indx;
+	ParseState *pstate;
 
 	/**
 	 * Generate column names.
@@ -866,21 +871,24 @@ add_expr_subquery_rte(Query *parse, Query *subselect)
 		teNum++;
 	}
 
+	/* Create a dummy ParseState for addRangeTableEntryForSubquery */
+	pstate = make_parsestate(NULL);
+
 	/*
 	 * Create a RTE entry in the parent query for the subquery.
 	 * It is marked as lateral, because any correlation quals will
 	 * refer to other RTEs in the parent query.
 	 */
-	subq_rte = addRangeTableEntryForSubquery(NULL,	/* pstate */
+	nsitem = addRangeTableEntryForSubquery(pstate,
 											 subselect,
 											 makeAlias("Expr_SUBQUERY", NIL),
 											 true, /* lateral */
 											 false /* inFromClause */ );
-	parse->rtable = lappend(parse->rtable, subq_rte);
+	parse->rtable = lappend(parse->rtable, nsitem->p_rte);
 
 	/* assume new rte is at end */
 	subq_indx = list_length(parse->rtable);
-	Assert(subq_rte == rt_fetch(subq_indx, parse->rtable));
+	Assert(nsitem->p_rte == rt_fetch(subq_indx, parse->rtable));
 
 	return subq_indx;
 }
