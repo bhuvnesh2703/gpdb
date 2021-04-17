@@ -2509,15 +2509,16 @@ set_splitupdate_tlist_references(Plan *plan, int rtoffset)
 						 exprTypmod((Node *) oldvar),
 						 exprCollation((Node *) oldvar),
 						 0);
-		if (IsA(oldvar, Var))
+		if (IsA(oldvar, Var) &&
+				oldvar->varnosyn > 0)
 		{
-			newvar->varnoold = oldvar->varno + rtoffset;
-			newvar->varoattno = oldvar->varattno;
+			newvar->varnosyn = oldvar->varnosyn + rtoffset;
+			newvar->varattnosyn = oldvar->varattnosyn;
 		}
 		else
 		{
-			newvar->varnoold = 0;		/* wasn't ever a plain Var */
-			newvar->varoattno = 0;
+			newvar->varnosyn = 0;		/* wasn't ever a plain Var */
+			newvar->varattnosyn = 0;
 		}
 
 		tle = flatCopyTargetEntry(tle);

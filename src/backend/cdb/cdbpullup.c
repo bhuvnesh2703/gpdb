@@ -427,8 +427,8 @@ cdbpullup_make_expr(Index varno, AttrNumber varattno, Expr *oldexpr, bool modify
 		var->varattno = varattno;
 		if (modifyOld)
 		{
-			var->varoattno = varattno;
-			var->varnoold = varno;
+			var->varattnosyn = varattno;
+			var->varnosyn = varno;
 		}
 		var->varlevelsup = 0;
 		return (Expr *) var;
@@ -452,8 +452,8 @@ cdbpullup_make_expr(Index varno, AttrNumber varattno, Expr *oldexpr, bool modify
 					  exprTypmod((Node *) oldexpr),
 					  exprCollation((Node *) oldexpr),
 					  0);
-		var->varnoold = varno;	/* assuming it wasn't ever a plain Var */
-		var->varoattno = varattno;
+		var->varnosyn = varno;	/* assuming it wasn't ever a plain Var */
+		var->varattnosyn = varattno;
 		return (Expr *) var;
 	}
 }								/* cdbpullup_make_var */

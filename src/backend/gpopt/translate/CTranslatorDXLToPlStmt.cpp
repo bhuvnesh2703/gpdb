@@ -4779,18 +4779,18 @@ CTranslatorDXLToPlStmt::TranslateDXLProjectListToHashTargetList(
 		INT type_modifier = gpdb::ExprTypeMod((Node *) te_child->expr);
 
 		// find the original varno and attno for this column
-		Index idx_varnoold = 0;
+		Index idx_varnosyn = 0;
 		AttrNumber attno_old = 0;
 
 		if (IsA(te_child->expr, Var))
 		{
 			Var *pv = (Var *) te_child->expr;
-			idx_varnoold = pv->varnoold;
-			attno_old = pv->varoattno;
+			idx_varnosyn = pv->varnosyn;
+			attno_old = pv->varattnosyn;
 		}
 		else
 		{
-			idx_varnoold = OUTER_VAR;
+			idx_varnosyn = OUTER_VAR;
 			attno_old = te_child->resno;
 		}
 
@@ -4801,8 +4801,8 @@ CTranslatorDXLToPlStmt::TranslateDXLProjectListToHashTargetList(
 			);
 
 		// set old varno and varattno since makeVar does not set them
-		var->varnoold = idx_varnoold;
-		var->varoattno = attno_old;
+		var->varnosyn = idx_varnosyn;
+		var->varattnosyn = attno_old;
 
 		CHAR *resname = CTranslatorUtils::CreateMultiByteCharStringFromWCString(
 			sc_proj_elem_dxlop->GetMdNameAlias()->GetMDName()->GetBuffer());
@@ -5772,8 +5772,8 @@ CTranslatorDXLToPlStmt::TranslateNestLoopParamList(
 		Var *new_var =
 			gpdb::MakeVar(OUTER_VAR, target_entry->resno, old_var->vartype,
 						  old_var->vartypmod, 0 /*varlevelsup*/);
-		new_var->varnoold = old_var->varnoold;
-		new_var->varoattno = old_var->varoattno;
+		new_var->varnosyn = old_var->varnosyn;
+		new_var->varattnosyn = old_var->varattnosyn;
 
 		NestLoopParam *nest_params = MakeNode(NestLoopParam);
 		// right child context contains the param entry for the nest params col refs

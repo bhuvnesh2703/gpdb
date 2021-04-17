@@ -386,6 +386,7 @@ markTargetListOrigin(ParseState *pstate, TargetEntry *tle,
 				tle->resorigcol = ste->resorigcol;
 			}
 			break;
+		case RTE_JOIN:
 		case RTE_TABLEFUNCTION:
 		case RTE_FUNCTION:
 		case RTE_VALUES:
