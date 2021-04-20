@@ -3146,28 +3146,26 @@ ExecInitModifyTable(ModifyTable *node, EState *estate, int eflags)
 				resultRelInfo->ri_RowIdAttNo =
 					ExecFindJunkAttributeInTlist(subplan->targetlist, "ctid");
 				if (!AttributeNumberIsValid(resultRelInfo->ri_RowIdAttNo))
-							elog(ERROR, "could not find junk ctid column");
+					elog(ERROR, "could not find junk ctid column");
 
-						/* Extra GPDB junk columns */
-						resultRelInfo->ri_segid_attno =
-							ExecFindJunkAttributeInTlist(subplan->targetlist, "gp_segment_id");
-						if (!AttributeNumberIsValid(resultRelInfo->ri_segid_attno))
-							elog(ERROR, "could not find junk gp_segment_id column");
+				/* Extra GPDB junk columns */
+				resultRelInfo->ri_segid_attno =
+					ExecFindJunkAttributeInTlist(subplan->targetlist, "gp_segment_id");
+				if (!AttributeNumberIsValid(resultRelInfo->ri_segid_attno))
+					elog(ERROR, "could not find junk gp_segment_id column");
 
-						if (operation == CMD_UPDATE && mtstate->mt_isSplitUpdates[i])
-						{
-							resultRelInfo->ri_action_attno =
-								ExecFindJunkAttributeInTlist(subplan->targetlist, "DMLAction");
-							if (!AttributeNumberIsValid(resultRelInfo->ri_action_attno))
-								elog(ERROR, "could not find junk action column");
-						}
-					}
-					else if (relkind == RELKIND_FOREIGN_TABLE)
-					{
-						// AW_FIXME: this needs work.
-						/*
-						 * When there is a row-level trigger, there should be
-						  a
+				if (operation == CMD_UPDATE && mtstate->mt_isSplitUpdates[i])
+				{
+					resultRelInfo->ri_action_attno =
+						ExecFindJunkAttributeInTlist(subplan->targetlist, "DMLAction");
+					if (!AttributeNumberIsValid(resultRelInfo->ri_action_attno))
+						elog(ERROR, "could not find junk action column");
+				}
+			}
+			else if (relkind == RELKIND_FOREIGN_TABLE)
+			{
+				/*
+				 * When there is a row-level trigger, there should be a
 				 * wholerow attribute.  We also require it to be present in
 				 * UPDATE, so we can get the values of unchanged columns.
 				 */
