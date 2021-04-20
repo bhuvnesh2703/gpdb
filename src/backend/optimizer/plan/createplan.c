@@ -2844,14 +2844,14 @@ create_modifytable_plan(PlannerInfo *root, ModifyTablePath *best_path)
 	ModifyTable *plan;
 	Path	   *subpath = best_path->subpath;
 	Plan	   *subplan;
-	ListCell   *is_split_updates = root->is_split_update;
 
 	// FIXME: evaluate whether or not to bring back cdbpathtoplan_create_sri_plan()?
 	/* Subplan must produce exactly the specified tlist */
 	subplan = create_plan_recurse(root, subpath, CP_EXACT_TLIST);
 
 	/* Transfer resname/resjunk labeling, too, to keep executor happy */
-	if (!is_split_updates)
+	// FIXME: revisit the correctness of this
+	if (!root->is_split_update)
 		apply_tlist_labeling(subplan->targetlist, root->processed_tlist);
 
 	plan = make_modifytable(root,

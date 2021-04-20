@@ -74,8 +74,8 @@ static List *reparameterize_pathlist_by_child(PlannerInfo *root,
 static void set_append_path_locus(PlannerInfo *root, Path *pathnode, RelOptInfo *rel,
 					  List *pathkeys);
 static CdbPathLocus
-adjust_modifytable_subpaths(PlannerInfo *root, CmdType operation,
-							List *resultRelations, List *subpaths,
+adjust_modifytable_subpath(PlannerInfo *root, CmdType operation,
+							List *resultRelations, Path *subpath,
 							List *is_split_updates);
 
 /*****************************************************************************
@@ -5158,8 +5158,8 @@ create_modifytable_path(PlannerInfo *root, RelOptInfo *rel,
 	 */
 	if (Gp_role == GP_ROLE_DISPATCH)
 		pathnode->path.locus =
-			adjust_modifytable_subpaths(root, operation,
-										resultRelations, subpaths,
+			adjust_modifytable_subpath(root, operation,
+										resultRelations, subpath,
 										is_split_updates);
 	else
 	{
@@ -5234,15 +5234,14 @@ create_modifytable_path(PlannerInfo *root, RelOptInfo *rel,
  * ModifyTable node itself.
  */
 static CdbPathLocus
-adjust_modifytable_subpaths(PlannerInfo *root, CmdType operation,
-							List *resultRelations, List *subpaths,
+adjust_modifytable_subpath(PlannerInfo *root, CmdType operation,
+							List *resultRelations, Path *subpath,
 							List *is_split_updates)
 {
 	/*
 	 * The input plans must be distributed correctly.
 	 */
 	ListCell   *lcr,
-			   *lcp,
 			   *lci = NULL;
 	bool		all_subplans_entry = true,
 				all_subplans_replicated = true;
@@ -5251,10 +5250,9 @@ adjust_modifytable_subpaths(PlannerInfo *root, CmdType operation,
 	if (operation == CMD_UPDATE)
 		lci = list_head(is_split_updates);
 
-	forboth(lcr, resultRelations, lcp, subpaths)
+	foreach(lcr, resultRelations)
 	{
 		int			rti = lfirst_int(lcr);
-		Path	   *subpath = (Path *) lfirst(lcp);
 		RangeTblEntry *rte = rt_fetch(rti, root->parse->rtable);
 		GpPolicy   *targetPolicy;
 		GpPolicyType targetPolicyType;
@@ -5304,7 +5302,6 @@ adjust_modifytable_subpaths(PlannerInfo *root, CmdType operation,
 
 			lci = lnext(lci);
 		}
-		lfirst(lcp) = subpath;
 	}
 
 	/*

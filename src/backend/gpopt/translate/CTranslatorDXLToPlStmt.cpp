@@ -4151,7 +4151,6 @@ CTranslatorDXLToPlStmt::TranslateDXLDml(
 	dml->nominalRelation = index;
 	dml->resultRelations = ListMake1Int(index);
 	dml->rootRelation = md_rel->IsPartitioned() ? index : 0;
-	dml->plans = ListMake1(child_plan);
 
 	dml->fdwPrivLists = ListMake1(NIL);
 
