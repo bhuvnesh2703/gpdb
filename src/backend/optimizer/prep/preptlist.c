@@ -140,6 +140,7 @@ preprocess_targetlist(PlannerInfo *root)
 		root->processed_tlist = tlist;
 		add_row_identity_columns(root, result_relation,
 								 target_rte, target_relation);
+		add_segid_var(root, result_relation, target_relation);
 		tlist = root->processed_tlist;
 	}
 

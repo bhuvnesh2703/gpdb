@@ -47,4 +47,6 @@ extern void add_row_identity_columns(PlannerInfo *root, Index rtindex,
 									 Relation target_relation);
 extern void distribute_row_identity_vars(PlannerInfo *root);
 
+extern void add_segid_var(PlannerInfo *root, Index rtindex, Relation target_relation);
+
 #endif							/* APPENDINFO_H */

@@ -959,6 +959,48 @@ add_row_identity_columns(PlannerInfo *root, Index rtindex,
 }
 
 /*
+ * add_segid_var
+ *
+ * Greenplum specific
+ */
+void
+add_segid_var(PlannerInfo *root, Index rtindex, Relation target_relation)
+{
+	TargetEntry *tle;
+	Var 		*varSegid = NULL;
+
+	if (target_relation->rd_rel->relkind == RELKIND_RELATION ||
+		target_relation->rd_rel->relkind == RELKIND_MATVIEW ||
+		target_relation->rd_rel->relkind == RELKIND_PARTITIONED_TABLE ||
+		target_relation->rd_rel->relkind == RELKIND_FOREIGN_TABLE)
+	{
+		/*
+		 * GPDB also needs gp_segment_id. ctid is only unique in the same
+		 * segment.
+		 */
+		Oid			reloid;
+		Oid			vartypeid;
+		int32		type_mod;
+		Oid			type_coll;
+
+		reloid = RelationGetRelid(target_relation);
+		get_atttypetypmodcoll(reloid, GpSegmentIdAttributeNumber, &vartypeid, &type_mod, &type_coll);
+		varSegid = makeVar(rtindex,
+						   GpSegmentIdAttributeNumber,
+						   vartypeid,
+						   type_mod,
+						   type_coll,
+						   0);
+		tle = makeTargetEntry((Expr *) varSegid,
+							  list_length(root->processed_tlist) + 1,	/* resno */
+							  pstrdup("gp_segment_id"),	/* resname */
+							  true);					/* resjunk */
+
+		root->processed_tlist = lappend(root->processed_tlist, tle);
+	}
+}
+
+/*
  * distribute_row_identity_vars
  *
  * After we have finished identifying all the row identity columns
