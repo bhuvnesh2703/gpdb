@@ -669,6 +669,7 @@ expand_single_inheritance_child(PlannerInfo *root, RangeTblEntry *parentrte,
 			/* Register any row-identity columns needed by this child. */
 			add_row_identity_columns(root, childRTindex,
 									 childrte, childrel);
+			add_segid_var(root, childRTindex, childrel);
 		}
 	}
 }
