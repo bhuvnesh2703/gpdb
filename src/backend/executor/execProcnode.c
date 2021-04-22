@@ -1142,15 +1142,6 @@ planstate_walk_kids(PlanState *planstate,
 				break;
 			}
 
-		case T_ModifyTableState:
-			{
-				ModifyTableState *mts = (ModifyTableState *) planstate;
-
-				v = planstate_walk_array(outerPlanState(mts)->plan, mts->mt_nrels, walker, context, flags);
-				Assert(!planstate->lefttree && !planstate->righttree);
-				break;
-			}
-
 		case T_SequenceState:
 			{
 				SequenceState *ss = (SequenceState *) planstate;

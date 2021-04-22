@@ -346,7 +346,7 @@ _copyModifyTable(const ModifyTable *from)
 	COPY_NODE_FIELD(onConflictWhere);
 	COPY_SCALAR_FIELD(exclRelRTI);
 	COPY_NODE_FIELD(exclRelTlist);
-	COPY_NODE_FIELD(isSplitUpdates);
+	COPY_SCALAR_FIELD(isSplitUpdates);
 
 	return newnode;
 }

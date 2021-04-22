@@ -5241,9 +5241,7 @@ adjust_modifytable_subpaths(PlannerInfo *root, CmdType operation,
 	/*
 	 * The input plans must be distributed correctly.
 	 */
-	ListCell   *lcr,
-			   *lcp,
-			   *lci = NULL;
+	ListCell   *lcr;
 	bool		all_subplans_entry = true,
 				all_subplans_replicated = true;
 	int			numsegments = -1;

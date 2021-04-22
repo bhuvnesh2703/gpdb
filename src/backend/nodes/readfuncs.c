@@ -2602,7 +2602,7 @@ _readModifyTable(void)
 	READ_NODE_FIELD(onConflictWhere);
 	READ_UINT_FIELD(exclRelRTI);
 	READ_NODE_FIELD(exclRelTlist);
-	READ_NODE_FIELD(isSplitUpdates);
+	READ_BOOL_FIELD(isSplitUpdates);
 
 	READ_DONE();
 }
