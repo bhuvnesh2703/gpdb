@@ -57,6 +57,7 @@
 #include "catalog/pg_type.h"
 
 static List *extract_update_colnos(List *tlist);
+static bool is_split_update(Relation rel, List *update_colnos);
 static List *expand_targetlist(PlannerInfo *root, List *tlist, int command_type,
 							   Index result_relation, Relation rel);
 static List *supplement_simply_updatable_targetlist(PlannerInfo *root,
@@ -123,7 +124,10 @@ preprocess_targetlist(PlannerInfo *root)
 		tlist = expand_targetlist(root, tlist, command_type,
 								  result_relation, target_relation);
 	else if (command_type == CMD_UPDATE)
+	{
 		root->update_colnos = extract_update_colnos(tlist);
+		root->is_split_update = is_split_update(target_relation, root->update_colnos);
+	}
 
 	/*
 	 * For non-inherited UPDATE/DELETE, register any junk column(s) needed to
@@ -305,6 +309,53 @@ extract_update_colnos(List *tlist)
 		tle->resno = nextresno++;
 	}
 	return update_colnos;
+}
+
+/*
+ * is_split_update
+ *
+ * If an UPDATE can move the tuples from one segment to another, we will
+ * need to create a Split Update node for it. The node is created later
+ * in the planning, but if it's needed, and the table has OIDs, we must
+ * ensure that the target list contains the old OID so that the Split
+ * Update can copy it to the new tuple.
+ *
+ * GPDB_96_MERGE_FIXME: we used to copy all old distribution key columns,
+ * but we only need this for the OID now. Can we desupport Split Updates
+ * on tables with OIDs, and get rid of this?
+ *
+ * GPDB_12_MERGE_FIXME: Tables with special OIDS is now gone. We can
+ * definitely get rid of this now.
+ */
+static bool
+is_split_update(Relation rel, List *update_colnos)
+{
+	GpPolicy   *targetPolicy;
+	Bitmapset  *changed_cols_set = NULL;
+	ListCell *lc;
+
+	/* Tiny optimization just in case both the distribution key list and the
+	 * updated cols list are long.
+	 */
+	foreach(lc, update_colnos)
+	{
+		AttrNumber	targetattnum = lfirst_int(lc);
+		changed_cols_set = bms_add_member(changed_cols_set, targetattnum);
+	}
+
+	/* Was any distribution key column among the changed columns? */
+	targetPolicy = GpPolicyFetch(RelationGetRelid(rel));
+	if (targetPolicy->ptype == POLICYTYPE_PARTITIONED)
+	{
+		int			i;
+
+		for (i = 0; i < targetPolicy->nattrs; i++)
+		{
+			if (bms_is_member(targetPolicy->attrs[i], changed_cols_set))
+				return true;
+		}
+	}
+	return false;
 }
 
 
