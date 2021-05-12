@@ -34,12 +34,14 @@ using namespace gpmd;
 class CColRefComputed : public CColRef
 {
 private:
+	BOOL m_ndv_preserving;
+
 public:
 	CColRefComputed(const CColRefComputed &) = delete;
 
 	// ctor
 	CColRefComputed(const IMDType *pmdtype, INT type_modifier, ULONG id,
-					const CName *pname);
+					const CName *pname, const BOOL ndv_preserving = true);
 
 	// dtor
 	~CColRefComputed() override;
@@ -65,6 +67,13 @@ public:
 		// we cannot introduce distribution columns as computed column
 		return false;
 	};
+
+	// is NDV-preserving?
+	virtual BOOL
+	IsNDVPreserving() const override
+	{
+		return m_ndv_preserving;
+	}
 
 
 };	// class CColRefComputed

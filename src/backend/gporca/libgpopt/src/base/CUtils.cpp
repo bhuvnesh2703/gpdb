@@ -4466,7 +4466,7 @@ CUtils::IsExprNDVPreserving(CExpression *pexpr,
 
 				*underlying_colref = cr->Pcr();
 				GPOS_ASSERT(1 == pexpr->DeriveUsedColumns()->Size());
-				return true;
+				return (*underlying_colref)->IsNDVPreserving();
 			}
 
 			case COperator::EopScalarCast:

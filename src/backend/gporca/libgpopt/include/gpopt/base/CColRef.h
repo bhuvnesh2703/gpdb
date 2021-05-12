@@ -125,6 +125,13 @@ public:
 		return m_id;
 	}
 
+	// is NDV-preserving?
+	virtual BOOL
+	IsNDVPreserving() const
+	{
+		return true;
+	}
+
 	// overloaded equality operator
 	BOOL
 	operator==(const CColRef &cr) const

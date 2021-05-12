@@ -91,6 +91,9 @@ public:
 					   IMDId *mdid_table, INT attno, BOOL is_nullable, ULONG id,
 					   const CName &name, ULONG ulOpSource, BOOL isDistCol,
 					   ULONG ulWidth = gpos::ulong_max);
+	CColRef *PcrCreateNDVPreserving(const IMDType *pmdtype, INT type_modifier,
+									const CName &name,
+									const BOOL ndv_preserving);
 
 	// create a column reference with the same type as passed column reference
 	CColRef *

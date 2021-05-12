@@ -156,6 +156,37 @@ CColumnFactory::PcrCreate(const IMDType *pmdtype, INT type_modifier, ULONG id,
 	return a_pcr.Reset();
 }
 
+//---------------------------------------------------------------------------
+//	@function:
+//		CColumnFactory::PcrCreate
+//
+//	@doc:
+//		Basic implementation of all factory methods;
+//		Name and id have already determined, we just create the ColRef and
+//		insert it into the hashtable
+//
+//---------------------------------------------------------------------------
+CColRef *
+CColumnFactory::PcrCreateNDVPreserving(const IMDType *pmdtype,
+									   INT type_modifier, const CName &name,
+									   const BOOL ndv_preserving)
+{
+	ULONG id = m_aul++;
+	CName *pnameCopy = GPOS_NEW(m_mp) CName(m_mp, name);
+	CAutoP<CName> a_pnameCopy(pnameCopy);
+
+	CColRef *colref = GPOS_NEW(m_mp)
+		CColRefComputed(pmdtype, type_modifier, id, pnameCopy, ndv_preserving);
+	(void) a_pnameCopy.Reset();
+	CAutoP<CColRef> a_pcr(colref);
+
+	// ensure uniqueness
+	GPOS_ASSERT(NULL == LookupColRef(id));
+	m_sht.Insert(colref);
+	colref->MarkAsUsed();
+
+	return a_pcr.Reset();
+}
 
 //---------------------------------------------------------------------------
 //	@function:

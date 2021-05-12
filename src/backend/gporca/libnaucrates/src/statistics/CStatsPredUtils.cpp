@@ -424,7 +424,8 @@ CStatsPredUtils::IsJoinPredSupportedForStatsEstimation(
 	(*col_ref_inner) =
 		CCastUtils::PcrExtractFromScIdOrCastScId(assigned_expr_inner);
 
-	if (nullptr != *col_ref_outer && nullptr != *col_ref_inner)
+	if (nullptr != *col_ref_outer && (*col_ref_outer)->IsNDVPreserving() &&
+		nullptr != *col_ref_inner && (*col_ref_inner)->IsNDVPreserving())
 	{
 		// a simple predicate of the form col1 <op> col2 (casts are allowed)
 		return true;
@@ -440,10 +441,12 @@ CStatsPredUtils::IsJoinPredSupportedForStatsEstimation(
 	if (*stats_pred_cmp_type == CStatsPred::EstatscmptEq)
 	{
 		BOOL outer_is_ndv_preserving =
-			(nullptr != *col_ref_outer ||
+			((nullptr != *col_ref_outer &&
+			  (*col_ref_outer)->IsNDVPreserving()) ||
 			 CUtils::IsExprNDVPreserving(assigned_expr_outer, col_ref_outer));
 		BOOL inner_is_ndv_preserving =
-			(nullptr != *col_ref_inner ||
+			((nullptr != *col_ref_inner &&
+			  (*col_ref_inner)->IsNDVPreserving()) ||
 			 CUtils::IsExprNDVPreserving(assigned_expr_inner, col_ref_inner));
 
 		if (!outer_is_ndv_preserving && !inner_is_ndv_preserving)

@@ -3812,9 +3812,13 @@ CTranslatorDXLToExpr::PexprScalarProjElem(const CDXLNode *pdxlnPrEl)
 
 	CName name(pdxlopPrEl->GetMdNameAlias()->GetMDName());
 
+	const CColRef *underlying_colref = NULL;
+	BOOL is_ndv_preserving =
+		CUtils::IsExprNDVPreserving(pexprChild, &underlying_colref);
+
 	// generate a new column reference
-	CColRef *colref =
-		m_pcf->PcrCreate(pmdtype, popScalar->TypeModifier(), name);
+	CColRef *colref = m_pcf->PcrCreateNDVPreserving(
+		pmdtype, popScalar->TypeModifier(), name, is_ndv_preserving);
 
 	// store colid -> colref mapping
 	BOOL fInserted GPOS_ASSERTS_ONLY =
