@@ -705,7 +705,7 @@ CStatisticsUtils::UpdateDisjStatistics(
 			CDouble output_rows(0.0);
 			CHistogram *new_histogram =
 				previous_histogram->MakeUnionHistogramNormalize(
-					input_disjunct_rows, result_histogram, local_rows,
+					local_rows, result_histogram, input_disjunct_rows,
 					&output_rows);
 
 			GPOS_DELETE(previous_histogram);
