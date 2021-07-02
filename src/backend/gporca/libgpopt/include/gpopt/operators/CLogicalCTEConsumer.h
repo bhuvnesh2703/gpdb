@@ -42,7 +42,10 @@ private:
 	UlongToColRefMap *m_phmulcr;
 
 	// output columns
-	CColRefSet *m_pcrsOutput;
+	CColRefSet *m_pcrsOutput
+
+
+		;
 
 	// create the inlined version of this consumer as well as the column mapping
 	void CreateInlinedExpr(CMemoryPool *mp);
@@ -98,6 +101,11 @@ public:
 	PexprInlined() const
 	{
 		return m_pexprInlined;
+	}
+
+	CColRefSet *PcrsOutput()
+	{
+		return m_pcrsOutput;
 	}
 
 	// operator specific hash function
