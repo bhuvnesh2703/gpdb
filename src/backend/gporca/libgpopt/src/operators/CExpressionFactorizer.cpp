@@ -30,6 +30,7 @@
 #include "naucrates/md/IMDScalarOp.h"
 #include "naucrates/md/IMDType.h"
 #include "naucrates/statistics/CStatistics.h"
+#include "gpopt/operators/CLogicalCTEConsumer.h"
 
 using namespace gpopt;
 
@@ -522,7 +523,7 @@ CExpressionFactorizer::PdrgPdrgpexprDisjunctArrayForColumn(
 void
 CExpressionFactorizer::StoreBaseOpToColumnExpr(
 	CMemoryPool *mp, CExpression *pexpr, SourceToArrayPosMap *psrc2array,
-	ColumnToArrayPosMap *pcol2array, const CColRefSet *pcrsProducedByChildren,
+	ColumnToArrayPosMap *pcol2array, const CColRefSet *pcrsProducedByChildrenOrCTEConsumers,
 	BOOL fAllowNewSources, ULONG ulPosition)
 {
 	ULONG ulOpSourceId;
@@ -542,8 +543,8 @@ CExpressionFactorizer::StoreBaseOpToColumnExpr(
 	else
 	{
 		GPOS_ASSERT(nullptr != pcrComputed);
-		if (nullptr != pcrsProducedByChildren &&
-			pcrsProducedByChildren->FMember(pcrComputed))
+		if (nullptr != pcrsProducedByChildrenOrCTEConsumers &&
+				pcrsProducedByChildrenOrCTEConsumers->FMember(pcrComputed))
 		{
 			// do not create filters for columns produced by the scalar tree of
 			// a logical operator immediately under the current logical operator
@@ -667,11 +668,12 @@ CExpressionFactorizer::AddInferredFiltersFromArray(
 //
 //	@doc:
 //		Returns the set of columns produced by the scalar trees of the given expression's
-//		children
+//		children or CTE consumers because one can't push down predicates below
+//		computed columns of the CTE, thus we don't need to generate predicates on them
 //
 //---------------------------------------------------------------------------
 CColRefSet *
-CExpressionFactorizer::PcrsColumnsProducedByChildren(CMemoryPool *mp,
+CExpressionFactorizer::PcrsColumnsProducedByChildrenOrCTEConsumers(CMemoryPool *mp,
 													 CExpression *pexpr)
 {
 	GPOS_ASSERT(nullptr != pexpr);
@@ -692,6 +694,16 @@ CExpressionFactorizer::PcrsColumnsProducedByChildren(CMemoryPool *mp,
 				pcrs->Include(pcrsChildDefined);
 			}
 		}
+
+		if (pexprChild->Pop()->Eopid() == COperator::EopLogicalCTEConsumer)
+		{
+			CLogicalCTEConsumer *popConsumer =
+				CLogicalCTEConsumer::PopConvert(pexprChild->Pop());
+			CColRefSet *pcrsOutputCTE = popConsumer->PcrsOutput();
+			pcrs->Include(pcrsOutputCTE);
+		}
+
+
 	}
 
 	return pcrs;
@@ -727,12 +739,12 @@ CExpressionFactorizer::PexprExtractInferredFiltersFromDisj(
 	// create a similar map for computed columns
 	ColumnToArrayPosMap *pcol2array = GPOS_NEW(mp) ColumnToArrayPosMap(mp);
 
-	CColRefSet *pcrsProducedByChildren = nullptr;
+	CColRefSet *pcrsProducedByChildrenOrCTEConsumers = nullptr;
 	if (COperator::EopLogicalSelect ==
 		pexprLowestLogicalAncestor->Pop()->Eopid())
 	{
-		pcrsProducedByChildren =
-			PcrsColumnsProducedByChildren(mp, pexprLowestLogicalAncestor);
+		pcrsProducedByChildrenOrCTEConsumers =
+			PcrsColumnsProducedByChildrenOrCTEConsumers(mp, pexprLowestLogicalAncestor);
 	}
 
 	for (ULONG ul = 0; ul < arity; ul++)
@@ -745,7 +757,7 @@ CExpressionFactorizer::PexprExtractInferredFiltersFromDisj(
 			for (ULONG ulAnd = 0; ulAnd < ulAndArity; ++ulAnd)
 			{
 				StoreBaseOpToColumnExpr(mp, (*pexprCurrent)[ulAnd], psrc2array,
-										pcol2array, pcrsProducedByChildren,
+										pcol2array, pcrsProducedByChildrenOrCTEConsumers,
 										fFirst,	 // fAllowNewSources
 										ul);
 			}
@@ -753,7 +765,7 @@ CExpressionFactorizer::PexprExtractInferredFiltersFromDisj(
 		else
 		{
 			StoreBaseOpToColumnExpr(mp, pexprCurrent, psrc2array, pcol2array,
-									pcrsProducedByChildren,
+									pcrsProducedByChildrenOrCTEConsumers,
 									fFirst /*fAllowNewSources*/, ul);
 		}
 
@@ -761,7 +773,7 @@ CExpressionFactorizer::PexprExtractInferredFiltersFromDisj(
 		{
 			psrc2array->Release();
 			pcol2array->Release();
-			CRefCount::SafeRelease(pcrsProducedByChildren);
+			CRefCount::SafeRelease(pcrsProducedByChildrenOrCTEConsumers);
 			pexpr->AddRef();
 			return pexpr;
 		}
@@ -771,7 +783,7 @@ CExpressionFactorizer::PexprExtractInferredFiltersFromDisj(
 		PexprAddInferredFilters(mp, pexpr, psrc2array, pcol2array);
 	psrc2array->Release();
 	pcol2array->Release();
-	CRefCount::SafeRelease(pcrsProducedByChildren);
+	CRefCount::SafeRelease(pcrsProducedByChildrenOrCTEConsumers);
 	CExpression *pexprDeduped =
 		CExpressionUtils::PexprDedupChildren(mp, pexprWithPrefilters);
 	pexprWithPrefilters->Release();

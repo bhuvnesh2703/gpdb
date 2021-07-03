@@ -153,8 +153,8 @@ private:
 
 	//	returns the set of columns produced by the scalar children of the given
 	//	expression
-	static CColRefSet *PcrsColumnsProducedByChildren(CMemoryPool *mp,
-													 CExpression *pexpr);
+	static CColRefSet *PcrsColumnsProducedByChildrenOrCTEConsumers(
+		CMemoryPool *mp, CExpression *pexpr);
 
 	// compute disjunctive pre-filters that can be pushed to the column creators
 	static CExpression *PexprExtractInferredFiltersFromDisj(

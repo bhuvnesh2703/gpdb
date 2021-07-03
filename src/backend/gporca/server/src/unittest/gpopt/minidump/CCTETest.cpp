@@ -58,7 +58,8 @@ const CHAR *rgszCTEFileNames[] = {
 	"../data/dxl/minidump/CTEinlining.mdp",
 	"../data/dxl/minidump/CTE-ValuesScan-ProjList.mdp",
 	"../data/dxl/minidump/CTEWithMergedGroup.mdp",
-	"../data/dxl/minidump/CTEMergeGroupsCircularDeriveStats.mdp"};
+	"../data/dxl/minidump/CTEMergeGroupsCircularDeriveStats.mdp",
+	"../data/dxl/minidump/CTE-DontInferPredicateOnComputedColumns.mdp"};
 
 
 //---------------------------------------------------------------------------

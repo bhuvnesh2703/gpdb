@@ -99,6 +99,11 @@ public:
 		return m_pexprInlined;
 	}
 
+	CColRefSet *PcrsOutput()
+	{
+		return m_pcrsOutput;
+	}
+
 	// operator specific hash function
 	ULONG HashValue() const override;
 
