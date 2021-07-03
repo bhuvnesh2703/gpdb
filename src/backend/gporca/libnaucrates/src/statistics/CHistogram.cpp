@@ -1801,6 +1801,12 @@ CHistogram::MakeUnionHistogramNormalize(CDouble rows,
 	GPOS_ASSERT(nullptr != other_histogram);
 	GPOS_ASSERT(this->IsValid());
 	GPOS_ASSERT(other_histogram->IsValid());
+	if (!other_histogram->IsWellDefined() && !IsWellDefined())
+	{
+		CHistogram *result_histogram =
+			GPOS_NEW(m_mp) CHistogram(m_mp, false /* is_well_defined */);
+		return result_histogram;
+	}
 
 	ULONG idx1 = 0;	 // index on buckets from this histogram
 	ULONG idx2 = 0;	 // index on buckets from other histogram
