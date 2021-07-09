@@ -57,6 +57,10 @@ CDistributionSpecReplicated::FSatisfies(const CDistributionSpec *pdss) const
 			case CDistributionSpec::EdtReplicated:
 				// tainted replicated distribution satisfies a general replicated distribution spec
 				return true;
+			case CDistributionSpec::EdtRandom:
+				// tainted replicated distribution satisfies non duplicate sensitive motion
+				return !CDistributionSpecRandom::PdsConvert(pdss)
+							->IsDuplicateSensitive();
 			case CDistributionSpec::EdtNonSingleton:
 				// a tainted replicated distribution satisfies the non-singleton
 				// distribution, only if allowed by non-singleton distribution object
